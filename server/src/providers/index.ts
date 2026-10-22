@@ -48,7 +48,12 @@ export function createProviders(config: AppConfig, store?: KeyValueStore, fetchI
       : new SoundCloudProvider({ clientId, clientSecret, store }, fetchImpl);
   return new ProviderRegistry([
     new VkProvider(
-      { apiVersion: config.vk.apiVersion, userAgent: config.vk.userAgent, fallbackToken: config.vk.accessToken },
+      {
+        apiVersion: config.vk.apiVersion,
+        userAgent: config.vk.userAgent,
+        fallbackToken: config.vk.accessToken,
+        relayStreams: config.vk.relayStreams,
+      },
       fetchImpl,
     ),
     soundcloud,

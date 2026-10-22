@@ -260,6 +260,11 @@ describe('VK', () => {
     assert.equal(source?.kind, 'hls');
   });
 
+  it('relays audio through the server unless the phone plays it itself', () => {
+    assert.equal(new VkProvider(options).proxyStreams, true);
+    assert.equal(new VkProvider({ ...options, relayStreams: false }).proxyStreams, false);
+  });
+
   it('explains tokens without audio access', async () => {
     const { impl } = fakeFetch([
       ['users.get', { response: [{ id: 1, first_name: 'Иван', last_name: 'Петров' }] }],

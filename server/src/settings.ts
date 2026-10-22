@@ -2,7 +2,7 @@ import type { AppConfig } from './config.js';
 import type { KeyValueStore } from './db/index.js';
 import type { GeniusService } from './genius/service.js';
 import type { FetchLike } from './lib/http.js';
-import { createProviders, type MusicProvider, type ProviderRegistry } from './providers/index.js';
+import { createProviders, type ProviderRegistry } from './providers/index.js';
 import { SOUNDCLOUD_APP_TOKEN_KEY } from './providers/soundcloud.js';
 
 /**
@@ -44,8 +44,6 @@ interface Services {
   providers: ProviderRegistry;
   genius: GeniusService;
   fetchImpl: FetchLike;
-  /** Which of the created providers to use; the standalone app leaves out the ones that need a server. */
-  pick?: (providers: MusicProvider[]) => MusicProvider[];
 }
 
 export class ServiceSettings {
@@ -115,8 +113,8 @@ export class ServiceSettings {
     if (this.value('SOUNDCLOUD_CLIENT_ID') !== soundcloudBefore) this.store.set(SOUNDCLOUD_APP_TOKEN_KEY, '');
     this.applyTo(this.config);
     if (this.services) {
-      const { providers, genius, fetchImpl, pick = (list) => list } = this.services;
-      providers.replace(pick(createProviders(this.config, this.store, fetchImpl).list()));
+      const { providers, genius, fetchImpl } = this.services;
+      providers.replace(createProviders(this.config, this.store, fetchImpl).list());
       genius.setToken(this.config.genius.accessToken);
     }
   }

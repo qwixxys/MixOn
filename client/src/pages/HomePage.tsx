@@ -100,8 +100,8 @@ function Stream() {
         {!feed.loading && !feed.error && !feed.items.length && (
           <Empty icon={<Icon name="hub" size={32} />} title="Лента пока пуста">
             <p>
-              Подпишитесь на любимых артистов в разделе <Link to="/sync">«Сервисы»</Link> — их новые треки из SoundCloud,{' '}
-              {STANDALONE ? '' : 'ВК Музыки, '}Deezer и других сервисов будут появляться здесь.
+              Подпишитесь на любимых артистов в разделе <Link to="/sync">«Сервисы»</Link> — их новые треки из SoundCloud, ВК Музыки,
+              Deezer и других сервисов будут появляться здесь.
               {!STANDALONE && (
                 <>
                   {' '}

@@ -18,6 +18,13 @@ const UNAVAILABLE_MARKER = 'audio_api_unavailable';
 
 const AUTH_ERRORS = new Set([5]);
 
+/**
+ * VK answers audio methods only to its official apps, so requests introduce themselves as Kate Mobile. The Android
+ * app fetches VK audio with the same string (VK_USER_AGENT in mobile/android/…/VkAudioRelay.java).
+ */
+export const VK_USER_AGENT =
+  'KateMobileAndroid/56 lite-460 (Android 4.4.2; SDK 19; x86; unknown Android SDK built for x86; en)';
+
 const GENRES: Record<number, string> = {
   1: 'Rock',
   2: 'Pop',
@@ -76,6 +83,11 @@ export interface VkOptions {
   userAgent: string;
   /** Server-wide token used when the caller has none. */
   fallbackToken?: string | null;
+  /**
+   * Relay the audio through this server (the default). The standalone Android app turns it off: there the phone
+   * both asks VK for the link and plays it, and fetches VK audio itself with the right User-Agent.
+   */
+  relayStreams?: boolean;
 }
 
 function describeError(code: number, msg: string): string {
@@ -112,8 +124,6 @@ export class VkProvider implements MusicProvider {
   readonly connectMode = 'token' as const;
   readonly libraryLabel = 'мои аудиозаписи';
   readonly fullTracks = true;
-  // VK links are bound to the client that requested them, so the server relays the audio.
-  readonly proxyStreams = true;
 
   // VK allows ~3 requests per second per token.
   private limiter = new RateLimiter(350);
@@ -122,6 +132,11 @@ export class VkProvider implements MusicProvider {
     private options: VkOptions,
     private fetchImpl: FetchLike = fetch,
   ) {}
+
+  // VK links are bound to the client that requested them, so the server relays the audio.
+  get proxyStreams() {
+    return this.options.relayStreams ?? true;
+  }
 
   get streamHeaders() {
     return { 'user-agent': this.options.userAgent };

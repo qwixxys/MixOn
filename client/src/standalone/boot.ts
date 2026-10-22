@@ -11,7 +11,8 @@ import { GeniusClient } from '../../../server/src/genius/client';
 import { GeniusService } from '../../../server/src/genius/service';
 import { LrclibClient } from '../../../server/src/lyrics/lrclib';
 import { LyricsService } from '../../../server/src/lyrics/service';
-import { createProviders, ProviderRegistry, type MusicProvider } from '../../../server/src/providers/index';
+import { createProviders } from '../../../server/src/providers/index';
+import { VK_USER_AGENT } from '../../../server/src/providers/vk';
 import { ServiceSettings } from '../../../server/src/settings';
 import { SyncService } from '../../../server/src/sync/syncService';
 import { version } from '../../package.json';
@@ -41,15 +42,13 @@ function standaloneConfig(): AppConfig {
     publicUrl: null,
     itunes: { country: 'US' },
     jamendo: { clientId: null },
-    vk: { accessToken: null, apiVersion: '5.131', userAgent: '' },
+    // The phone asks VK for audio links and plays them itself, so nothing needs relaying (see VkAudioRelay.java).
+    vk: { accessToken: null, apiVersion: '5.131', userAgent: VK_USER_AGENT, relayStreams: false },
     soundcloud: { clientId: null, clientSecret: null, publicClient: false },
     genius: { accessToken: null },
     lrclib: { baseUrl: 'https://lrclib.net', userAgent: `soundFy v${version} (https://github.com/qwixxys/soundFy)` },
   };
 }
-
-/** VK needs a server to relay its audio, so the standalone app leaves it out. */
-const withoutServerOnly = (list: MusicProvider[]) => list.filter((p) => p.id !== 'vk');
 
 function randomPassword() {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
@@ -129,11 +128,11 @@ export async function boot(): Promise<void> {
   const store = dbStore(db);
   // Keys entered in the app (Синхронизация → Ключи сервисов) are kept in the database like on a server.
   const settings = new ServiceSettings(store, config, {});
-  const providers = new ProviderRegistry(withoutServerOnly(createProviders(config, store, fetchImpl).list()));
+  const providers = createProviders(config, store, fetchImpl);
   const sync = new SyncService(db, providers);
   const genius = new GeniusService(db, new GeniusClient(config.genius.accessToken, fetchImpl));
   const lyrics = new LyricsService(db, new LrclibClient(config.lrclib.baseUrl, config.lrclib.userAgent, fetchImpl));
-  settings.bind({ providers, genius, fetchImpl, pick: withoutServerOnly });
+  settings.bind({ providers, genius, fetchImpl });
   const ctx: AppContext = { db, config, providers, sync, genius, lyrics, settings, fetchImpl };
   const app = createApp(ctx) as unknown as App;
 

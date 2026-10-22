@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { dbStore, openDatabase } from '../src/db/index.js';
-import { GeniusClient } from '../src/genius/client.js';
-import { GeniusService } from '../src/genius/service.js';
-import { createProviders, ProviderRegistry, type MusicProvider } from '../src/providers/index.js';
+import { createProviders } from '../src/providers/index.js';
 import { ServiceSettings } from '../src/settings.js';
 import { createTestApp, fakeFetch, register, sineWav, testConfig } from './helpers.js';
 
@@ -111,18 +109,5 @@ describe('ServiceSettings', () => {
     assert.equal(restarted.soundcloud.clientId, 'new-id');
     assert.equal(restarted.soundcloud.clientSecret, 'new-secret');
     assert.equal(restarted.genius.accessToken, null);
-  });
-
-  it('keeps out the providers the app left out when keys change', () => {
-    const db = openDatabase(':memory:');
-    const store = dbStore(db);
-    const config = testConfig();
-    const settings = new ServiceSettings(store, config, {});
-    const pick = (list: MusicProvider[]) => list.filter((p) => p.id !== 'vk');
-    const providers = new ProviderRegistry(pick(createProviders(config, store).list()));
-    settings.bind({ providers, genius: new GeniusService(db, new GeniusClient(null)), fetchImpl: fetch, pick });
-    settings.save({ JAMENDO_CLIENT_ID: 'jam123' });
-    assert.equal(providers.get('jamendo').isConfigured(), true);
-    assert.equal(providers.find('vk'), undefined);
   });
 });

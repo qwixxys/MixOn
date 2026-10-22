@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import { api } from '../api/client';
 import type { Artist, SyncSummary } from '../api/types';
 import { plural, timeAgo } from '../lib/format';
-import { STANDALONE } from '../lib/standalone';
 import { useFetch } from '../lib/useFetch';
 import { toast } from '../store/toasts';
 import { Avatar } from './Cover';
@@ -74,8 +73,8 @@ export function SyncWidget({ onSynced }: { onSynced?: () => void }) {
       ) : (
         <>
           <p className="muted small">
-            Подпишитесь на артистов в SoundCloud, {STANDALONE ? '' : 'ВК Музыке, '}Deezer, Apple Music или Jamendo — их новые треки будут
-            появляться в вашей ленте.
+            Подпишитесь на артистов в SoundCloud, ВК Музыке, Deezer, Apple Music или Jamendo — их новые треки будут появляться в вашей
+            ленте.
           </p>
           <Link to="/sync" className="btn btn-filled btn-block">
             Подключить сервисы

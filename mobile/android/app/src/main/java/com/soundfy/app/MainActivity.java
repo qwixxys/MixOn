@@ -114,6 +114,16 @@ public class MainActivity extends BridgeActivity {
             return true;
         }
 
+        /** VK audio is loaded by the app itself (see VkAudioRelay); everything else as Capacitor does. */
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            if (VkAudioRelay.handles(request.getUrl())) {
+                WebResourceResponse response = VkAudioRelay.fetch(request);
+                if (response != null) return response;
+            }
+            return super.shouldInterceptRequest(view, request);
+        }
+
         /** When the server's page cannot be shown, go back to the connect page instead of a dead end. */
         @Override
         public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {

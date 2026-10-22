@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { VK_USER_AGENT } from './providers/vk.js';
 
 // server/src/config.ts and server/dist/config.js are both two levels below the repo root.
 export const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -30,7 +31,8 @@ export interface AppConfig {
   publicUrl: string | null;
   itunes: { country: string };
   jamendo: { clientId: string | null };
-  vk: { accessToken: string | null; apiVersion: string; userAgent: string };
+  /** `relayStreams` passes VK audio through this server (see VkOptions). */
+  vk: { accessToken: string | null; apiVersion: string; userAgent: string; relayStreams: boolean };
   /** `publicClient` allows the unofficial keyless mode when no official keys are set. */
   soundcloud: { clientId: string | null; clientSecret: string | null; publicClient: boolean };
   genius: { accessToken: string | null };
@@ -74,9 +76,8 @@ export function loadConfig(): AppConfig {
     vk: {
       accessToken: process.env.VK_ACCESS_TOKEN || null,
       apiVersion: process.env.VK_API_VERSION || '5.131',
-      userAgent:
-        process.env.VK_USER_AGENT ||
-        'KateMobileAndroid/56 lite-460 (Android 4.4.2; SDK 19; x86; unknown Android SDK built for x86; en)',
+      userAgent: process.env.VK_USER_AGENT || VK_USER_AGENT,
+      relayStreams: true,
     },
     soundcloud: {
       clientId: process.env.SOUNDCLOUD_CLIENT_ID || null,
@@ -86,7 +87,7 @@ export function loadConfig(): AppConfig {
     genius: { accessToken: process.env.GENIUS_ACCESS_TOKEN || null },
     lrclib: {
       baseUrl: lrclibUrl(process.env.LRCLIB_URL),
-      userAgent: 'soundFy v0.3.0 (https://github.com/qwixxys/soundFy)',
+      userAgent: 'soundFy v0.3.1 (https://github.com/qwixxys/soundFy)',
     },
   };
 }

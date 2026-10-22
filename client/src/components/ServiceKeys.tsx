@@ -193,7 +193,7 @@ export function ServiceKeys({ onSaved }: { onSaved(): void }) {
       {STANDALONE ? (
         <p className="muted">
           Эти сервисы работают только с вашими ключами API. Ключи хранятся на телефоне и сразу включают сервис. Deezer, Apple
-          Music, LRCLIB и импорт по ссылке работают без ключей.
+          Music, LRCLIB и импорт по ссылке работают без ключей, а ВКонтакте подключается своим токеном в карточке выше.
         </p>
       ) : (
         <p className="muted">
