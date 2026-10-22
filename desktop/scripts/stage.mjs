@@ -1,6 +1,7 @@
-// Assembles build/app: the built server and client, the Electron entry point and the server's runtime dependencies.
-// Run `npm run build` in the repository root first.
-import { execSync } from 'node:child_process';
+// Assembles build/app: the built server and client, the Electron entry point and the server's runtime dependencies,
+// copied from the repository's node_modules so the app ships exactly the versions the lockfile pins and the tests ran
+// against. Run `npm ci && npm run build` in the repository root first.
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,12 +29,37 @@ fs.cpSync(path.join(desktop, 'src'), out, { recursive: true });
 fs.cpSync(path.join(desktop, 'resources', 'icon.png'), path.join(out, 'icon.png'));
 fs.writeFileSync(path.join(out, 'server', 'package.json'), JSON.stringify({ type: 'module' }, null, 2));
 
-// The server's dependencies, pinned to the versions the repository was built and tested with.
 const rootPkg = readJson(path.join(root, 'package.json'));
 const serverPkg = readJson(path.join(root, 'server', 'package.json'));
 const dependencies = {};
 for (const name of Object.keys(serverPkg.dependencies)) {
   dependencies[name] = readJson(path.join(root, 'node_modules', name, 'package.json')).version;
+}
+
+// Every package the server needs at run time, as npm installed it from the lockfile.
+const ls = spawnSync('npm', ['ls', '--omit=dev', '--all', '--parseable', '--workspace', 'server'], {
+  cwd: root,
+  encoding: 'utf8',
+  shell: process.platform === 'win32',
+});
+const rootModules = path.join(root, 'node_modules');
+const packages = ls.stdout
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter((line) => line.startsWith(rootModules + path.sep))
+  .map((line) => path.relative(rootModules, line))
+  // Nested node_modules folders come along with their parent package.
+  .filter((rel) => !rel.includes(`${path.sep}node_modules${path.sep}`))
+  // The server workspace itself is linked into node_modules; its code is already in server/dist.
+  .filter((rel) => !rel.startsWith(`@soundfy${path.sep}`));
+for (const name of Object.keys(dependencies)) {
+  if (!packages.includes(path.normalize(name))) {
+    console.error(`npm ls не нашёл зависимость ${name}: выполните "npm ci" в корне репозитория.\n${ls.stderr}`);
+    process.exit(1);
+  }
+}
+for (const rel of packages) {
+  fs.cpSync(path.join(rootModules, rel), path.join(out, 'node_modules', rel), { recursive: true, dereference: true });
 }
 fs.writeFileSync(
   path.join(out, 'package.json'),
@@ -57,5 +83,4 @@ fs.writeFileSync(
   ),
 );
 
-execSync('npm install --omit=dev --no-audit --no-fund --no-package-lock', { cwd: out, stdio: 'inherit' });
-console.log(`Готово: ${path.relative(root, out)}`);
+console.log(`Готово: ${path.relative(root, out)} (${packages.length} пакетов)`);

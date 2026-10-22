@@ -1,17 +1,20 @@
 // soundFy desktop: runs the soundFy server inside Electron and shows its web interface in a window.
 // Data (database, uploads, keys) lives in the user's profile, e.g. %APPDATA%\soundFy on Windows.
-import { app, BrowserWindow, clipboard, dialog, Menu, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, Menu, nativeTheme, session, shell } from 'electron';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseEnv } from 'node:util';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 /** A fixed port keeps the address the phone app remembers, and logins, the same between launches. */
 const DEFAULT_PORT = 4777;
-/** Login pages that must open inside the window so the service can redirect back to soundFy. */
+/** Service login pages: they open in a separate login window that can follow the service's own sign-in steps. */
 const OAUTH_HOSTS = new Set(['secure.soundcloud.com', 'soundcloud.com', 'api.soundcloud.com']);
+/** What the soundFy interface itself may use; everything else (camera, microphone, location, clipboard…) is denied. */
+const ALLOWED_PERMISSIONS = new Set(['fullscreen', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']);
 const REPO_URL = 'https://github.com/qwixxys/soundFy';
 
 const userData = app.getPath('userData');
@@ -54,14 +57,60 @@ function lanAddresses() {
 
 const isWebUrl = (url) => /^https?:\/\//i.test(url);
 
+/**
+ * The server reads its settings from the environment once, while starting. They are put there only for that moment,
+ * so the keys from soundfy.env neither leak into programs the app opens (browser, editor) nor survive a relaunch.
+ */
 async function startServer() {
-  // Keys for Genius, SoundCloud and the rest, in the same format as the server's .env.
-  if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
   const host = settings.lanAccess ? '0.0.0.0' : '127.0.0.1';
   const port = (await portIsFree(DEFAULT_PORT, host)) ? DEFAULT_PORT : 0;
-  Object.assign(process.env, { DATA_DIR: dataDir, HOST: host, PORT: String(port), NODE_ENV: 'production' });
-  const { startServer: start } = await import(pathToFileURL(path.join(here, 'server', 'dist', 'start.js')).href);
-  return start();
+  // Keys for Genius, SoundCloud and the rest, in the same format as the server's .env.
+  const keys = fs.existsSync(envFile) ? parseEnv(fs.readFileSync(envFile, 'utf8')) : {};
+  const original = { ...process.env };
+  Object.assign(process.env, keys, { DATA_DIR: dataDir, HOST: host, PORT: String(port), NODE_ENV: 'production' });
+  try {
+    const { startServer: start } = await import(pathToFileURL(path.join(here, 'server', 'dist', 'start.js')).href);
+    return await start();
+  } finally {
+    for (const key of Object.keys(process.env)) if (!(key in original)) delete process.env[key];
+    Object.assign(process.env, original);
+  }
+}
+
+const sameOrigin = (url, origin) => {
+  try {
+    return new URL(url).origin === origin;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Service sign-in in its own window: it may go through other sites (Google, Apple…) and finishes when the service
+ * sends the browser back to soundFy, whose page then opens in the main window.
+ */
+function openLoginWindow(url, origin) {
+  const login = new BrowserWindow({
+    parent: window,
+    width: 520,
+    height: 760,
+    title: 'Вход',
+    autoHideMenuBar: true,
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, partition: 'login' },
+  });
+  const finish = (event, target) => {
+    if (!sameOrigin(target, origin)) return;
+    event.preventDefault();
+    login.destroy();
+    window?.loadURL(target);
+  };
+  login.webContents.on('will-navigate', (event, target) => {
+    if (!/^https:\/\//i.test(target)) finish(event, target);
+  });
+  login.webContents.on('will-redirect', finish);
+  // Sign-in popups (for example "Continue with Google") stay inside the app.
+  login.webContents.setWindowOpenHandler(({ url: target }) => (/^https:\/\//i.test(target) ? { action: 'allow' } : { action: 'deny' }));
+  login.loadURL(url);
 }
 
 function createWindow(url) {
@@ -85,20 +134,34 @@ function createWindow(url) {
     if (isWebUrl(target)) shell.openExternal(target);
     return { action: 'deny' };
   });
-  window.webContents.on('will-navigate', (event, target) => {
-    const next = new URL(target);
-    if (next.origin === origin || OAUTH_HOSTS.has(next.hostname)) return;
+  const leave = (event, target) => {
+    if (sameOrigin(target, origin)) return;
     event.preventDefault();
-    if (isWebUrl(target)) shell.openExternal(target);
-  });
+    if (OAUTH_HOSTS.has(new URL(target).hostname)) openLoginWindow(target, origin);
+    else if (isWebUrl(target)) shell.openExternal(target);
+  };
+  window.webContents.on('will-navigate', leave);
+  window.webContents.on('will-redirect', leave);
   window.loadURL(url);
 }
 
 async function restart() {
   await running?.close();
   running = null;
-  app.relaunch();
+  // Inside an AppImage the running binary disappears when the app exits, so start the AppImage file again instead.
+  if (process.env.APPIMAGE) app.relaunch({ execPath: process.env.APPIMAGE, args: process.argv.slice(1) });
+  else app.relaunch();
   app.exit(0);
+}
+
+function restrictPermissions(origin) {
+  const allowed = (requestingUrl, permission) => sameOrigin(requestingUrl, origin) && ALLOWED_PERMISSIONS.has(permission);
+  for (const ses of [session.defaultSession, session.fromPartition('login')]) {
+    ses.setPermissionRequestHandler((contents, permission, callback, details) =>
+      callback(allowed(details.requestingUrl ?? contents.getURL(), permission)),
+    );
+    ses.setPermissionCheckHandler((_contents, permission, requestingOrigin) => allowed(requestingOrigin, permission));
+  }
 }
 
 async function setLanAccess(enabled) {
@@ -242,7 +305,9 @@ async function main() {
     app.exit(1);
     return;
   }
-  createWindow(`http://127.0.0.1:${running.port}`);
+  const url = `http://127.0.0.1:${running.port}`;
+  restrictPermissions(new URL(url).origin);
+  createWindow(url);
 }
 
 if (!app.requestSingleInstanceLock()) {

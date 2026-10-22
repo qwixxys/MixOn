@@ -28,6 +28,10 @@ jobs:
   desktop:
     name: Desktop (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # Bash on Windows too, so a failing command stops the step (PowerShell would carry on).
+        shell: bash
     strategy:
       fail-fast: false
       matrix:

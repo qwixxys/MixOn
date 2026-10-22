@@ -1,7 +1,7 @@
 # ---- build: install everything, compile server and client ----
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY server/package.json server/
 COPY client/package.json client/
 RUN npm ci
@@ -11,7 +11,7 @@ RUN npm run build
 # ---- runtime deps: only what the server needs ----
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY server/package.json server/
 COPY client/package.json client/
 RUN npm ci --omit=dev --workspace server --include-workspace-root=false

@@ -150,7 +150,7 @@
       <form id="form">
         <label>
           Адрес сервера
-          <input id="address" type="url" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="http://192.168.1.10:4777" required />
+          <input id="address" type="text" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="192.168.1.10:4777" />
         </label>
       </form>
       <button id="connect" class="primary" type="submit" form="form">Подключиться</button>
@@ -189,13 +189,35 @@
         }
       };
 
-      /** "192.168.1.10:4777" → "http://192.168.1.10:4777"; paths are kept for servers behind a proxy. */
-      function normalize(text) {
-        let value = text.trim();
-        if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) value = `http://${value}`;
-        const url = new URL(value);
-        if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('Нужен адрес http:// или https://');
-        return url.origin + url.pathname.replace(/\/+$/, '');
+      /** A computer on the local network: an IP address, localhost, *.local or anything with a port. */
+      function isLocal(value) {
+        const authority = value.split('/')[0];
+        const host = authority.replace(/:\d+$/, '');
+        return /:\d+$/.test(authority) || /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host === 'localhost' || /\.local$/i.test(host);
+      }
+
+      /**
+       * Addresses to try for what was typed. "192.168.1.10:4777" → http://192.168.1.10:4777; "music.example.com" →
+       * https:// first, then http://. Paths are kept for servers behind a proxy.
+       */
+      function candidates(text) {
+        const value = text.trim();
+        if (!value) throw new Error('Введите адрес сервера');
+        const typed = /^[a-z][a-z0-9+.-]*:\/\//i.test(value)
+          ? [value]
+          : isLocal(value)
+            ? [`http://${value}`]
+            : [`https://${value}`, `http://${value}`];
+        return typed.map((candidate) => {
+          let url;
+          try {
+            url = new URL(candidate);
+          } catch {
+            throw new Error('Это не похоже на адрес');
+          }
+          if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('Нужен адрес http:// или https://');
+          return url.origin + url.pathname.replace(/\/+$/, '');
+        });
       }
 
       function setStatus(text, error = false) {
@@ -203,14 +225,27 @@
         status.className = error ? 'status error' : 'status';
       }
 
-      /** Checks that a soundFy server answers at the address. */
+      /**
+       * Asks the address whether it is a soundFy server. Returns the address it really answers at (after redirects) and
+       * one of "soundfy", "other" (something else answered) or "unverified" (an older soundFy, or anything that does not
+       * allow the check, answered); throws when nothing answers.
+       */
       async function probe(base) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 8000);
+        const url = `${base}/api/health`;
         try {
-          const res = await fetch(`${base}/api/health`, { signal: controller.signal, cache: 'no-store' });
-          const body = await res.json().catch(() => null);
-          return Boolean(res.ok && body && (body.app === 'soundfy' || body.ok === true));
+          try {
+            const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+            const body = await res.json().catch(() => null);
+            const soundfy = res.ok && body && (body.app === 'soundfy' || body.ok === true);
+            return { kind: soundfy ? 'soundfy' : 'other', base: res.url ? res.url.replace(/\/api\/health(\?.*)?$/, '') : base };
+          } catch (err) {
+            if (controller.signal.aborted) throw err;
+            // Servers older than this app answer without CORS headers; that they answer at all has to do then.
+            await fetch(url, { mode: 'no-cors', signal: controller.signal, cache: 'no-store' });
+            return { kind: 'unverified', base };
+          }
         } finally {
           clearTimeout(timer);
         }
@@ -234,29 +269,45 @@
       }
 
       async function connect(text) {
-        let base;
+        let list;
         try {
-          base = normalize(text);
+          list = candidates(text);
         } catch (err) {
-          setStatus(err.message || 'Это не похоже на адрес', true);
+          setStatus(err.message, true);
           return;
         }
         button.disabled = true;
-        setStatus(`Подключаемся к ${base}…`);
+        let answered = false;
         try {
-          if (!(await probe(base))) {
-            setStatus('По этому адресу отвечает не soundFy', true);
-            return;
+          for (const candidate of list) {
+            setStatus(`Подключаемся к ${candidate}…`);
+            try {
+              const result = await probe(candidate);
+              if (result.kind === 'other') {
+                answered = true;
+                continue;
+              }
+              open(result.base);
+              return;
+            } catch {
+              // try the next address
+            }
           }
-        } catch {
-          setStatus(`Не удалось подключиться к ${base}. Проверьте, что soundFy запущен, доступ из сети включён и телефон в той же сети.`, true);
-          return;
         } finally {
           button.disabled = false;
         }
+        setStatus(
+          answered
+            ? 'По этому адресу отвечает не soundFy'
+            : `Не удалось подключиться к ${list[0]}. Проверьте, что soundFy запущен, доступ из сети включён и телефон в той же сети.`,
+          true,
+        );
+      }
+
+      function open(base) {
         store(SERVER_KEY, base);
         store(RECENT_KEY, [base, ...read(RECENT_KEY, []).filter((b) => b !== base)].slice(0, 5));
-        // Replace this page in history so "back" on the server's start page leaves the app instead of coming here.
+        // Replace this page in history so Back on the server's first page leaves the app instead of coming here.
         location.replace(`${base}/`);
       }
 
@@ -266,10 +317,12 @@
       });
 
       const saved = read(SERVER_KEY, null);
-      const changing = new URLSearchParams(location.search).has('change');
+      const params = new URLSearchParams(location.search);
       showRecent();
       if (saved) input.value = saved;
-      if (saved && !changing) connect(saved);
+      // The app comes back here when the server's page failed to load; don't loop into it again.
+      if (params.has('failed') && saved) setStatus(`Не удалось открыть ${saved}. Проверьте, что сервер работает, и подключитесь снова.`, true);
+      else if (saved && !params.has('change')) connect(saved);
     </script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-import type { Server } from 'node:http';
+import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { createApp } from './app.js';
@@ -32,11 +32,15 @@ export async function startServer(): Promise<RunningServer> {
   const lyrics = new LyricsService(db, new LrclibClient(config.lrclib.baseUrl, config.lrclib.userAgent));
   const app = createApp({ db, config, providers, sync, genius, lyrics, fetchImpl: fetch });
 
-  let server: Server;
+  // A plain http.Server, because Express 5's app.listen hands listen errors (a busy port) to the success callback.
+  const server = createServer(app);
   try {
-    server = await new Promise<Server>((resolve, reject) => {
-      const s = config.host ? app.listen(config.port, config.host, () => resolve(s)) : app.listen(config.port, () => resolve(s));
-      s.once('error', reject);
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(config.port, config.host, () => {
+        server.off('error', reject);
+        resolve();
+      });
     });
   } catch (err) {
     db.close();
