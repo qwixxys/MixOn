@@ -1,5 +1,6 @@
 import type { DB } from '../db/index.js';
 import { badRequest, notFound } from '../lib/errors.js';
+import { normalizeGenre } from '../lib/genres.js';
 import type { ExternalTrack, OAuthTokens, ProviderRegistry } from '../providers/index.js';
 
 /** Tracks older than this are imported silently instead of producing a "new release" notification. */
@@ -154,7 +155,7 @@ export class SyncService {
           title: t.title,
           artist: t.artist,
           album: t.album,
-          genre: t.genre,
+          genre: normalizeGenre(t.genre),
           duration: t.duration,
           streamUrl: t.streamUrl,
           coverUrl: t.coverUrl,

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { AppContext } from '../context.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { ProviderError } from '../lib/http.js';
-import { queryTracks } from '../lib/tracks.js';
+import { listOptions, listTracks, resolveScope } from '../lib/trackLists.js';
 import { idParam, parse } from '../lib/validate.js';
 import { requireUser } from '../middleware/auth.js';
 import type { MusicProvider } from '../providers/index.js';
@@ -268,14 +268,12 @@ export function serviceRoutes(ctx: AppContext) {
   };
 
   r.get('/artists/:id', (req, res) => {
+    res.json(loadArtist(idParam(req.params.id), req.userId));
+  });
+
+  r.get('/artists/:id/tracks', (req, res) => {
     const artist = loadArtist(idParam(req.params.id), req.userId);
-    const tracks = queryTracks(
-      db,
-      'WHERE t.external_artist_id = @id ORDER BY t.released_at DESC, t.id DESC LIMIT 200',
-      { id: artist.id },
-      req.userId,
-    );
-    res.json({ ...artist, tracks });
+    res.json(listTracks(db, resolveScope(db, `artist:${artist.id}`), listOptions(req.query), req.query, req.userId, 50));
   });
 
   r.post('/artists/:id/sync', async (req, res) => {

@@ -5,6 +5,36 @@ const API = 'https://api.deezer.com';
 /** How many of the newest releases (albums/EPs/singles) to scan per sync. */
 const RELEASES_PER_SYNC = 6;
 
+/** Deezer genre ids of albums (GET /genre); names are normalised later. */
+export const DEEZER_GENRES: Record<number, string> = {
+  132: 'Pop',
+  116: 'Rap/Hip Hop',
+  122: 'Reggaeton',
+  152: 'Rock',
+  113: 'Dance',
+  165: 'R&B',
+  85: 'Alternative',
+  186: 'Christian',
+  106: 'Electro',
+  466: 'Folk',
+  144: 'Reggae',
+  129: 'Jazz',
+  84: 'Country',
+  98: 'Classical',
+  173: 'Films/Games',
+  464: 'Metal',
+  169: 'Soul & Funk',
+  2: 'African Music',
+  12: 'Arabic Music',
+  16: 'Asian Music',
+  153: 'Blues',
+  75: 'Brazilian Music',
+  71: 'Cumbia',
+  81: 'Indian Music',
+  95: 'Kids',
+  197: 'Latin Music',
+};
+
 interface DeezerError {
   error?: { type: string; message: string; code: number };
 }
@@ -99,7 +129,7 @@ export class DeezerProvider implements MusicProvider {
           coverUrl: album.cover_big ?? album.cover_medium ?? null,
           externalUrl: t.link,
           releasedAt: album.release_date ? new Date(`${album.release_date}T00:00:00Z`).toISOString() : null,
-          genre: null,
+          genre: album.genre_id ? (DEEZER_GENRES[album.genre_id] ?? null) : null,
           isPreview: true,
         });
       }

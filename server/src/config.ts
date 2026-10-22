@@ -30,6 +30,7 @@ export interface AppConfig {
   jamendo: { clientId: string | null };
   vk: { accessToken: string | null; apiVersion: string; userAgent: string };
   soundcloud: { clientId: string | null; clientSecret: string | null };
+  genius: { accessToken: string | null };
 }
 
 function resolveJwtSecret(dataDir: string): string {
@@ -68,5 +69,6 @@ export function loadConfig(): AppConfig {
       clientId: process.env.SOUNDCLOUD_CLIENT_ID || null,
       clientSecret: process.env.SOUNDCLOUD_CLIENT_SECRET || null,
     },
+    genius: { accessToken: process.env.GENIUS_ACCESS_TOKEN || null },
   };
 }

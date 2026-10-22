@@ -1,11 +1,13 @@
 import Database from 'better-sqlite3';
+import { normalizeGenre } from '../lib/genres.js';
 
 export type DB = Database.Database;
 
 const NOW = `(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`;
 
-// Each entry upgrades the schema by one version (tracked in PRAGMA user_version).
-const migrations: string[] = [
+// Each entry upgrades the schema by one version (tracked in PRAGMA user_version):
+// plain SQL, or a function for data migrations that need application code.
+const migrations: (string | ((db: DB) => void))[] = [
   `
   CREATE TABLE users (
     id            INTEGER PRIMARY KEY,
@@ -158,6 +160,28 @@ const migrations: string[] = [
     value TEXT NOT NULL
   );
   `,
+  `
+  -- Genius song a track is linked to (NULL with a check time means "searched, nothing found").
+  ALTER TABLE tracks ADD COLUMN genius_id INTEGER;
+  ALTER TABLE tracks ADD COLUMN genius_checked_at TEXT;
+  ALTER TABLE tracks ADD COLUMN genius_manual INTEGER NOT NULL DEFAULT 0;
+
+  -- Cached song details from the Genius API.
+  CREATE TABLE genius_songs (
+    id         INTEGER PRIMARY KEY,
+    data       TEXT NOT NULL,
+    fetched_at TEXT NOT NULL
+  );
+  CREATE INDEX tracks_genre_idx ON tracks (genre COLLATE NOCASE);
+  `,
+  // Fold genre spellings from different services into one name per genre.
+  (db) => {
+    const update = db.prepare('UPDATE tracks SET genre = ? WHERE id = ?');
+    for (const row of db.prepare('SELECT id, genre FROM tracks WHERE genre IS NOT NULL').all() as { id: number; genre: string }[]) {
+      const genre = normalizeGenre(row.genre);
+      if (genre !== row.genre) update.run(genre, row.id);
+    }
+  },
 ];
 
 export interface KeyValueStore {
@@ -177,8 +201,10 @@ export function dbStore(db: DB): KeyValueStore {
 export function migrate(db: DB): void {
   const current = db.pragma('user_version', { simple: true }) as number;
   for (let version = current; version < migrations.length; version++) {
+    const step = migrations[version];
     db.transaction(() => {
-      db.exec(migrations[version]);
+      if (typeof step === 'string') db.exec(step);
+      else step(db);
       db.pragma(`user_version = ${version + 1}`);
     })();
   }

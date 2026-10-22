@@ -55,6 +55,9 @@ export interface TrackRow {
   play_count: number;
   released_at: string | null;
   created_at: string;
+  genius_id: number | null;
+  genius_checked_at: string | null;
+  genius_manual: number;
 }
 
 interface JoinedTrackRow extends TrackRow {

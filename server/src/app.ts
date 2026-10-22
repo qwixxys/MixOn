@@ -9,6 +9,7 @@ import { ensureUploadDirs, uploadDir } from './lib/uploads.js';
 import { authenticate } from './middleware/auth.js';
 import { authRoutes } from './routes/auth.js';
 import { discoverRoutes } from './routes/discover.js';
+import { geniusRoutes } from './routes/genius.js';
 import { meRoutes } from './routes/me.js';
 import { playlistRoutes } from './routes/playlists.js';
 import { serviceRoutes } from './routes/services.js';
@@ -42,6 +43,7 @@ export function createApp(ctx: AppContext) {
   api.use('/users', userRoutes(ctx));
   api.use('/tracks', trackRoutes(ctx));
   api.use('/playlists', playlistRoutes(ctx));
+  api.use(geniusRoutes(ctx));
   api.use(discoverRoutes(ctx));
   api.use(serviceRoutes(ctx));
   api.use((_req, res) => {

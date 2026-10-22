@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import type { AppContext } from '../context.js';
 import { queryPlaylists } from '../lib/playlists.js';
-import { avatarUrl, parsePaging, queryTracks } from '../lib/tracks.js';
+import { genreFacets, listOptions, listTracks, resolveScope } from '../lib/trackLists.js';
+import { avatarUrl, queryTracks } from '../lib/tracks.js';
 import { requireUser } from '../middleware/auth.js';
 
 export function discoverRoutes(ctx: AppContext) {
@@ -11,19 +12,14 @@ export function discoverRoutes(ctx: AppContext) {
   /** The user's stream: uploads of people they follow and releases of artists they subscribed to. */
   r.get('/feed', (req, res) => {
     const me = requireUser(req);
-    const { limit, offset } = parsePaging(req.query);
-    const type = String(req.query.type ?? 'all');
-    const uploads = 't.user_id IN (SELECT followee_id FROM follows WHERE follower_id = @me)';
-    const releases = 't.external_artist_id IN (SELECT external_artist_id FROM subscriptions WHERE user_id = @me)';
-    const where = type === 'uploads' ? uploads : type === 'releases' ? releases : `(${uploads} OR ${releases})`;
-    res.json(
-      queryTracks(
-        db,
-        `WHERE ${where} ORDER BY COALESCE(t.released_at, t.created_at) DESC, t.id DESC LIMIT @limit OFFSET @offset`,
-        { me, limit, offset },
-        me,
-      ),
-    );
+    const type = ['uploads', 'releases'].includes(String(req.query.type)) ? String(req.query.type) : 'all';
+    res.json(listTracks(db, resolveScope(db, `feed:${type}`, me), listOptions(req.query), req.query, me));
+  });
+
+  /** Genres present in a track list (?scope=all|feed:all|likes:<user>|uploads:<user>|history|artist:<id>|source:<s>). */
+  r.get('/genres', (req, res) => {
+    const scope = typeof req.query.scope === 'string' && req.query.scope ? req.query.scope : 'all';
+    res.json(genreFacets(db, resolveScope(db, scope, req.userId)));
   });
 
   r.get('/discover', (req, res) => {

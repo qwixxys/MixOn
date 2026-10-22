@@ -26,6 +26,7 @@ interface JmTrack {
   shareurl?: string;
   releasedate?: string;
   audiodownload_allowed?: boolean;
+  musicinfo?: { tags?: { genres?: string[] } };
 }
 
 export class JamendoProvider implements MusicProvider {
@@ -74,6 +75,7 @@ export class JamendoProvider implements MusicProvider {
       limit: '50',
       audioformat: 'mp32',
       imagesize: '300',
+      include: 'musicinfo',
     });
     return tracks
       .filter((t) => t.audio)
@@ -87,7 +89,7 @@ export class JamendoProvider implements MusicProvider {
         coverUrl: t.album_image || t.image || null,
         externalUrl: t.shareurl ?? null,
         releasedAt: t.releasedate ? new Date(`${t.releasedate}T00:00:00Z`).toISOString() : null,
-        genre: null,
+        genre: t.musicinfo?.tags?.genres?.[0] ?? null,
         isPreview: false,
       }));
   }

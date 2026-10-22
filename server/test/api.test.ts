@@ -204,8 +204,10 @@ describe('services and subscriptions', () => {
     assert.equal(again.body[0].isSubscribed, true);
 
     const artist = await t.request.get(`/api/artists/${res.body.artist.id}`).set(alice.auth).expect(200);
-    assert.equal(artist.body.tracks.length, 2);
-    assert.equal(artist.body.tracks[0].externalArtist.provider, 'deezer');
+    assert.equal(artist.body.isSubscribed, true);
+    const tracks = await t.request.get(`/api/artists/${res.body.artist.id}/tracks`).set(alice.auth).expect(200);
+    assert.equal(tracks.body.length, 2);
+    assert.equal(tracks.body[0].externalArtist.provider, 'deezer');
 
     const releases = await t.request.get('/api/feed').query({ type: 'releases' }).set(alice.auth).expect(200);
     assert.equal(releases.body.length, 2);

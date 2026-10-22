@@ -2,7 +2,8 @@ import { Router } from 'express';
 import type { AppContext } from '../context.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { queryPlaylists } from '../lib/playlists.js';
-import { avatarUrl, parsePaging, queryTracks } from '../lib/tracks.js';
+import { listOptions, listTracks, resolveScope } from '../lib/trackLists.js';
+import { avatarUrl } from '../lib/tracks.js';
 import { requireUser } from '../middleware/auth.js';
 import type { UserRow } from './auth.js';
 
@@ -77,30 +78,11 @@ export function userRoutes(ctx: AppContext) {
   });
 
   r.get('/:username/tracks', (req, res) => {
-    const user = findUser(req.params.username);
-    const { limit, offset } = parsePaging(req.query);
-    res.json(
-      queryTracks(
-        db,
-        'WHERE t.user_id = @id ORDER BY t.created_at DESC LIMIT @limit OFFSET @offset',
-        { id: user.id, limit, offset },
-        req.userId,
-      ),
-    );
+    res.json(listTracks(db, resolveScope(db, `uploads:${req.params.username}`), listOptions(req.query), req.query, req.userId));
   });
 
   r.get('/:username/likes', (req, res) => {
-    const user = findUser(req.params.username);
-    const { limit, offset } = parsePaging(req.query);
-    res.json(
-      queryTracks(
-        db,
-        `JOIN likes lk ON lk.track_id = t.id AND lk.user_id = @id
-         ORDER BY lk.created_at DESC LIMIT @limit OFFSET @offset`,
-        { id: user.id, limit, offset },
-        req.userId,
-      ),
-    );
+    res.json(listTracks(db, resolveScope(db, `likes:${req.params.username}`), listOptions(req.query), req.query, req.userId));
   });
 
   r.get('/:username/playlists', (req, res) => {

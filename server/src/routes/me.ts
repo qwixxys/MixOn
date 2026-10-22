@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { AppContext } from '../context.js';
 import { queryPlaylists } from '../lib/playlists.js';
+import { listOptions, listTracks, resolveScope } from '../lib/trackLists.js';
 import { parsePaging, queryTracks, type TrackDTO } from '../lib/tracks.js';
 import { createUploader, removeUpload, withUploads } from '../lib/uploads.js';
 import { parse } from '../lib/validate.js';
@@ -54,16 +55,7 @@ export function meRoutes(ctx: AppContext) {
   /** Recently played tracks, most recent play of each track first. */
   r.get('/history', (req, res) => {
     const me = requireUser(req);
-    const { limit, offset } = parsePaging(req.query);
-    res.json(
-      queryTracks(
-        db,
-        `JOIN (SELECT track_id, MAX(id) AS last_play FROM plays WHERE user_id = @me GROUP BY track_id) h ON h.track_id = t.id
-         ORDER BY h.last_play DESC LIMIT @limit OFFSET @offset`,
-        { me, limit, offset },
-        me,
-      ),
-    );
+    res.json(listTracks(db, resolveScope(db, 'history', me), listOptions(req.query), req.query, me));
   });
 
   r.get('/notifications', (req, res) => {

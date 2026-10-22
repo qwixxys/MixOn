@@ -11,7 +11,9 @@ import { parseFile } from 'music-metadata';
 import { z } from 'zod';
 import type { AppContext } from '../context.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
-import { getTrack, getTrackRow, parsePaging, queryTracks, avatarUrl, type TrackRow } from '../lib/tracks.js';
+import { normalizeGenre } from '../lib/genres.js';
+import { listOptions, listTracks, resolveScope } from '../lib/trackLists.js';
+import { getTrack, getTrackRow, queryTracks, avatarUrl, type TrackRow } from '../lib/tracks.js';
 import { AUDIO_TYPES, createUploader, removeUpload, uploadDir, withUploads } from '../lib/uploads.js';
 import { idParam, parse } from '../lib/validate.js';
 import { normalizeWaveform } from '../lib/waveform.js';
@@ -67,42 +69,10 @@ export function trackRoutes(ctx: AppContext) {
 
   // ---------- listing ----------
 
+  /** The whole catalogue, optionally one source: ?source=local|external|<provider>&genre=…&sort=… */
   r.get('/', (req, res) => {
-    const { limit, offset } = parsePaging(req.query);
-    const sort = String(req.query.sort ?? 'new');
-    const where: string[] = [];
-    const params: Record<string, unknown> = { limit, offset };
-    if (req.query.genre) {
-      where.push('t.genre = @genre COLLATE NOCASE');
-      params.genre = String(req.query.genre);
-    }
-    if (req.query.source === 'local') where.push(`t.source = 'local'`);
-    else if (req.query.source === 'external') where.push(`t.source <> 'local'`);
-    else if (req.query.source) {
-      where.push('t.source = @source');
-      params.source = String(req.query.source);
-    }
-
-    let order = 'COALESCE(t.released_at, t.created_at) DESC';
-    if (sort === 'popular') order = 't.play_count DESC, t.id DESC';
-    if (sort === 'trending') {
-      // Plays in the last week, falling back to all-time plays for ties.
-      order = `(SELECT COUNT(*) FROM plays p WHERE p.track_id = t.id AND p.created_at >= @weekAgo) DESC, t.play_count DESC, t.id DESC`;
-      params.weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
-    }
-    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-    res.json(queryTracks(db, `${whereSql} ORDER BY ${order} LIMIT @limit OFFSET @offset`, params, req.userId));
-  });
-
-  r.get('/genres', (_req, res) => {
-    res.json(
-      db
-        .prepare(
-          `SELECT genre AS name, COUNT(*) AS count FROM tracks WHERE genre IS NOT NULL AND genre <> ''
-           GROUP BY genre COLLATE NOCASE ORDER BY count DESC LIMIT 24`,
-        )
-        .all(),
-    );
+    const source = typeof req.query.source === 'string' && req.query.source ? `source:${req.query.source}` : 'all';
+    res.json(listTracks(db, resolveScope(db, source, req.userId), listOptions(req.query), req.query, req.userId));
   });
 
   r.get('/:id', (req, res) => {
@@ -183,7 +153,7 @@ export function trackRoutes(ctx: AppContext) {
             title,
             artist: nonEmpty(input.artist) ?? meta?.common.artist ?? user.display_name,
             description: input.description ?? '',
-            genre: nonEmpty(input.genre) ?? meta?.common.genre?.[0] ?? null,
+            genre: normalizeGenre(nonEmpty(input.genre) ?? meta?.common.genre?.[0]),
             duration: meta?.format.duration ?? input.duration ?? 0,
             audioPath: audio.filename,
             audioMime: audio.mimetype,
@@ -212,7 +182,7 @@ export function trackRoutes(ctx: AppContext) {
       const input = parse(updateSchema, req.body ?? {});
       db.prepare(
         `UPDATE tracks SET title = COALESCE(@title, title), artist = COALESCE(@artist, artist),
-           description = COALESCE(@description, description), genre = COALESCE(@genre, genre),
+           description = COALESCE(@description, description), genre = CASE WHEN @genreSet THEN @genre ELSE genre END,
            cover_path = COALESCE(@cover, cover_path)
          WHERE id = @id`,
       ).run({
@@ -220,7 +190,9 @@ export function trackRoutes(ctx: AppContext) {
         title: input.title ?? null,
         artist: nonEmpty(input.artist) ?? null,
         description: input.description ?? null,
-        genre: input.genre ?? null,
+        // A sent but empty genre clears it; an absent one leaves it unchanged.
+        genreSet: input.genre === undefined ? 0 : 1,
+        genre: normalizeGenre(input.genre),
         cover: req.file?.filename ?? null,
       });
       if (req.file) removeUpload(config, 'covers', row.cover_path);

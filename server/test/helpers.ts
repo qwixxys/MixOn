@@ -6,6 +6,8 @@ import { createApp } from '../src/app.js';
 import type { AppConfig } from '../src/config.js';
 import type { AppContext } from '../src/context.js';
 import { openDatabase } from '../src/db/index.js';
+import { GeniusClient } from '../src/genius/client.js';
+import { GeniusService } from '../src/genius/service.js';
 import type { FetchLike } from '../src/lib/http.js';
 import {
   ProviderRegistry,
@@ -92,15 +94,21 @@ export function testConfig(): AppConfig {
     jamendo: { clientId: null },
     vk: { accessToken: null, apiVersion: '5.131', userAgent: 'test' },
     soundcloud: { clientId: null, clientSecret: null },
+    genius: { accessToken: null },
   };
 }
 
-export function createTestApp(providers: MusicProvider[] = [new FakeProvider()], fetchImpl: FetchLike = fetch) {
+export function createTestApp(
+  providers: MusicProvider[] = [new FakeProvider()],
+  fetchImpl: FetchLike = fetch,
+  geniusToken: string | null = null,
+) {
   const config = testConfig();
   const db = openDatabase(':memory:');
   const registry = new ProviderRegistry(providers);
   const sync = new SyncService(db, registry, { info() {}, warn() {}, error() {} });
-  const ctx: AppContext = { db, config, providers: registry, sync, fetchImpl };
+  const genius = new GeniusService(db, new GeniusClient(geniusToken, fetchImpl));
+  const ctx: AppContext = { db, config, providers: registry, sync, genius, fetchImpl };
   const app = createApp(ctx);
   return { ctx, app, request: supertest(app), cleanup: () => fs.rmSync(config.dataDir, { recursive: true, force: true }) };
 }
