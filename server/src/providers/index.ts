@@ -16,7 +16,12 @@ export class ProviderRegistry {
   private byId = new Map<string, MusicProvider>();
 
   constructor(providers: MusicProvider[]) {
-    for (const p of providers) this.byId.set(p.id, p);
+    this.replace(providers);
+  }
+
+  /** Swaps in providers built with new settings (keys entered in the app); everyone holding the registry sees them. */
+  replace(providers: MusicProvider[]) {
+    this.byId = new Map(providers.map((p) => [p.id, p]));
   }
 
   list(): MusicProvider[] {

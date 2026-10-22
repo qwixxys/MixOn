@@ -6,6 +6,7 @@ import { conflict, unauthorized } from '../lib/errors.js';
 import { avatarUrl } from '../lib/tracks.js';
 import { parse } from '../lib/validate.js';
 import { requireUser, signToken } from '../middleware/auth.js';
+import { isOwner } from './settings.js';
 
 export interface UserRow {
   id: number;
@@ -18,7 +19,8 @@ export interface UserRow {
   created_at: string;
 }
 
-export function toMe(row: UserRow) {
+/** The signed-in user's own profile; `owner` marks the account that may change the server's service keys. */
+export function toMe(row: UserRow, owner = false) {
   return {
     id: row.id,
     username: row.username,
@@ -27,6 +29,7 @@ export function toMe(row: UserRow) {
     bio: row.bio,
     avatarUrl: avatarUrl(row.avatar_path),
     createdAt: row.created_at,
+    owner,
   };
 }
 
@@ -68,7 +71,7 @@ export function authRoutes(ctx: AppContext) {
       .prepare('INSERT INTO users (username, email, password_hash, display_name) VALUES (?, ?, ?, ?)')
       .run(input.username, input.email, hash, input.displayName || input.username);
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(lastInsertRowid) as UserRow;
-    res.status(201).json({ token: signToken(user.id, config.jwtSecret), user: toMe(user) });
+    res.status(201).json({ token: signToken(user.id, config.jwtSecret), user: toMe(user, isOwner(db, user.id)) });
   });
 
   r.post('/login', async (req, res) => {
@@ -79,13 +82,13 @@ export function authRoutes(ctx: AppContext) {
     if (!user || !(await bcrypt.compare(input.password, user.password_hash))) {
       throw unauthorized('Неверный логин или пароль');
     }
-    res.json({ token: signToken(user.id, config.jwtSecret), user: toMe(user) });
+    res.json({ token: signToken(user.id, config.jwtSecret), user: toMe(user, isOwner(db, user.id)) });
   });
 
   r.get('/me', (req, res) => {
     const id = requireUser(req);
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow;
-    res.json({ user: toMe(user) });
+    res.json({ user: toMe(user, isOwner(db, user.id)) });
   });
 
   return r;

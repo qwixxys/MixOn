@@ -86,7 +86,7 @@ export function loadConfig(): AppConfig {
     genius: { accessToken: process.env.GENIUS_ACCESS_TOKEN || null },
     lrclib: {
       baseUrl: lrclibUrl(process.env.LRCLIB_URL),
-      userAgent: 'soundFy v0.1.0 (https://github.com/qwixxys/soundFy)',
+      userAgent: 'soundFy v0.2.0 (https://github.com/qwixxys/soundFy)',
     },
   };
 }

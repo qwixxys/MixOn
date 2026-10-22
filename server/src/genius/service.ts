@@ -135,6 +135,11 @@ export class GeniusService {
     private client: GeniusClient,
   ) {}
 
+  /** A new token from the app's settings. */
+  setToken(token: string | null) {
+    this.client.setToken(token);
+  }
+
   isConfigured() {
     return this.client.isConfigured();
   }

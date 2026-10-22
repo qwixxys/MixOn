@@ -47,6 +47,10 @@ export class GeniusClient {
     private fetchImpl: FetchLike = fetch,
   ) {}
 
+  setToken(token: string | null) {
+    this.accessToken = token;
+  }
+
   isConfigured() {
     return Boolean(this.accessToken);
   }

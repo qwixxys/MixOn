@@ -27,6 +27,7 @@ import msGraphicEq from '@material-symbols/svg-400/rounded/graphic_eq.svg?raw';
 import msHome from '@material-symbols/svg-400/rounded/home.svg?raw';
 import msHub from '@material-symbols/svg-400/rounded/hub.svg?raw';
 import msInfo from '@material-symbols/svg-400/rounded/info.svg?raw';
+import msKey from '@material-symbols/svg-400/rounded/key.svg?raw';
 import msKeyboardArrowDown from '@material-symbols/svg-400/rounded/keyboard_arrow_down.svg?raw';
 import msKeyboardArrowUp from '@material-symbols/svg-400/rounded/keyboard_arrow_up.svg?raw';
 import msLibraryMusic from '@material-symbols/svg-400/rounded/library_music.svg?raw';
@@ -109,6 +110,7 @@ const ICONS = {
   home: msHome,
   hub: msHub,
   info: msInfo,
+  key: msKey,
   keyboard_arrow_down: msKeyboardArrowDown,
   keyboard_arrow_up: msKeyboardArrowUp,
   library_music: msLibraryMusic,

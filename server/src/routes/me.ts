@@ -8,6 +8,7 @@ import { createUploader, removeUpload, withUploads } from '../lib/uploads.js';
 import { parse } from '../lib/validate.js';
 import { requireUser } from '../middleware/auth.js';
 import { toMe, type UserRow } from './auth.js';
+import { isOwner } from './settings.js';
 
 const profileSchema = z.object({
   displayName: z.string().trim().min(1, 'не может быть пустым').max(60).optional(),
@@ -43,7 +44,7 @@ export function meRoutes(ctx: AppContext) {
         avatar: req.file?.filename ?? null,
       });
       if (req.file) removeUpload(config, 'avatars', current.avatar_path);
-      res.json({ user: toMe(db.prepare('SELECT * FROM users WHERE id = ?').get(me) as UserRow) });
+      res.json({ user: toMe(db.prepare('SELECT * FROM users WHERE id = ?').get(me) as UserRow, isOwner(db, me)) });
     }),
   );
 

@@ -218,6 +218,13 @@ async function showPhoneDialog() {
   if (addresses.length && response === 0) clipboard.writeText(addresses[0]);
 }
 
+/** The keys page of the app itself: Сервисы → Ключи сервисов. */
+function openKeys() {
+  if (!window || !running) return;
+  window.loadURL(`http://127.0.0.1:${running.port}/sync#keys`);
+  window.show();
+}
+
 async function openEnvFile() {
   if (!fs.existsSync(envFile)) {
     const template = fs.readFileSync(path.join(here, 'env.example'), 'utf8');
@@ -252,7 +259,8 @@ function buildMenu() {
           { label: 'Подключить телефон…', click: showPhoneDialog },
           { label: 'Доступ из локальной сети', type: 'checkbox', checked: settings.lanAccess, click: (item) => setLanAccess(item.checked) },
           { type: 'separator' },
-          { label: 'Ключи сервисов (soundfy.env)…', click: openEnvFile },
+          { label: 'Ключи сервисов…', click: openKeys },
+          { label: 'Файл настроек (soundfy.env)…', click: openEnvFile },
           { label: 'Папка с данными', click: () => shell.openPath(dataDir) },
           { type: 'separator' },
           { label: 'Перезапустить', click: restart },

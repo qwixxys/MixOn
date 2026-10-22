@@ -5,7 +5,8 @@ import supertest from 'supertest';
 import { createApp } from '../src/app.js';
 import type { AppConfig } from '../src/config.js';
 import type { AppContext } from '../src/context.js';
-import { openDatabase } from '../src/db/index.js';
+import { dbStore, openDatabase } from '../src/db/index.js';
+import { ServiceSettings } from '../src/settings.js';
 import { GeniusClient } from '../src/genius/client.js';
 import { GeniusService } from '../src/genius/service.js';
 import { LrclibClient } from '../src/lyrics/lrclib.js';
@@ -111,10 +112,12 @@ export function createTestApp(
   const config = testConfig();
   const db = openDatabase(':memory:');
   const registry = new ProviderRegistry(providers);
+  const settings = new ServiceSettings(dbStore(db), config, {});
   const sync = new SyncService(db, registry, { info() {}, warn() {}, error() {} });
   const genius = new GeniusService(db, new GeniusClient(geniusToken, fetchImpl));
   const lyrics = new LyricsService(db, new LrclibClient(lrclibUrl, 'soundFy-test', fetchImpl, 0));
-  const ctx: AppContext = { db, config, providers: registry, sync, genius, lyrics, fetchImpl };
+  settings.bind({ providers: registry, genius, fetchImpl });
+  const ctx: AppContext = { db, config, providers: registry, sync, genius, lyrics, settings, fetchImpl };
   const app = createApp(ctx);
   return { ctx, app, request: supertest(app), cleanup: () => fs.rmSync(config.dataDir, { recursive: true, force: true }) };
 }

@@ -6,6 +6,7 @@ import { Avatar } from '../components/Cover';
 import { TextField } from '../components/Material';
 import { ServiceBadge, ServiceIcon } from '../components/ServiceBadge';
 import { ImportLinkForm } from '../components/ImportPlaylist';
+import { ServiceKeys } from '../components/ServiceKeys';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { runSync } from '../components/SyncWidget';
 import { Tabs } from '../components/Tabs';
@@ -36,23 +37,6 @@ function VkInstructions() {
         новых релизов и воспроизведения. Это неофициальный способ доступа, ВКонтакте может его ограничить. Никому не передавайте
         токен.
       </p>
-    </details>
-  );
-}
-
-function SoundCloudInstructions() {
-  return (
-    <details className="instructions">
-      <summary>Как включить SoundCloud</summary>
-      <ol>
-        <li>
-          Зарегистрируйте приложение на <code>soundcloud.com/you/apps</code> и укажите redirect URI{' '}
-          <code>{location.origin}/api/services/soundcloud/oauth/callback</code>.
-        </li>
-        <li>
-          Пропишите <code>SOUNDCLOUD_CLIENT_ID</code> и <code>SOUNDCLOUD_CLIENT_SECRET</code> в <code>.env</code> сервера и перезапустите его.
-        </li>
-      </ol>
     </details>
   );
 }
@@ -151,15 +135,16 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
       )}
 
       {!service.configured && (
-        <>
-          <div className="small notice">
-            <Icon name="error" size={18} />
+        <div className="small notice">
+          <Icon name="key" size={18} />
+          {user?.owner ? (
             <span>
-              Администратор сервера должен указать ключи API в <code>.env</code> (см. README).
+              Нужны ключи API: укажите их ниже, в разделе <a href="#keys">«Ключи сервисов»</a>.
             </span>
-          </div>
-          {service.id === 'soundcloud' && <SoundCloudInstructions />}
-        </>
+          ) : (
+            <span>Сервису нужны ключи API — их указывает владелец сервера.</span>
+          )}
+        </div>
       )}
 
       {service.configured && service.connectMode && (
@@ -470,6 +455,7 @@ export function SyncPage() {
               <ServiceCard key={s.id} service={s} onChange={(u) => setData((list) => list?.map((x) => (x.id === u.id ? u : x)) ?? null)} />
             ))}
           </div>
+          {user?.owner && <ServiceKeys onSaved={reload} />}
           {user && services.some((s) => s.importsLinks) && (
             <section className="section">
               <h2>Импорт плейлиста по ссылке</h2>

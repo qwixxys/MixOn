@@ -9,6 +9,19 @@ export interface Me extends UserSummary {
   email: string;
   bio: string;
   createdAt: string;
+  /** The server's first account, which manages the service keys. */
+  owner: boolean;
+}
+
+/** An API key the server owner can enter in the app. The value itself is never sent back, only a masked preview. */
+export interface ServiceKeyInfo {
+  name: string;
+  service: string;
+  label: string;
+  secret: boolean;
+  flag: boolean;
+  source: 'env' | 'app' | null;
+  preview: string | null;
 }
 
 export interface Profile extends UserSummary {

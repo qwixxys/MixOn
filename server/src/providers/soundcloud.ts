@@ -17,7 +17,8 @@ import {
 
 const API = 'https://api.soundcloud.com';
 const AUTH = 'https://secure.soundcloud.com';
-const APP_TOKEN_KEY = 'soundcloud.app_token';
+export const SOUNDCLOUD_APP_TOKEN_KEY = 'soundcloud.app_token';
+const APP_TOKEN_KEY = SOUNDCLOUD_APP_TOKEN_KEY;
 /** Upper bound for paginated imports (likes, followings). */
 const MAX_IMPORT = 1000;
 

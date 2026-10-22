@@ -9,6 +9,7 @@ import { GeniusService } from './genius/service.js';
 import { LrclibClient } from './lyrics/lrclib.js';
 import { LyricsService } from './lyrics/service.js';
 import { createProviders } from './providers/index.js';
+import { ServiceSettings } from './settings.js';
 import { SyncService } from './sync/syncService.js';
 
 export interface RunningServer {
@@ -26,11 +27,15 @@ export interface RunningServer {
 export async function startServer(): Promise<RunningServer> {
   const config = loadConfig();
   const db = openDatabase(path.join(config.dataDir, 'soundfy.db'));
-  const providers = createProviders(config, dbStore(db));
+  const store = dbStore(db);
+  // Keys entered in the app fill in what the environment leaves out.
+  const settings = new ServiceSettings(store, config);
+  const providers = createProviders(config, store);
   const sync = new SyncService(db, providers);
   const genius = new GeniusService(db, new GeniusClient(config.genius.accessToken));
   const lyrics = new LyricsService(db, new LrclibClient(config.lrclib.baseUrl, config.lrclib.userAgent));
-  const app = createApp({ db, config, providers, sync, genius, lyrics, fetchImpl: fetch });
+  settings.bind({ providers, genius, fetchImpl: fetch });
+  const app = createApp({ db, config, providers, sync, genius, lyrics, settings, fetchImpl: fetch });
 
   // A plain http.Server, because Express 5's app.listen hands listen errors (a busy port) to the success callback.
   const server = createServer(app);
