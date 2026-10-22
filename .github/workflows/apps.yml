@@ -1,5 +1,6 @@
 # Builds the installable apps: Windows installer, Linux AppImage and Android APK.
-# Every run keeps them as downloadable artifacts; pushing a tag like v0.1.0 also publishes a GitHub release.
+# Every run keeps them as downloadable artifacts. The first push with a new version in package.json (or a v* tag)
+# also publishes them as a GitHub release.
 name: Apps
 
 on:
@@ -132,19 +133,47 @@ jobs:
           path: out/*.apk
           if-no-files-found: error
 
+  # A release appears once per version: on the first push that brings a new version in package.json (or on a v* tag).
   release:
     name: GitHub release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push'
     needs: [desktop, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+      - name: Which release
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            publish=true
+          else
+            tag="v$(node -p "require('./package.json').version")"
+            if gh release view "$tag" > /dev/null 2>&1; then publish=false; else publish=true; fi
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "Релиз $tag: $([ "$publish" = true ] && echo публикуется || echo уже есть)"
       - uses: actions/download-artifact@v8
+        if: steps.version.outputs.publish == 'true'
         with:
           path: out
           merge-multiple: true
       - uses: softprops/action-gh-release@v3
+        if: steps.version.outputs.publish == 'true'
         with:
-          files: out/*
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: soundFy ${{ steps.version.outputs.tag }}
+          body: |
+            **Windows:** `soundFy-Setup-*.exe` — установщик. SmartScreen может предупредить, что издатель неизвестен: «Подробнее» → «Выполнить в любом случае».
+            **Linux:** `*.AppImage` — сделайте файл исполняемым (`chmod +x`) и запустите.
+            **Android:** `*.apk` — подключается к вашему серверу soundFy: на компьютере включите «soundFy → Подключить телефон» и введите показанный адрес.
+
+            Подробности — в README, раздел «Готовые приложения».
           generate_release_notes: true
+          files: out/*
