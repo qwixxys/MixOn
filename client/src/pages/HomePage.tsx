@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import type { Track } from '../api/types';
 import { SuggestedUsers } from '../components/SuggestedUsers';
 import { SyncWidget } from '../components/SyncWidget';
-import { Tabs } from '../components/Tabs';
+import { SegmentedButtons } from '../components/Material';
 import { TrackList } from '../components/TrackCard';
 import { TrackRow } from '../components/TrackRow';
 import { Empty, ErrorState, Loading } from '../components/States';
@@ -26,15 +26,16 @@ function Hero() {
     <section className="hero">
       <div className="hero-content">
         <h1>Вся новая музыка ваших артистов — в одной ленте</h1>
-        <p>
+        <p className="body-large">
           soundFy — площадка в духе SoundCloud: загружайте свои треки, собирайте плейлисты, комментируйте прямо на волне. А
-          синхронизация с ВК Музыкой, Deezer, Apple Music и Jamendo сама приносит свежие релизы артистов, на которых вы подписаны.
+          синхронизация с SoundCloud, ВК Музыкой, Deezer, Apple Music и Jamendo сама приносит свежие релизы артистов, на которых вы
+          подписаны.
         </p>
         <div className="hero-actions">
-          <Link to="/register" className="btn btn-primary btn-large">
+          <Link to="/register" className="btn btn-filled btn-large">
             Начать бесплатно
           </Link>
-          <Link to="/discover" className="btn btn-light btn-large">
+          <Link to="/discover" className="btn btn-elevated btn-large">
             Послушать, что нового
           </Link>
         </div>
@@ -76,11 +77,12 @@ function Stream() {
       <div className="content">
         <div className="page-header">
           <h1>Лента</h1>
-          <Tabs
-            tabs={[
+          <SegmentedButtons
+            label="Что показывать"
+            options={[
               { id: 'all', label: 'Всё' },
-              { id: 'releases', label: 'Релизы артистов' },
-              { id: 'uploads', label: 'Загрузки подписок' },
+              { id: 'releases', label: 'Релизы' },
+              { id: 'uploads', label: 'Загрузки' },
             ]}
             value={type}
             onChange={setType}
@@ -88,16 +90,16 @@ function Stream() {
         </div>
         {feed.error && <ErrorState message={feed.error} onRetry={feed.reload} />}
         {!feed.loading && !feed.error && !feed.items.length && (
-          <Empty icon={<Radio size={36} />} title="Лента пока пуста">
+          <Empty icon={<Radio size={32} />} title="Лента пока пуста">
             <p>
-              Подпишитесь на любимых артистов в разделе <Link to="/sync">«Сервисы»</Link> — их новые треки из ВК Музыки, Deezer и
-              других сервисов будут появляться здесь. Или подпишитесь на авторов в <Link to="/discover">«Обзоре»</Link>.
+              Подпишитесь на любимых артистов в разделе <Link to="/sync">«Сервисы»</Link> — их новые треки из SoundCloud, ВК Музыки,
+              Deezer и других сервисов будут появляться здесь. Или подпишитесь на авторов в <Link to="/discover">«Обзоре»</Link>.
             </p>
             <div className="row-gap">
-              <Link to="/sync" className="btn btn-primary">
+              <Link to="/sync" className="btn btn-filled">
                 <Radio size={16} /> Найти артистов
               </Link>
-              <Link to="/discover" className="btn btn-outline">
+              <Link to="/discover" className="btn btn-outlined">
                 <Compass size={16} /> Обзор
               </Link>
             </div>
@@ -106,7 +108,7 @@ function Stream() {
         <TrackList tracks={feed.items} reason={(t) => (isFreshRelease(t) ? 'новый релиз' : undefined)} />
         {feed.loading && <Loading />}
         {feed.hasMore && !feed.loading && (
-          <button className="btn btn-outline btn-block" onClick={feed.loadMore}>
+          <button className="btn btn-outlined btn-block" onClick={feed.loadMore}>
             Показать ещё
           </button>
         )}

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { uploadWithProgress } from '../api/client';
 import type { Track } from '../api/types';
+import { LinearProgress, TextArea, TextField } from '../components/Material';
 import { Waveform } from '../components/Waveform';
 import { formatTime } from '../lib/format';
 import { analyseAudio } from '../lib/waveform';
@@ -113,10 +114,12 @@ export function UploadPage() {
           }}
           onClick={() => fileInput.current?.click()}
         >
-          <UploadCloud size={48} />
+          <span className="dropzone-icon">
+            <UploadCloud size={44} />
+          </span>
           <h2>Перетащите аудиофайл сюда</h2>
           <p className="muted">MP3, M4A, AAC, OGG, OPUS, WAV или FLAC до {MAX_MB} МБ</p>
-          <button type="button" className="btn btn-primary">
+          <button type="button" className="btn btn-filled">
             Выбрать файл
           </button>
           <input
@@ -166,8 +169,8 @@ export function UploadPage() {
           <label className="cover-picker" style={coverPreview ? { backgroundImage: `url(${coverPreview})` } : undefined}>
             {!coverPreview && (
               <>
-                <ImagePlus size={28} />
-                <span>Обложка</span>
+                <ImagePlus size={32} />
+                <span className="title-medium">Обложка</span>
                 <span className="muted small">Если не выбрать — возьмём из тегов файла</span>
               </>
             )}
@@ -175,45 +178,42 @@ export function UploadPage() {
           </label>
 
           <div className="upload-fields">
-            <label className="field">
-              <span>Название *</span>
-              <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required maxLength={200} />
-            </label>
-            <label className="field">
-              <span>Исполнитель</span>
-              <input className="input" value={form.artist} onChange={(e) => setForm({ ...form, artist: e.target.value })} maxLength={200} />
-            </label>
-            <label className="field">
-              <span>Жанр</span>
-              <input className="input" list="genres" value={form.genre} onChange={(e) => setForm({ ...form, genre: e.target.value })} maxLength={50} />
-              <datalist id="genres">
-                {GENRES.map((g) => (
-                  <option key={g} value={g} />
-                ))}
-              </datalist>
-            </label>
-            <label className="field">
-              <span>Описание</span>
-              <textarea
-                className="input"
-                rows={4}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                maxLength={5000}
-                placeholder="Расскажите о треке"
-              />
-            </label>
+            <TextField label="Название" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required maxLength={200} />
+            <TextField label="Исполнитель" value={form.artist} onChange={(e) => setForm({ ...form, artist: e.target.value })} maxLength={200} />
+            <TextField
+              label="Жанр"
+              list="genres"
+              value={form.genre}
+              onChange={(e) => setForm({ ...form, genre: e.target.value })}
+              maxLength={50}
+              supportingText="Начните вводить или выберите из списка"
+            />
+            <datalist id="genres">
+              {GENRES.map((g) => (
+                <option key={g} value={g} />
+              ))}
+            </datalist>
+            <TextArea
+              label="Описание"
+              rows={4}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              maxLength={5000}
+              hint="Расскажите о треке"
+            />
           </div>
         </div>
 
         {uploading && (
-          <div className="progress">
-            <div className="progress-bar" style={{ width: `${Math.round((progress ?? 0) * 100)}%` }} />
-            <span>{progress! < 1 ? `Загрузка ${Math.round(progress! * 100)}%` : 'Обработка…'}</span>
+          <div>
+            <LinearProgress value={progress ?? 0} />
+            <div className="progress-label small">
+              {progress! < 1 ? `Загрузка ${Math.round(progress! * 100)}%` : 'Обработка…'}
+            </div>
           </div>
         )}
         <div className="form-actions">
-          <button className="btn btn-primary btn-large" disabled={uploading || !form.title.trim()}>
+          <button className="btn btn-filled btn-large" disabled={uploading || !form.title.trim()}>
             {uploading ? 'Загружаем…' : 'Опубликовать'}
           </button>
         </div>

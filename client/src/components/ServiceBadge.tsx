@@ -4,9 +4,10 @@ export function ServiceBadge({ source, preview }: { source: string; preview?: bo
   if (source === 'local') return null;
   const info = serviceInfo(source);
   return (
-    <span className="service-badge" style={{ color: info.color, borderColor: info.color }} title={`Трек из ${info.label}`}>
+    <span className="service-badge" title={`Трек из ${info.label}`}>
+      <span className="service-dot" style={{ background: info.color }} />
       {info.label}
-      {preview && <span className="service-badge-preview"> · превью</span>}
+      {preview && <span className="service-badge-preview">превью</span>}
     </span>
   );
 }

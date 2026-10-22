@@ -89,6 +89,7 @@ export interface Service {
   name: string;
   description: string;
   requiresToken: boolean;
+  connectMode: 'token' | 'oauth' | null;
   fullTracks: boolean;
   configured: boolean;
   connected: boolean;
@@ -96,6 +97,8 @@ export interface Service {
   serverToken: boolean;
   available: boolean;
   canImportLibrary: boolean;
+  canImportFollowings: boolean;
+  libraryLabel: string | null;
 }
 
 export interface FoundArtist {

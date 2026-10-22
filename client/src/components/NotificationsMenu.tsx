@@ -54,8 +54,8 @@ export function NotificationsMenu() {
 
   return (
     <div className="menu" ref={ref}>
-      <button className="icon-btn header-icon" onClick={toggle} aria-label="Уведомления" title="Уведомления">
-        <Bell size={20} />
+      <button className="icon-btn" onClick={toggle} aria-label="Уведомления" title="Уведомления">
+        <Bell size={22} />
         {unread > 0 && <span className="badge">{unread > 99 ? '99+' : unread}</span>}
       </button>
       {open && (

@@ -7,6 +7,7 @@ import { useFetch } from '../lib/useFetch';
 import { usePlaylistPicker } from '../store/playlistPicker';
 import { toast } from '../store/toasts';
 import { Cover } from './Cover';
+import { Switch, TextField } from './Material';
 import { Modal } from './Modal';
 import { Loading } from './States';
 
@@ -52,13 +53,13 @@ function PickerDialog({ trackId, title, onClose }: { trackId: number; title: str
   return (
     <Modal title={`Добавить «${title}»`} onClose={onClose}>
       <form className="picker-create" onSubmit={create}>
-        <input className="input" placeholder="Новый плейлист" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} maxLength={100} />
-        <label className="checkbox">
-          <input type="checkbox" checked={!isPublic} onChange={(e) => setIsPublic(!e.target.checked)} /> Приватный
-        </label>
-        <button className="btn btn-primary" disabled={busy || !newTitle.trim()}>
-          <Plus size={16} /> Создать
-        </button>
+        <TextField label="Новый плейлист" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} maxLength={100} />
+        <Switch checked={!isPublic} onChange={(v) => setIsPublic(!v)} label="Приватный" />
+        <div className="form-actions">
+          <button className="btn btn-tonal" disabled={busy || !newTitle.trim()}>
+            <Plus size={18} /> Создать и добавить
+          </button>
+        </div>
       </form>
       {loading && <Loading />}
       <div className="picker-list">
@@ -75,8 +76,8 @@ function PickerDialog({ trackId, title, onClose }: { trackId: number; title: str
                   {p.trackCount + (done ? 1 : 0)} {plural(p.trackCount + (done ? 1 : 0), ['трек', 'трека', 'треков'])}
                 </span>
               </div>
-              <button className={`btn btn-small ${done ? '' : 'btn-outline'}`} disabled={done} onClick={() => add(p)}>
-                {done ? <Check size={14} /> : 'Добавить'}
+              <button className={`btn btn-small ${done ? 'btn-text' : 'btn-outlined'}`} disabled={done} onClick={() => add(p)}>
+                {done ? <Check size={18} /> : 'Добавить'}
               </button>
             </div>
           );

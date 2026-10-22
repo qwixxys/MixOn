@@ -1,10 +1,10 @@
-import { LoaderCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { CircularProgress } from './Material';
 
 export function Loading({ label = 'Загрузка…' }: { label?: string }) {
   return (
     <div className="state">
-      <LoaderCircle className="spin" size={22} />
+      <CircularProgress />
       <span>{label}</span>
     </div>
   );
@@ -15,7 +15,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
     <div className="state state-error">
       <span>{message}</span>
       {onRetry && (
-        <button className="btn btn-small" onClick={onRetry}>
+        <button className="btn btn-tonal btn-small" onClick={onRetry}>
           Повторить
         </button>
       )}

@@ -8,7 +8,6 @@ import { ServiceBadge } from '../components/ServiceBadge';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { TrackList } from '../components/TrackCard';
 import { formatCount, plural, timeAgo } from '../lib/format';
-import { gradientFor } from '../lib/gradient';
 import { serviceInfo } from '../lib/services';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
@@ -63,12 +62,15 @@ export function ArtistPage() {
 
   return (
     <>
-      <section className="profile-hero" style={{ background: gradientFor(data.name) }}>
+      <section className="profile-hero">
         <div className="profile-hero-inner">
           <Avatar url={data.imageUrl} name={data.name} size={180} />
           <div className="profile-hero-text">
-            <h1 className="hero-label hero-title">{data.name}</h1>
-            <span className="hero-label">Артист в {service.label}</span>
+            <span className="label-large">Артист · {service.label}</span>
+            <h1 className="hero-title">{data.name}</h1>
+            <span className="body-large">
+              {formatCount(data.subscribers)} {plural(data.subscribers, ['подписчик', 'подписчика', 'подписчиков'])} на soundFy
+            </span>
           </div>
         </div>
       </section>
@@ -77,28 +79,27 @@ export function ArtistPage() {
           <div className="row-gap">
             <ServiceBadge source={data.provider} />
             <span className="muted small">
-              {data.trackCount} {plural(data.trackCount, ['трек', 'трека', 'треков'])} · {formatCount(data.subscribers)}{' '}
-              {plural(data.subscribers, ['подписчик', 'подписчика', 'подписчиков'])} на soundFy
+              {data.trackCount} {plural(data.trackCount, ['трек', 'трека', 'треков'])}
               {data.lastSyncedAt && <> · обновлено {timeAgo(data.lastSyncedAt)}</>}
             </span>
           </div>
           <div className="row-gap">
             {data.url && (
-              <a className="btn btn-ghost" href={data.url} target="_blank" rel="noreferrer">
+              <a className="btn btn-text" href={data.url} target="_blank" rel="noreferrer">
                 <ExternalLink size={15} /> {service.label}
               </a>
             )}
             {user && (
-              <button className="btn btn-outline" onClick={sync} disabled={busy}>
+              <button className="btn btn-outlined" onClick={sync} disabled={busy}>
                 <RefreshCw size={15} className={busy ? 'spin' : ''} /> Обновить
               </button>
             )}
             {user ? (
-              <button className={`btn ${data.isSubscribed ? 'btn-outline' : 'btn-primary'}`} onClick={toggle} disabled={busy}>
+              <button className={`btn ${data.isSubscribed ? 'btn-outlined' : 'btn-filled'}`} onClick={toggle} disabled={busy}>
                 {data.isSubscribed ? 'Вы подписаны' : 'Следить за релизами'}
               </button>
             ) : (
-              <Link to="/login" className="btn btn-primary">
+              <Link to="/login" className="btn btn-filled">
                 Следить за релизами
               </Link>
             )}

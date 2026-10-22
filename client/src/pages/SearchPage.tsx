@@ -26,7 +26,7 @@ export function SearchPage() {
         <div className="search-hint">
           <Radio size={18} />
           <span>
-            Ищете артиста из ВК Музыки, Deezer или Apple Music?{' '}
+            Ищете артиста из SoundCloud, ВК Музыки, Deezer или Apple Music?{' '}
             <Link to={`/sync?q=${encodeURIComponent(q)}`}>Найдите «{q}» в сервисах</Link> и подпишитесь на новые релизы.
           </span>
         </div>

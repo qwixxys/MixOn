@@ -1,14 +1,16 @@
-import { AlertCircle, Check, Download, ExternalLink, Link2, LogOut, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { AlertCircle, Check, Download, ExternalLink, Link2, LogIn, LogOut, RefreshCw, Search, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import type { Artist, FoundArtist, Service, SyncResult, SyncSummary } from '../api/types';
 import { Avatar } from '../components/Cover';
+import { TextField } from '../components/Material';
 import { ServiceBadge, ServiceIcon } from '../components/ServiceBadge';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { runSync } from '../components/SyncWidget';
 import { Tabs } from '../components/Tabs';
 import { plural, timeAgo } from '../lib/format';
+import { serviceInfo } from '../lib/services';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
@@ -37,120 +39,159 @@ function VkInstructions() {
   );
 }
 
+function SoundCloudInstructions() {
+  return (
+    <details className="instructions">
+      <summary>Как включить SoundCloud</summary>
+      <ol>
+        <li>
+          Зарегистрируйте приложение на <code>soundcloud.com/you/apps</code> и укажите redirect URI{' '}
+          <code>{location.origin}/api/services/soundcloud/oauth/callback</code>.
+        </li>
+        <li>
+          Пропишите <code>SOUNDCLOUD_CLIENT_ID</code> и <code>SOUNDCLOUD_CLIENT_SECRET</code> в <code>.env</code> сервера и перезапустите его.
+        </li>
+      </ol>
+    </details>
+  );
+}
+
 function ServiceCard({ service, onChange }: { service: Service; onChange(s: Service): void }) {
   const user = useAuth((s) => s.user);
   const navigate = useNavigate();
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
-  const connect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy('connect');
+  const run = async (key: string, action: () => Promise<void>) => {
+    setBusy(key);
     try {
+      await action();
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const connectToken = (e: React.FormEvent) => {
+    e.preventDefault();
+    void run('connect', async () => {
       const updated = await api<Service>(`/services/${service.id}/connect`, { body: { accessToken: token } });
       onChange(updated);
       setToken('');
       toast.success(`${service.name}: аккаунт ${updated.account?.displayName ?? ''} подключён`);
-    } catch (err) {
-      toast.error(err);
-    } finally {
-      setBusy(null);
-    }
+    });
   };
 
-  const disconnect = async () => {
-    setBusy('disconnect');
-    try {
-      onChange(await api<Service>(`/services/${service.id}/connect`, { method: 'DELETE' }));
-    } catch (err) {
-      toast.error(err);
-    } finally {
-      setBusy(null);
-    }
-  };
+  // OAuth: the server returns the service's login page; it redirects back to /sync?connected=…
+  const connectOAuth = () =>
+    run('connect', async () => {
+      const { url } = await api<{ url: string }>(`/services/${service.id}/oauth/start`, { method: 'POST' });
+      window.location.assign(url);
+    });
 
-  const importLibrary = async () => {
-    setBusy('import');
-    try {
-      const result = await api<{ playlistId: number; imported: number; newTracks: number }>(`/services/${service.id}/import`, {
-        method: 'POST',
-      });
+  const disconnect = () => run('disconnect', async () => onChange(await api<Service>(`/services/${service.id}/connect`, { method: 'DELETE' })));
+
+  const importLibrary = () =>
+    run('import', async () => {
+      const result = await api<{ playlistId: number; imported: number }>(`/services/${service.id}/import`, { method: 'POST' });
       toast.success(`Импортировано ${result.imported} ${plural(result.imported, ['трек', 'трека', 'треков'])}`);
       navigate(`/playlists/${result.playlistId}`);
-    } catch (err) {
-      toast.error(err);
-    } finally {
-      setBusy(null);
-    }
-  };
+    });
+
+  const importFollowings = () =>
+    run('followings', async () => {
+      const result = await api<{ found: number; subscribed: number }>(`/services/${service.id}/import-followings`, { method: 'POST' });
+      toast.success(
+        result.subscribed
+          ? `Подписались на ${result.subscribed} ${plural(result.subscribed, ['автора', 'авторов', 'авторов'])} — их треки загружаются в фоне`
+          : 'Вы уже подписаны на всех своих авторов',
+      );
+      window.dispatchEvent(new CustomEvent('soundfy:subscriptions'));
+    });
+
+  const status = !service.configured ? (
+    <span className="pill pill-warn">Не настроен</span>
+  ) : service.available ? (
+    <span className="pill pill-good">
+      <Check size={14} /> Доступен
+    </span>
+  ) : (
+    <span className="pill pill-warn">Нужно подключение</span>
+  );
 
   return (
-    <div className={`service-card ${service.available ? '' : 'service-card-off'}`}>
+    <div className="service-card">
       <div className="service-card-head">
-        <ServiceIcon id={service.id} />
+        <ServiceIcon id={service.id} size={48} />
         <div>
           <h3>{service.name}</h3>
           <div className="row-gap">
-            <span className={`pill ${service.fullTracks ? 'pill-good' : ''}`}>{service.fullTracks ? 'Полные треки' : 'Превью 30 сек'}</span>
-            {service.available ? (
-              <span className="pill pill-good">
-                <Check size={12} /> Доступен
-              </span>
-            ) : (
-              <span className="pill pill-warn">{service.configured ? 'Нужно подключение' : 'Не настроен'}</span>
-            )}
+            <span className="pill">{service.fullTracks ? 'Полные треки' : 'Превью 30 сек'}</span>
+            {status}
           </div>
         </div>
       </div>
-      <p className="muted small">{service.description}</p>
+      <p className="muted">{service.description}</p>
 
       {!service.configured && (
-        <p className="small notice">
-          <AlertCircle size={14} />
-          <span>
-            Администратор сервера должен указать ключ API в <code>.env</code> (см. README).
-          </span>
-        </p>
+        <>
+          <div className="small notice">
+            <AlertCircle size={16} />
+            <span>
+              Администратор сервера должен указать ключи API в <code>.env</code> (см. README).
+            </span>
+          </div>
+          {service.id === 'soundcloud' && <SoundCloudInstructions />}
+        </>
       )}
 
-      {service.requiresToken && service.configured && (
+      {service.configured && service.connectMode && (
         <>
           {service.connected ? (
             <div className="stack">
-              <span className="small">
-                <Link2 size={13} /> Подключён аккаунт <strong>{service.account?.displayName}</strong>
+              <span className="row-gap">
+                <Link2 size={16} /> Аккаунт <strong>{service.account?.displayName}</strong>
               </span>
               <div className="row-gap">
                 {service.canImportLibrary && (
-                  <button className="btn btn-primary btn-small" onClick={importLibrary} disabled={busy !== null}>
-                    <Download size={14} className={busy === 'import' ? 'spin' : ''} /> Импортировать мои аудиозаписи
+                  <button className="btn btn-tonal btn-small" onClick={importLibrary} disabled={busy !== null}>
+                    <Download size={16} className={busy === 'import' ? 'spin' : ''} /> Импортировать {service.libraryLabel ?? 'библиотеку'}
                   </button>
                 )}
-                <button className="btn btn-ghost btn-small" onClick={disconnect} disabled={busy !== null}>
-                  <LogOut size={14} /> Отключить
+                {service.canImportFollowings && (
+                  <button className="btn btn-tonal btn-small" onClick={importFollowings} disabled={busy !== null}>
+                    <Users size={16} className={busy === 'followings' ? 'spin' : ''} /> Подписаться на моих авторов
+                  </button>
+                )}
+                <button className="btn btn-text btn-small" onClick={disconnect} disabled={busy !== null}>
+                  <LogOut size={16} /> Отключить
                 </button>
               </div>
             </div>
-          ) : user ? (
-            <form className="stack" onSubmit={connect}>
+          ) : !user ? (
+            <Link to="/login?next=/sync" className="btn btn-outlined btn-small">
+              Войдите, чтобы подключить
+            </Link>
+          ) : service.connectMode === 'oauth' ? (
+            <button className="btn btn-filled" onClick={connectOAuth} disabled={busy !== null}>
+              <LogIn size={18} /> Войти через {service.name}
+            </button>
+          ) : (
+            <form className="stack" onSubmit={connectToken}>
               {service.serverToken && <span className="small muted">Сейчас используется общий токен сервера — можно подключить свой.</span>}
               {service.id === 'vk' && <VkInstructions />}
-              <input
-                className="input"
+              <TextField
+                label="access_token или ссылка с ним"
                 type="password"
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
-                placeholder="access_token или ссылка с ним"
                 autoComplete="off"
               />
-              <button className="btn btn-primary btn-small" disabled={busy !== null || token.trim().length < 10}>
+              <button className="btn btn-filled btn-small" disabled={busy !== null || token.trim().length < 10}>
                 {busy === 'connect' ? 'Проверяем…' : 'Подключить'}
               </button>
             </form>
-          ) : (
-            <Link to="/login?next=/sync" className="btn btn-outline btn-small">
-              Войдите, чтобы подключить
-            </Link>
           )}
         </>
       )}
@@ -236,7 +277,7 @@ function ArtistSearch({ services, onSubscribed }: { services: Service[]; onSubsc
       >
         <Search size={18} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Имя артиста или группы" />
-        <button className="btn btn-primary btn-small" disabled={loading || !q.trim()}>
+        <button className="btn btn-filled btn-small" disabled={loading || !q.trim()}>
           Найти
         </button>
       </form>
@@ -258,14 +299,14 @@ function ArtistSearch({ services, onSubscribed }: { services: Service[]; onSubsc
             )}
             {user ? (
               <button
-                className={`btn btn-small ${a.isSubscribed ? 'btn-outline' : 'btn-primary'}`}
+                className={`btn btn-small ${a.isSubscribed ? 'btn-outlined' : 'btn-filled'}`}
                 disabled={a.isSubscribed || pending !== null}
                 onClick={() => subscribe(a)}
               >
                 {pending === a.externalId ? 'Загружаем…' : a.isSubscribed ? 'Вы подписаны' : 'Подписаться'}
               </button>
             ) : (
-              <Link to="/login?next=/sync" className="btn btn-small btn-primary">
+              <Link to="/login?next=/sync" className="btn btn-small btn-filled">
                 Подписаться
               </Link>
             )}
@@ -316,7 +357,7 @@ function MyArtists() {
       <div className="section-header">
         <h2>Мои артисты</h2>
         {data && data.length > 0 && (
-          <button className="btn btn-primary btn-small" onClick={syncAll} disabled={syncing !== null}>
+          <button className="btn btn-filled btn-small" onClick={syncAll} disabled={syncing !== null}>
             <RefreshCw size={14} className={syncing === 'all' ? 'spin' : ''} /> Проверить новинки у всех
           </button>
         )}
@@ -363,18 +404,45 @@ function MyArtists() {
   );
 }
 
+/** Shows the outcome of an OAuth login the service redirected back from (?connected=… or ?error=…). */
+function useOAuthResult() {
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const connected = params.get('connected');
+    const error = params.get('error');
+    if (!connected && !error) return;
+    if (connected) toast.success(`${serviceInfo(connected).label}: аккаунт подключён`);
+    if (error) toast.error(error);
+    setParams(
+      (p) => {
+        p.delete('connected');
+        p.delete('error');
+        return p;
+      },
+      { replace: true },
+    );
+  }, [params, setParams]);
+}
+
 export function SyncPage() {
   const user = useAuth((s) => s.user);
   const { data: services, loading, error, reload, setData } = useFetch<Service[]>('/services');
   const [version, setVersion] = useState(0);
+  useOAuthResult();
+
+  useEffect(() => {
+    const bump = () => setVersion((v) => v + 1);
+    window.addEventListener('soundfy:subscriptions', bump);
+    return () => window.removeEventListener('soundfy:subscriptions', bump);
+  }, []);
 
   return (
     <div className="page">
       <div className="page-header page-header-column">
         <h1>Сервисы и синхронизация</h1>
         <p className="muted">
-          Подпишитесь на артистов в ВК Музыке, Deezer, Apple Music и Jamendo. soundFy регулярно проверяет их новые треки, добавляет в
-          вашу ленту и присылает уведомления.
+          Подпишитесь на артистов в SoundCloud, ВК Музыке, Deezer, Apple Music и Jamendo. soundFy регулярно проверяет их новые треки,
+          добавляет в вашу ленту и присылает уведомления.
         </p>
       </div>
       {loading && <Loading />}

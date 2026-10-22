@@ -12,7 +12,7 @@ export function PlayButton({ track, queue, size = 44 }: { track: Track; queue?: 
 
   return (
     <button
-      className="play-btn"
+      className={`play-btn ${playing ? 'is-playing' : ''}`}
       style={{ width: size, height: size }}
       onClick={(e) => {
         e.preventDefault();

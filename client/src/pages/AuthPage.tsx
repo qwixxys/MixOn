@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
+import { LogoMark } from '../components/Header';
+import { TextField } from '../components/Material';
 import { useAuth } from '../store/auth';
 import { useLikes } from '../store/likes';
 
@@ -45,47 +47,44 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   return (
     <div className="page auth-page">
       <form className="auth-card" onSubmit={submit}>
+        <LogoMark size={48} />
         <h1>{mode === 'login' ? 'Вход в soundFy' : 'Создать аккаунт'}</h1>
         <p className="muted">
           {mode === 'login'
             ? 'Слушайте, загружайте и следите за новыми релизами любимых артистов.'
-            : 'Аккаунт нужен, чтобы загружать треки, собирать плейлисты и подписываться на артистов в ВК Музыке, Deezer и других сервисах.'}
+            : 'Аккаунт нужен, чтобы загружать треки, собирать плейлисты и подписываться на артистов в SoundCloud, ВК Музыке, Deezer и других сервисах.'}
         </p>
         {mode === 'login' ? (
-          <label className="field">
-            <span>Логин или email</span>
-            <input className="input" value={form.login} onChange={set('login')} autoComplete="username" required autoFocus />
-          </label>
+          <TextField label="Логин или email" value={form.login} onChange={set('login')} autoComplete="username" required autoFocus />
         ) : (
           <>
-            <label className="field">
-              <span>Имя пользователя</span>
-              <input className="input" value={form.username} onChange={set('username')} autoComplete="username" required autoFocus pattern="[A-Za-z0-9_.\-]{3,30}" title="3–30 символов: латиница, цифры, точка, дефис, подчёркивание" />
-            </label>
-            <label className="field">
-              <span>Отображаемое имя</span>
-              <input className="input" value={form.displayName} onChange={set('displayName')} placeholder="Как вас будут видеть другие" maxLength={60} />
-            </label>
-            <label className="field">
-              <span>Email</span>
-              <input className="input" type="email" value={form.email} onChange={set('email')} autoComplete="email" required />
-            </label>
+            <TextField
+              label="Имя пользователя"
+              value={form.username}
+              onChange={set('username')}
+              autoComplete="username"
+              required
+              autoFocus
+              pattern="[A-Za-z0-9_.\-]{3,30}"
+              title="3–30 символов: латиница, цифры, точка, дефис, подчёркивание"
+              supportingText="Латиница, цифры, точка, дефис и подчёркивание"
+            />
+            <TextField label="Отображаемое имя" value={form.displayName} onChange={set('displayName')} hint="Как вас будут видеть другие" maxLength={60} />
+            <TextField label="Email" type="email" value={form.email} onChange={set('email')} autoComplete="email" required />
           </>
         )}
-        <label className="field">
-          <span>Пароль</span>
-          <input
-            className="input"
-            type="password"
-            value={form.password}
-            onChange={set('password')}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            minLength={mode === 'register' ? 6 : undefined}
-            required
-          />
-        </label>
+        <TextField
+          label="Пароль"
+          type="password"
+          value={form.password}
+          onChange={set('password')}
+          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+          minLength={mode === 'register' ? 6 : undefined}
+          supportingText={mode === 'register' ? 'Не меньше 6 символов' : undefined}
+          required
+        />
         {error && <div className="form-error">{error}</div>}
-        <button className="btn btn-primary btn-block" disabled={busy}>
+        <button className="btn btn-filled btn-large" disabled={busy}>
           {busy ? 'Подождите…' : mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
         </button>
         <p className="muted center">

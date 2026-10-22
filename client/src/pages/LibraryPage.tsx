@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import type { Artist, Playlist, Track } from '../api/types';
 import { Avatar } from '../components/Cover';
+import { Switch, TextArea, TextField } from '../components/Material';
 import { Modal } from '../components/Modal';
 import { PlaylistGrid } from '../components/PlaylistTile';
 import { ServiceBadge } from '../components/ServiceBadge';
@@ -27,7 +28,7 @@ function PagedTracks({ path, empty }: { path: string; empty: string }) {
       <TrackList tracks={list.items} />
       {list.loading && <Loading />}
       {list.hasMore && !list.loading && (
-        <button className="btn btn-outline btn-block" onClick={list.loadMore}>
+        <button className="btn btn-outlined btn-block" onClick={list.loadMore}>
           Показать ещё
         </button>
       )}
@@ -52,19 +53,11 @@ function NewPlaylistModal({ onClose, onCreated }: { onClose(): void; onCreated()
   return (
     <Modal title="Новый плейлист" onClose={onClose}>
       <form className="stack" onSubmit={submit}>
-        <label className="field">
-          <span>Название</span>
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={100} autoFocus />
-        </label>
-        <label className="field">
-          <span>Описание</span>
-          <textarea className="input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
-        </label>
-        <label className="checkbox">
-          <input type="checkbox" checked={!isPublic} onChange={(e) => setIsPublic(!e.target.checked)} /> Приватный плейлист
-        </label>
+        <TextField label="Название" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={100} autoFocus />
+        <TextArea label="Описание" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
+        <Switch checked={!isPublic} onChange={(v) => setIsPublic(!v)} label="Приватный плейлист" description="Виден только вам" />
         <div className="form-actions">
-          <button className="btn btn-primary">Создать</button>
+          <button className="btn btn-filled">Создать</button>
         </div>
       </form>
     </Modal>
@@ -78,7 +71,7 @@ function Playlists() {
     <>
       <div className="section-header">
         <span />
-        <button className="btn btn-outline btn-small" onClick={() => setCreating(true)}>
+        <button className="btn btn-outlined btn-small" onClick={() => setCreating(true)}>
           <Plus size={14} /> Новый плейлист
         </button>
       </div>
@@ -96,7 +89,7 @@ function Artists() {
   if (!data?.length) {
     return (
       <Empty icon={<Radio size={32} />} title="Вы ещё не подписаны на артистов">
-        <Link to="/sync" className="btn btn-primary">
+        <Link to="/sync" className="btn btn-filled">
           Найти артистов в сервисах
         </Link>
       </Empty>

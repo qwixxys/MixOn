@@ -66,16 +66,17 @@ export function SyncWidget({ onSynced }: { onSynced?: () => void }) {
               </Link>
             ))}
           </div>
-          <button className="btn btn-outline btn-block" onClick={sync} disabled={busy}>
+          <button className="btn btn-outlined btn-block" onClick={sync} disabled={busy}>
             <RefreshCw size={15} className={busy ? 'spin' : ''} /> {busy ? 'Проверяем…' : 'Проверить новинки'}
           </button>
         </>
       ) : (
         <>
           <p className="muted small">
-            Подпишитесь на артистов в ВК Музыке, Deezer, Apple Music или Jamendo — их новые треки будут появляться в вашей ленте.
+            Подпишитесь на артистов в SoundCloud, ВК Музыке, Deezer, Apple Music или Jamendo — их новые треки будут появляться в вашей
+            ленте.
           </p>
-          <Link to="/sync" className="btn btn-primary btn-block">
+          <Link to="/sync" className="btn btn-filled btn-block">
             Подключить сервисы
           </Link>
         </>

@@ -51,6 +51,16 @@ function Progress() {
   );
 }
 
+/** Thin progress line shown on phones, where the full slider does not fit. */
+function MiniProgress() {
+  const fraction = usePlayer((s) => (s.duration ? Math.min(1, s.currentTime / s.duration) : 0));
+  return (
+    <div className="player-mini-progress" aria-hidden>
+      <span style={{ width: `${fraction * 100}%` }} />
+    </div>
+  );
+}
+
 function Volume() {
   const volume = usePlayer((s) => s.volume);
   const muted = usePlayer((s) => s.muted);
@@ -93,7 +103,7 @@ function QueuePanel({ onClose }: { onClose(): void }) {
     <div className="queue" ref={ref}>
       <div className="queue-header">
         <h3>Очередь</h3>
-        <button className="btn btn-small btn-ghost" onClick={clear}>
+        <button className="btn btn-small btn-text" onClick={clear}>
           Очистить
         </button>
         <button className="icon-btn" onClick={onClose} aria-label="Закрыть очередь">
@@ -140,68 +150,73 @@ export function PlayerBar() {
   return (
     <div className="player" role="region" aria-label="Плеер">
       <div className="player-inner">
-        <div className="player-controls">
-          <button className="icon-btn" onClick={prev} aria-label="Предыдущий">
-            <SkipBack size={18} fill="currentColor" />
-          </button>
-          <button className="icon-btn player-main-btn" onClick={toggle} aria-label={playing ? 'Пауза' : 'Играть'}>
-            {loading && !playing ? (
-              <LoaderCircle size={22} className="spin" />
-            ) : playing ? (
-              <Pause size={22} fill="currentColor" />
+        <div className="player-track">
+          <Link to={`/tracks/${current.id}`}>
+            <Cover url={current.coverUrl} seed={current.id} size={48} />
+          </Link>
+          <div className="player-track-text">
+            <Link to={`/tracks/${current.id}`} className="player-title" title={current.title}>
+              {current.title}
+            </Link>
+            {error ? (
+              <span className="player-error small" title={error}>
+                {error}
+              </span>
             ) : (
-              <Play size={22} fill="currentColor" />
+              <span className="player-artist">
+                {current.artist}
+                {current.source !== 'local' && <ServiceBadge source={current.source} preview={current.isPreview} />}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="player-controls">
+          <button className={`icon-btn player-secondary ${shuffle ? 'icon-btn-selected' : ''}`} onClick={toggleShuffle} aria-label="Перемешать" aria-pressed={shuffle}>
+            <Shuffle size={20} />
+          </button>
+          <button className="icon-btn player-secondary" onClick={prev} aria-label="Предыдущий">
+            <SkipBack size={20} fill="currentColor" />
+          </button>
+          <button className={`icon-btn player-main-btn ${playing ? 'is-playing' : ''}`} onClick={toggle} aria-label={playing ? 'Пауза' : 'Играть'}>
+            {loading && !playing ? (
+              <LoaderCircle size={24} className="spin" />
+            ) : playing ? (
+              <Pause size={24} fill="currentColor" />
+            ) : (
+              <Play size={24} fill="currentColor" />
             )}
           </button>
           <button className="icon-btn" onClick={() => next()} aria-label="Следующий">
-            <SkipForward size={18} fill="currentColor" />
-          </button>
-          <button className={`icon-btn ${shuffle ? 'icon-btn-active' : ''}`} onClick={toggleShuffle} aria-label="Перемешать" aria-pressed={shuffle}>
-            <Shuffle size={17} />
+            <SkipForward size={20} fill="currentColor" />
           </button>
           <button
-            className={`icon-btn ${repeat !== 'off' ? 'icon-btn-active' : ''}`}
+            className={`icon-btn player-secondary ${repeat !== 'off' ? 'icon-btn-selected' : ''}`}
             onClick={cycleRepeat}
             aria-label={repeat === 'one' ? 'Повтор трека' : repeat === 'all' ? 'Повтор очереди' : 'Повтор выключен'}
             title={repeat === 'one' ? 'Повтор трека' : repeat === 'all' ? 'Повтор очереди' : 'Повтор выключен'}
           >
-            {repeat === 'one' ? <Repeat1 size={17} /> : <Repeat size={17} />}
+            {repeat === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
           </button>
         </div>
 
         <Progress />
         <Volume />
 
-        <div className="player-track">
-          <Link to={`/tracks/${current.id}`}>
-            <Cover url={current.coverUrl} seed={current.id} size={40} />
-          </Link>
-          <div className="player-track-text">
-            {error ? (
-              <span className="player-error" title={error}>
-                {error}
-              </span>
-            ) : (
-              <span className="player-artist">
-                {current.artist} <ServiceBadge source={current.source} preview={current.isPreview} />
-              </span>
-            )}
-            <Link to={`/tracks/${current.id}`} className="player-title" title={current.title}>
-              {current.title}
-            </Link>
-          </div>
-          <LikeButton track={current} showCount={false} />
+        <div className="player-extra">
+          <LikeButton track={current} showCount={false} small />
           <button
-            className={`icon-btn ${queueOpen ? 'icon-btn-active' : ''}`}
+            className={`icon-btn ${queueOpen ? 'icon-btn-selected' : ''}`}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => setQueueOpen(!queueOpen)}
             aria-label="Очередь"
             title="Очередь"
           >
-            <ListMusic size={19} />
+            <ListMusic size={22} />
           </button>
         </div>
       </div>
+      <MiniProgress />
       {queueOpen && <QueuePanel onClose={closeQueue} />}
     </div>
   );

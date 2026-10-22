@@ -32,7 +32,7 @@ export function TrackActions({ track, labels = false }: { track: Track; labels?:
         title="Добавить в плейлист"
         onClick={() => (user ? openPicker(track) : navigate('/login'))}
       >
-        <ListPlus size={15} />
+        <ListPlus size={18} />
         {labels && <span>В плейлист</span>}
       </button>
       <button
@@ -43,16 +43,16 @@ export function TrackActions({ track, labels = false }: { track: Track; labels?:
           toast.info('Добавлено в очередь');
         }}
       >
-        <ListEnd size={15} />
+        <ListEnd size={18} />
         {labels && <span>В очередь</span>}
       </button>
       <button className="action-btn" title="Скопировать ссылку" onClick={() => shareTrack(track)}>
-        <Link2 size={15} />
+        <Link2 size={18} />
         {labels && <span>Поделиться</span>}
       </button>
       {track.externalUrl && (
         <a className="action-btn" href={track.externalUrl} target="_blank" rel="noreferrer" title={`Открыть в ${serviceInfo(track.source).label}`}>
-          <ExternalLink size={15} />
+          <ExternalLink size={18} />
           {labels && <span>{serviceInfo(track.source).label}</span>}
         </a>
       )}

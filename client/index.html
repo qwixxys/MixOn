@@ -6,6 +6,13 @@
     <meta name="theme-color" content="#ff5500" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>soundFy</title>
+    <script>
+      // Re-apply the last Material 3 colour scheme before first paint (see src/theme/store.ts).
+      try {
+        var css = localStorage.getItem('soundfy.theme.css');
+        if (css) document.documentElement.setAttribute('style', css);
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

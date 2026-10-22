@@ -1,16 +1,16 @@
-import { Pencil, Upload } from 'lucide-react';
+import { ImagePlus, Pencil, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api } from '../api/client';
 import type { Me, Playlist, Profile, Track } from '../api/types';
 import { Avatar } from '../components/Cover';
+import { FileButton, TextArea, TextField } from '../components/Material';
 import { Modal } from '../components/Modal';
 import { PlaylistGrid } from '../components/PlaylistTile';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { Tabs } from '../components/Tabs';
 import { TrackList } from '../components/TrackCard';
 import { formatCount, formatDate, plural } from '../lib/format';
-import { gradientFor } from '../lib/gradient';
 import { useFetch } from '../lib/useFetch';
 import { usePaged } from '../lib/usePaged';
 import { useAuth } from '../store/auth';
@@ -46,23 +46,14 @@ function EditProfileModal({ onClose, onSaved }: { onClose(): void; onSaved(): vo
   return (
     <Modal title="Редактировать профиль" onClose={onClose}>
       <form className="stack" onSubmit={submit}>
-        <label className="field">
-          <span>Отображаемое имя</span>
-          <input className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required maxLength={60} />
-        </label>
-        <label className="field">
-          <span>О себе</span>
-          <textarea className="input" rows={4} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={1000} />
-        </label>
-        <label className="field">
-          <span>Аватар</span>
-          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setAvatar(e.target.files?.[0] ?? null)} />
-        </label>
+        <TextField label="Отображаемое имя" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required maxLength={60} />
+        <TextArea label="О себе" rows={4} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={1000} />
+        <FileButton label="Выбрать аватар" accept="image/jpeg,image/png,image/webp,image/gif" file={avatar} onChange={setAvatar} icon={<ImagePlus size={18} />} />
         <div className="form-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
+          <button type="button" className="btn btn-text" onClick={onClose}>
             Отмена
           </button>
-          <button className="btn btn-primary" disabled={busy}>
+          <button className="btn btn-filled" disabled={busy}>
             Сохранить
           </button>
         </div>
@@ -82,7 +73,7 @@ function TrackTab({ path, empty }: { path: string; empty: React.ReactNode }) {
       <TrackList tracks={list.items} />
       {list.loading && <Loading />}
       {list.hasMore && !list.loading && (
-        <button className="btn btn-outline btn-block" onClick={list.loadMore}>
+        <button className="btn btn-outlined btn-block" onClick={list.loadMore}>
           Показать ещё
         </button>
       )}
@@ -117,12 +108,13 @@ export function ProfilePage() {
 
   return (
     <>
-      <section className="profile-hero" style={{ background: gradientFor(p.username) }}>
+      <section className="profile-hero">
         <div className="profile-hero-inner">
           <Avatar url={p.avatarUrl} name={p.displayName} size={180} />
           <div className="profile-hero-text">
-            <h1 className="hero-label hero-title">{p.displayName}</h1>
-            <span className="hero-label">@{p.username}</span>
+            <span className="label-large">Профиль</span>
+            <h1 className="hero-title">{p.displayName}</h1>
+            <span className="body-large">@{p.username}</span>
           </div>
         </div>
       </section>
@@ -139,15 +131,15 @@ export function ProfilePage() {
           />
           <div className="row-gap">
             {p.isMe ? (
-              <button className="btn btn-outline" onClick={() => setEditing(true)}>
+              <button className="btn btn-outlined" onClick={() => setEditing(true)}>
                 <Pencil size={15} /> Редактировать
               </button>
             ) : me ? (
-              <button className={`btn ${p.isFollowing ? 'btn-outline' : 'btn-primary'}`} onClick={toggleFollow} disabled={busy}>
+              <button className={`btn ${p.isFollowing ? 'btn-outlined' : 'btn-filled'}`} onClick={toggleFollow} disabled={busy}>
                 {p.isFollowing ? 'Вы подписаны' : 'Подписаться'}
               </button>
             ) : (
-              <Link to="/login" className="btn btn-primary">
+              <Link to="/login" className="btn btn-filled">
                 Подписаться
               </Link>
             )}
@@ -161,7 +153,7 @@ export function ProfilePage() {
                 empty={
                   <Empty title={p.isMe ? 'Вы ещё ничего не загрузили' : 'Треков пока нет'}>
                     {p.isMe && (
-                      <Link to="/upload" className="btn btn-primary">
+                      <Link to="/upload" className="btn btn-filled">
                         <Upload size={16} /> Загрузить первый трек
                       </Link>
                     )}

@@ -1,9 +1,10 @@
-import { Info, MessageCircle, Pencil, Play, Trash2 } from 'lucide-react';
+import { ImagePlus, Info, MessageCircle, Pencil, Play, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api } from '../api/client';
 import type { Comment, Track } from '../api/types';
 import { Avatar, Cover } from '../components/Cover';
+import { FileButton, TextArea, TextField } from '../components/Material';
 import { Modal } from '../components/Modal';
 import { PlayButton } from '../components/PlayButton';
 import { ServiceBadge } from '../components/ServiceBadge';
@@ -51,36 +52,21 @@ function EditTrackModal({ track, onClose, onSaved }: { track: Track; onClose(): 
   return (
     <Modal title="Редактировать трек" onClose={onClose}>
       <form className="stack" onSubmit={submit}>
-        <label className="field">
-          <span>Название</span>
-          <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required maxLength={200} />
-        </label>
-        <label className="field">
-          <span>Исполнитель</span>
-          <input className="input" value={form.artist} onChange={(e) => setForm({ ...form, artist: e.target.value })} maxLength={200} />
-        </label>
-        <label className="field">
-          <span>Жанр</span>
-          <input className="input" list="edit-genres" value={form.genre} onChange={(e) => setForm({ ...form, genre: e.target.value })} maxLength={50} />
-          <datalist id="edit-genres">
-            {GENRES.map((g) => (
-              <option key={g} value={g} />
-            ))}
-          </datalist>
-        </label>
-        <label className="field">
-          <span>Описание</span>
-          <textarea className="input" rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={5000} />
-        </label>
-        <label className="field">
-          <span>Новая обложка</span>
-          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setCover(e.target.files?.[0] ?? null)} />
-        </label>
+        <TextField label="Название" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required maxLength={200} />
+        <TextField label="Исполнитель" value={form.artist} onChange={(e) => setForm({ ...form, artist: e.target.value })} maxLength={200} />
+        <TextField label="Жанр" list="edit-genres" value={form.genre} onChange={(e) => setForm({ ...form, genre: e.target.value })} maxLength={50} />
+        <datalist id="edit-genres">
+          {GENRES.map((g) => (
+            <option key={g} value={g} />
+          ))}
+        </datalist>
+        <TextArea label="Описание" rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={5000} />
+        <FileButton label="Заменить обложку" accept="image/jpeg,image/png,image/webp,image/gif" file={cover} onChange={setCover} icon={<ImagePlus size={18} />} />
         <div className="form-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
+          <button type="button" className="btn btn-text" onClick={onClose}>
             Отмена
           </button>
-          <button className="btn btn-primary" disabled={busy}>
+          <button className="btn btn-filled" disabled={busy}>
             Сохранить
           </button>
         </div>
@@ -127,14 +113,13 @@ function Comments({ track, comments, setComments }: { track: Track; comments: Co
       {user ? (
         <form className="comment-form" onSubmit={submit}>
           <Avatar url={user.avatarUrl} name={user.displayName} size={40} />
-          <input
-            className="input"
+          <TextField
+            label={at !== null ? `Комментарий на ${formatTime(at)}` : 'Комментарий'}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             maxLength={500}
-            placeholder={at !== null ? `Комментарий на ${formatTime(at)}…` : 'Напишите комментарий…'}
           />
-          <button className="btn btn-primary" disabled={busy || !body.trim()}>
+          <button className="btn btn-filled" disabled={busy || !body.trim()}>
             Отправить
           </button>
         </form>
@@ -169,7 +154,7 @@ function Comments({ track, comments, setComments }: { track: Track; comments: Co
           </div>
           {c.canDelete && (
             <button className="icon-btn" onClick={() => remove(c)} title="Удалить комментарий">
-              <Trash2 size={15} />
+              <Trash2 size={18} />
             </button>
           )}
         </div>
@@ -224,10 +209,8 @@ export function TrackPage() {
             <div className="track-hero-head">
               <PlayButton track={t} queue={related.data ? [t, ...related.data] : undefined} size={62} />
               <div className="track-hero-titles">
-                <span className="hero-label">
-                  <TrackByline track={t} />
-                </span>
-                <h1 className="hero-label hero-title">{t.title}</h1>
+                <TrackByline track={t} />
+                <h1 className="hero-title">{t.title}</h1>
               </div>
               <div className="track-hero-meta">
                 <span>{timeAgo(t.releasedAt ?? t.createdAt)}</span>
@@ -260,10 +243,10 @@ export function TrackPage() {
               {isOwner && (
                 <div className="track-actions">
                   <button className="action-btn" onClick={() => setEditing(true)}>
-                    <Pencil size={15} /> <span>Изменить</span>
+                    <Pencil size={18} /> <span>Изменить</span>
                   </button>
                   <button className="action-btn action-btn-danger" onClick={remove}>
-                    <Trash2 size={15} /> <span>Удалить</span>
+                    <Trash2 size={18} /> <span>Удалить</span>
                   </button>
                 </div>
               )}

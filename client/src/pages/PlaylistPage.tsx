@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { api } from '../api/client';
 import type { Playlist, PlaylistDetail } from '../api/types';
 import { Avatar, Cover } from '../components/Cover';
+import { Switch, TextArea, TextField } from '../components/Material';
 import { Modal } from '../components/Modal';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { TrackRow } from '../components/TrackRow';
@@ -29,19 +30,11 @@ function EditPlaylistModal({ playlist, onClose, onSaved }: { playlist: Playlist;
   return (
     <Modal title="Редактировать плейлист" onClose={onClose}>
       <form className="stack" onSubmit={submit}>
-        <label className="field">
-          <span>Название</span>
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={100} />
-        </label>
-        <label className="field">
-          <span>Описание</span>
-          <textarea className="input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
-        </label>
-        <label className="checkbox">
-          <input type="checkbox" checked={!isPublic} onChange={(e) => setIsPublic(!e.target.checked)} /> Приватный плейлист
-        </label>
+        <TextField label="Название" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={100} />
+        <TextArea label="Описание" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
+        <Switch checked={!isPublic} onChange={(v) => setIsPublic(!v)} label="Приватный плейлист" description="Виден только вам" />
         <div className="form-actions">
-          <button className="btn btn-primary">Сохранить</button>
+          <button className="btn btn-filled">Сохранить</button>
         </div>
       </form>
     </Modal>
@@ -105,18 +98,18 @@ export function PlaylistPage() {
           </span>
           {data.description && <p className="description">{data.description}</p>}
           <div className="row-gap">
-            <button className="btn btn-primary" onClick={() => playAll()} disabled={!data.tracks.length}>
+            <button className="btn btn-filled" onClick={() => playAll()} disabled={!data.tracks.length}>
               <Play size={16} fill="currentColor" /> Слушать
             </button>
-            <button className="btn btn-outline" onClick={() => playAll(true)} disabled={!data.tracks.length}>
+            <button className="btn btn-outlined" onClick={() => playAll(true)} disabled={!data.tracks.length}>
               <Shuffle size={16} /> Перемешать
             </button>
             {isOwner && (
               <>
-                <button className="btn btn-ghost" onClick={() => setEditing(true)}>
+                <button className="btn btn-text" onClick={() => setEditing(true)}>
                   <Pencil size={15} /> Изменить
                 </button>
-                <button className="btn btn-ghost btn-danger" onClick={remove}>
+                <button className="btn btn-text btn-danger" onClick={remove}>
                   <Trash2 size={15} /> Удалить
                 </button>
               </>

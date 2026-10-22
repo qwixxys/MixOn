@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
-import { Header } from './components/Header';
+import { NavBar, NavRail, TopAppBar } from './components/Header';
 import { PlayerBar } from './components/PlayerBar';
 import { PlaylistPicker } from './components/PlaylistPicker';
 import { Loading } from './components/States';
@@ -44,7 +44,8 @@ export function App() {
 
   return (
     <div className={`app ${hasPlayer ? 'has-player' : ''}`}>
-      <Header />
+      <NavRail />
+      <TopAppBar />
       <main className="main">
         {!ready ? (
           <Loading />
@@ -81,6 +82,7 @@ export function App() {
         )}
       </main>
       <PlayerBar />
+      <NavBar />
       <PlaylistPicker />
       <Toaster />
     </div>

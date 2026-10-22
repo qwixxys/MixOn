@@ -38,7 +38,7 @@ export function SuggestedUsers() {
               {u.tracks !== undefined && ` · ${u.tracks} ${plural(u.tracks, ['трек', 'трека', 'треков'])}`}
             </span>
           </div>
-          <button className="btn btn-small btn-outline" disabled={followed.includes(u.id)} onClick={() => follow(u)}>
+          <button className="btn btn-small btn-outlined" disabled={followed.includes(u.id)} onClick={() => follow(u)}>
             {followed.includes(u.id) ? 'Вы подписаны' : 'Подписаться'}
           </button>
         </div>

@@ -11,6 +11,8 @@ import type { MusicProvider } from '../providers/index.js';
 
 /** How long a started OAuth login may take before its state expires. */
 const OAUTH_TTL_MS = 10 * 60_000;
+/** Bounds memory used by abandoned logins; the oldest are dropped first. */
+const MAX_PENDING_LOGINS = 1000;
 
 const connectSchema = z.object({ accessToken: z.string().trim().min(10, 'вставьте токен').max(2000) });
 const httpUrl = z
@@ -136,7 +138,9 @@ export function serviceRoutes(ctx: AppContext) {
     if (provider.connectMode !== 'oauth' || !provider.oauth) throw badRequest(`${provider.name} не поддерживает вход через OAuth`);
     if (!provider.isConfigured()) throw badRequest(`${provider.name} не настроен на сервере`);
 
-    for (const [key, login] of pendingLogins) if (login.expires < Date.now()) pendingLogins.delete(key);
+    for (const [key, login] of pendingLogins) {
+      if (login.expires < Date.now() || pendingLogins.size > MAX_PENDING_LOGINS) pendingLogins.delete(key);
+    }
     const state = crypto.randomBytes(24).toString('base64url');
     const verifier = crypto.randomBytes(48).toString('base64url');
     const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');

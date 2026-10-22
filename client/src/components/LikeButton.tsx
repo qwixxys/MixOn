@@ -23,7 +23,7 @@ export function LikeButton({ track, showCount = true, small = false }: { track: 
       title={liked ? 'Убрать из понравившихся' : 'Нравится'}
       aria-pressed={liked}
     >
-      <Heart size={small ? 14 : 15} fill={liked ? 'currentColor' : 'none'} />
+      <Heart size={small ? 20 : 18} fill={liked ? 'currentColor' : 'none'} />
       {showCount && <span>{likeCount ? formatCount(likeCount) : small ? '' : 'Нравится'}</span>}
     </button>
   );
