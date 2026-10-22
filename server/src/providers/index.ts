@@ -9,6 +9,7 @@ import { SoundCloudProvider } from './soundcloud.js';
 import { SoundCloudWebProvider } from './soundcloudWeb.js';
 import type { MusicProvider } from './types.js';
 import { VkProvider } from './vk.js';
+import { YouTubeProvider } from './youtube.js';
 
 export * from './types.js';
 
@@ -60,5 +61,6 @@ export function createProviders(config: AppConfig, store?: KeyValueStore, fetchI
     new DeezerProvider(fetchImpl),
     new ItunesProvider(config.itunes.country, fetchImpl),
     new JamendoProvider(config.jamendo.clientId, fetchImpl),
+    new YouTubeProvider(config.youtube.apiKey, fetchImpl),
   ]);
 }

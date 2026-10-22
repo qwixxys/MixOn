@@ -1,4 +1,4 @@
-export type ProviderId = 'vk' | 'deezer' | 'itunes' | 'jamendo' | 'soundcloud';
+export type ProviderId = 'vk' | 'deezer' | 'itunes' | 'jamendo' | 'soundcloud' | 'youtube';
 
 export interface ExternalArtist {
   externalId: string;
@@ -29,7 +29,8 @@ export interface ExternalTrack {
 
 export interface StreamSource {
   url: string;
-  kind: 'direct' | 'hls';
+  /** "youtube": a YouTube video (watch URL) that may only be played in YouTube's embedded player. */
+  kind: 'direct' | 'hls' | 'youtube';
 }
 
 export interface ArtistRef {
@@ -133,6 +134,6 @@ export function signedUrlExpiry(url: string): number | null {
   return value && Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
 }
 
-export function streamKind(url: string): StreamSource['kind'] {
+export function streamKind(url: string): 'direct' | 'hls' {
   return /\.m3u8(\?|$)/i.test(url) ? 'hls' : 'direct';
 }

@@ -135,7 +135,8 @@ function createWindow(url) {
     return { action: 'deny' };
   });
   const leave = (event, target) => {
-    if (sameOrigin(target, origin)) return;
+    // will-redirect also fires inside frames (YouTube's player); only the page itself is kept in the app.
+    if (event.isMainFrame === false || sameOrigin(target, origin)) return;
     event.preventDefault();
     if (OAUTH_HOSTS.has(new URL(target).hostname)) openLoginWindow(target, origin);
     else if (isWebUrl(target)) shell.openExternal(target);

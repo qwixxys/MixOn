@@ -15,6 +15,7 @@ export const SERVICE_KEYS = [
   { name: 'SOUNDCLOUD_PUBLIC_CLIENT', service: 'soundcloud', label: 'Режим без ключей (неофициальный)', secret: false, flag: true },
   { name: 'GENIUS_ACCESS_TOKEN', service: 'genius', label: 'Client access token', secret: true, flag: false },
   { name: 'JAMENDO_CLIENT_ID', service: 'jamendo', label: 'Client ID', secret: false, flag: false },
+  { name: 'YOUTUBE_API_KEY', service: 'youtube', label: 'Ключ API', secret: true, flag: false },
 ] as const;
 
 export type ServiceKeyName = (typeof SERVICE_KEYS)[number]['name'];
@@ -95,6 +96,7 @@ export class ServiceSettings {
     config.soundcloud.publicClient = isFlagOn(this.value('SOUNDCLOUD_PUBLIC_CLIENT'));
     config.genius.accessToken = this.value('GENIUS_ACCESS_TOKEN');
     config.jamendo.clientId = this.value('JAMENDO_CLIENT_ID');
+    config.youtube.apiKey = this.value('YOUTUBE_API_KEY');
   }
 
   /**

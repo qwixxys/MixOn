@@ -46,6 +46,7 @@ function standaloneConfig(): AppConfig {
     vk: { accessToken: null, apiVersion: '5.131', userAgent: VK_USER_AGENT, relayStreams: false },
     soundcloud: { clientId: null, clientSecret: null, publicClient: false },
     genius: { accessToken: null },
+    youtube: { apiKey: null },
     lrclib: { baseUrl: 'https://lrclib.net', userAgent: `soundFy v${version} (https://github.com/qwixxys/soundFy)` },
   };
 }

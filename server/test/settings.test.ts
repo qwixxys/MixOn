@@ -40,6 +40,7 @@ describe('service keys entered in the app', () => {
         ['SOUNDCLOUD_PUBLIC_CLIENT', null],
         ['GENIUS_ACCESS_TOKEN', null],
         ['JAMENDO_CLIENT_ID', null],
+        ['YOUTUBE_API_KEY', null],
       ],
     );
   });

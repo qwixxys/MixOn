@@ -36,6 +36,8 @@ export interface AppConfig {
   /** `publicClient` allows the unofficial keyless mode when no official keys are set. */
   soundcloud: { clientId: string | null; clientSecret: string | null; publicClient: boolean };
   genius: { accessToken: string | null };
+  /** YouTube Data API v3 key (Google Cloud), for YouTube Music. */
+  youtube: { apiKey: string | null };
   /** LRCLIB base URL for synced lyrics, or null when turned off. */
   lrclib: { baseUrl: string | null; userAgent: string };
 }
@@ -85,9 +87,10 @@ export function loadConfig(): AppConfig {
       publicClient: ['1', 'true', 'yes', 'on'].includes((process.env.SOUNDCLOUD_PUBLIC_CLIENT ?? '').toLowerCase()),
     },
     genius: { accessToken: process.env.GENIUS_ACCESS_TOKEN || null },
+    youtube: { apiKey: process.env.YOUTUBE_API_KEY || null },
     lrclib: {
       baseUrl: lrclibUrl(process.env.LRCLIB_URL),
-      userAgent: 'soundFy v0.3.1 (https://github.com/qwixxys/soundFy)',
+      userAgent: 'soundFy v0.4.0 (https://github.com/qwixxys/soundFy)',
     },
   };
 }

@@ -13,6 +13,7 @@ import { ErrorState, Loading } from './States';
 const EXAMPLES: Record<string, string> = {
   deezer: 'deezer.com/playlist/… или /album/…',
   soundcloud: 'soundcloud.com/автор/sets/…',
+  youtube: 'music.youtube.com/playlist?list=…',
 };
 
 /**
@@ -79,7 +80,7 @@ export function ImportLinkForm({ services, onDone }: { services: Service[]; onDo
         </button>
       </div>
       <span className="muted small">
-        Работает с открытыми плейлистами {sources.map((s) => s.name).join(' и ')}, ключи и вход в эти сервисы не нужны.
+        Работает с открытыми плейлистами {sources.map((s) => s.name).join(', ')}, входить в эти сервисы не нужно.
         {previews.length > 0 && ` Треки ${previews.join(' и ')} доступны как 30-секундные превью.`}
       </span>
     </form>

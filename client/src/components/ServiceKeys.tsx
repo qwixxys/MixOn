@@ -70,6 +70,23 @@ function guides(origin: string): Record<string, Guide> {
         <>Нажмите Generate Access Token и вставьте Client Access Token ниже.</>,
       ],
     },
+    youtube: {
+      title: 'YouTube Music',
+      what: 'Релизы и клипы артистов с YouTube и YouTube Music, импорт плейлистов по ссылке. Видео играют во встроенном плеере YouTube.',
+      steps: [
+        <>
+          Откройте {link('https://console.cloud.google.com/apis/library/youtube.googleapis.com', 'YouTube Data API v3 в Google Cloud')}, войдите в
+          аккаунт Google, создайте проект (Create project) и нажмите Enable.
+        </>,
+        <>
+          Откройте {link('https://console.cloud.google.com/apis/credentials', 'Credentials')} → Create credentials → API key и вставьте ключ ниже.
+        </>,
+        <>
+          Ключ бесплатный. Его дневной квоты хватает примерно на 100 поисков артистов, а проверка новых релизов и импорт плейлистов
+          почти её не тратят.
+        </>,
+      ],
+    },
     jamendo: {
       title: 'Jamendo',
       what: 'Полные треки независимых артистов под лицензией Creative Commons.',

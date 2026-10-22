@@ -76,6 +76,8 @@ public class MainActivity extends BridgeActivity {
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            // Frames inside a page (YouTube's player, the Genius widget) load where they are.
+            if (!request.isForMainFrame()) return false;
             Uri target = request.getUrl();
             String scheme = target.getScheme();
             Uri app = appUri();

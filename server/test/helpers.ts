@@ -99,6 +99,7 @@ export function testConfig(): AppConfig {
     vk: { accessToken: null, apiVersion: '5.131', userAgent: 'test', relayStreams: true },
     soundcloud: { clientId: null, clientSecret: null, publicClient: false },
     genius: { accessToken: null },
+    youtube: { apiKey: null },
     lrclib: { baseUrl: null, userAgent: 'soundFy-test' },
   };
 }

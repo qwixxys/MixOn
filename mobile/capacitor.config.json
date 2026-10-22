@@ -8,6 +8,6 @@
   },
   "android": {
     "allowMixedContent": true,
-    "appendUserAgent": "soundFyApp/0.3"
+    "appendUserAgent": "soundFyApp/0.4"
   }
 }

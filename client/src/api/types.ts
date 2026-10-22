@@ -171,7 +171,8 @@ export interface SyncSummary {
 }
 
 export interface StreamSource {
-  kind: 'direct' | 'hls';
+  /** "youtube": a YouTube watch URL, played in YouTube's embedded player (store/youtube.ts). */
+  kind: 'direct' | 'hls' | 'youtube';
   url: string;
 }
 
