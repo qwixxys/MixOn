@@ -78,7 +78,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: mobile/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -87,13 +89,18 @@ jobs:
           cache-dependency-path: |
             mobile/android/**/*.gradle*
             mobile/android/gradle/wrapper/gradle-wrapper.properties
+      # The APK carries the whole app, server included, so it works on the phone without a computer.
+      - name: Build the app for the phone
+        run: |
+          npm ci
+          npm run build:standalone -w client
       - name: Prepare the Android project
         working-directory: mobile
         run: |
           npm ci
           npx cap sync android
-      # With the four ANDROID_* secrets set, the APK is signed with your own key and can be updated in place.
-      # Without them a debug-signed APK is built: it installs fine, but each update may need a reinstall.
+      # With the four ANDROID_* secrets set, the APK is signed with your own key. Without them a debug build is made,
+      # signed with the public key from the repository (mobile/android/app/debug.keystore); it updates in place too.
       - name: Signing key
         id: key
         env:
@@ -172,7 +179,7 @@ jobs:
           body: |
             **Windows:** `soundFy-Setup-*.exe` — установщик. SmartScreen может предупредить, что издатель неизвестен: «Подробнее» → «Выполнить в любом случае».
             **Linux:** `*.AppImage` — сделайте файл исполняемым (`chmod +x`) и запустите.
-            **Android:** `*.apk` — подключается к вашему серверу soundFy: на компьютере включите «soundFy → Подключить телефон» и введите показанный адрес.
+            **Android:** `*.apk` — работает на телефоне сам, без компьютера: поиск и прослушивание Deezer, Apple Music, SoundCloud и Jamendo, подписки на артистов, лайки, плейлисты и тексты песен хранятся на телефоне. Можно и подключиться к серверу soundFy: меню профиля → «Подключиться к серверу».
 
             Подробности — в README, раздел «Готовые приложения».
           generate_release_notes: true

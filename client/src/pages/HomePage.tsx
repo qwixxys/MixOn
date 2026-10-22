@@ -8,6 +8,7 @@ import { SegmentedButtons } from '../components/Material';
 import { TrackList } from '../components/TrackCard';
 import { TrackRow } from '../components/TrackRow';
 import { Empty, ErrorState, Loading } from '../components/States';
+import { STANDALONE } from '../lib/standalone';
 import { useFetch } from '../lib/useFetch';
 import { useListQuery, withQuery } from '../lib/useListQuery';
 import { usePaged } from '../lib/usePaged';
@@ -80,24 +81,33 @@ function Stream() {
       <div className="content">
         <div className="page-header">
           <h1>Лента</h1>
-          <SegmentedButtons
-            label="Что показывать"
-            options={[
-              { id: 'all', label: 'Всё' },
-              { id: 'releases', label: 'Релизы' },
-              { id: 'uploads', label: 'Загрузки' },
-            ]}
-            value={type}
-            onChange={setType}
-          />
+          {/* Without uploads the standalone feed holds only releases. */}
+          {!STANDALONE && (
+            <SegmentedButtons
+              label="Что показывать"
+              options={[
+                { id: 'all', label: 'Всё' },
+                { id: 'releases', label: 'Релизы' },
+                { id: 'uploads', label: 'Загрузки' },
+              ]}
+              value={type}
+              onChange={setType}
+            />
+          )}
         </div>
         <GenreBar scope={`feed:${type}`} genre={list.genre} sort={list.sort} onChange={list.update} />
         {feed.error && <ErrorState message={feed.error} onRetry={feed.reload} />}
         {!feed.loading && !feed.error && !feed.items.length && (
           <Empty icon={<Icon name="hub" size={32} />} title="Лента пока пуста">
             <p>
-              Подпишитесь на любимых артистов в разделе <Link to="/sync">«Сервисы»</Link> — их новые треки из SoundCloud, ВК Музыки,
-              Deezer и других сервисов будут появляться здесь. Или подпишитесь на авторов в <Link to="/discover">«Обзоре»</Link>.
+              Подпишитесь на любимых артистов в разделе <Link to="/sync">«Сервисы»</Link> — их новые треки из SoundCloud,{' '}
+              {STANDALONE ? '' : 'ВК Музыки, '}Deezer и других сервисов будут появляться здесь.
+              {!STANDALONE && (
+                <>
+                  {' '}
+                  Или подпишитесь на авторов в <Link to="/discover">«Обзоре»</Link>.
+                </>
+              )}
             </p>
             <div className="row-gap">
               <Link to="/sync" className="btn btn-filled">

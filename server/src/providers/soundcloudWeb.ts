@@ -222,17 +222,6 @@ export class SoundCloudWebProvider implements MusicProvider {
     }
   }
 
-  private async collect<T>(path: string, max: number): Promise<T[]> {
-    const items: T[] = [];
-    let next: string | null | undefined = path;
-    while (next && items.length < max) {
-      const page: ScWebPage<T> = await this.get<ScWebPage<T>>(next);
-      items.push(...page.collection);
-      next = page.next_href;
-    }
-    return items.slice(0, max);
-  }
-
   private mapTracks(tracks: ScWebTrack[]): ExternalTrack[] {
     return tracks.filter(isListenable).map((t) => mapScTrack(t, isSnippet(t)));
   }

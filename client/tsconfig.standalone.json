@@ -1,0 +1,10 @@
+{
+  // The standalone Android build: the client plus the server's code, which needs Node's types (see src/standalone).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"],
+    "resolveJsonModule": true
+  },
+  "include": ["src"],
+  "exclude": []
+}

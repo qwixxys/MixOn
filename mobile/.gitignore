@@ -1,1 +1,3 @@
 node_modules/
+# Built by `npm run build:standalone -w client` (the app) from ../client and public/ (connect.html).
+www/

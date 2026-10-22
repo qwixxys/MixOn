@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 import type { Track } from '../api/types';
 import { serviceInfo } from '../lib/services';
+import { STANDALONE } from '../lib/standalone';
 import { useAuth } from '../store/auth';
 import { usePlayer } from '../store/player';
 import { usePlaylistPicker } from '../store/playlistPicker';
@@ -9,7 +10,12 @@ import { LikeButton } from './LikeButton';
 import { Icon } from './Icon';
 
 export async function shareTrack(track: Track) {
-  const url = `${location.origin}/tracks/${track.id}`;
+  // Pages of the standalone app exist only on this phone, so it shares the track's page on its service.
+  const url = STANDALONE ? track.externalUrl : `${location.origin}/tracks/${track.id}`;
+  if (!url) {
+    toast.info('У этого трека нет ссылки');
+    return;
+  }
   try {
     await navigator.clipboard.writeText(url);
     toast.success('Ссылка скопирована');

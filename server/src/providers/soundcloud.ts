@@ -198,7 +198,7 @@ export class SoundCloudProvider implements MusicProvider {
       accept: 'application/json; charset=utf-8',
     };
     if (params.grant_type === 'client_credentials') {
-      headers.authorization = `Basic ${Buffer.from(`${this.options.clientId}:${this.options.clientSecret}`).toString('base64')}`;
+      headers.authorization = `Basic ${btoa(`${this.options.clientId}:${this.options.clientSecret}`)}`;
     }
     const res = await fetchJson<ScTokenResponse>(this.fetchImpl, this.id, `${AUTH}/oauth/token`, {
       method: 'POST',

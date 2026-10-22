@@ -98,6 +98,10 @@
       .primary:disabled {
         opacity: 0.6;
       }
+      .tonal {
+        background: var(--surface);
+        color: var(--text);
+      }
       .status {
         min-height: 24px;
         font-size: 14px;
@@ -145,7 +149,10 @@
         </g>
       </svg>
       <h1>soundFy</h1>
-      <p>Подключитесь к своему серверу soundFy, чтобы слушать музыку, плейлисты и новые релизы артистов.</p>
+      <p>
+        Подключитесь к своему серверу soundFy — например, к приложению на компьютере, — чтобы слушать общую библиотеку,
+        свои загрузки и музыку с ВКонтакте. Без сервера soundFy работает прямо на телефоне.
+      </p>
 
       <form id="form">
         <label>
@@ -155,6 +162,7 @@
       </form>
       <button id="connect" class="primary" type="submit" form="form">Подключиться</button>
       <div id="status" class="status" role="status" aria-live="polite"></div>
+      <button id="phone" class="tonal" type="button">Музыка на телефоне, без сервера</button>
 
       <div id="recent" class="recent" hidden></div>
 
@@ -168,6 +176,8 @@
     <script>
       const SERVER_KEY = 'soundfy.server';
       const RECENT_KEY = 'soundfy.servers';
+      // "server" while the app should open the server at start; the app's own page (index.html) reads it too.
+      const MODE_KEY = 'soundfy.mode';
       const form = document.getElementById('form');
       const input = document.getElementById('address');
       const button = document.getElementById('connect');
@@ -306,10 +316,16 @@
 
       function open(base) {
         store(SERVER_KEY, base);
+        store(MODE_KEY, 'server');
         store(RECENT_KEY, [base, ...read(RECENT_KEY, []).filter((b) => b !== base)].slice(0, 5));
         // Replace this page in history so Back on the server's first page leaves the app instead of coming here.
         location.replace(`${base}/`);
       }
+
+      document.getElementById('phone').addEventListener('click', () => {
+        store(MODE_KEY, 'phone');
+        location.replace('/');
+      });
 
       form.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -322,7 +338,7 @@
       if (saved) input.value = saved;
       // The app comes back here when the server's page failed to load; don't loop into it again.
       if (params.has('failed') && saved) setStatus(`Не удалось открыть ${saved}. Проверьте, что сервер работает, и подключитесь снова.`, true);
-      else if (saved && !params.has('change')) connect(saved);
+      else if (saved && read(MODE_KEY, null) === 'server' && !params.has('change')) connect(saved);
     </script>
   </body>
 </html>

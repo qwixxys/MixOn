@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { changeServer, inAndroidApp } from '../lib/androidApp';
+import { STANDALONE } from '../lib/standalone';
 import { useDismiss } from '../lib/useDismiss';
 import { useAuth } from '../store/auth';
 import { useLikes } from '../store/likes';
@@ -66,9 +67,11 @@ export function NavRail() {
       <Link to="/" className="rail-logo" aria-label="soundFy — на главную">
         <LogoMark size={44} />
       </Link>
-      <Link to={user ? '/upload' : '/login?next=/upload'} className="fab" title="Загрузить трек" aria-label="Загрузить трек">
-        <Icon name="upload" size={24} />
-      </Link>
+      {!STANDALONE && (
+        <Link to={user ? '/upload' : '/login?next=/upload'} className="fab" title="Загрузить трек" aria-label="Загрузить трек">
+          <Icon name="upload" size={24} />
+        </Link>
+      )}
       <div className="rail-destinations">
         <Destinations />
       </div>
@@ -141,20 +144,23 @@ function UserMenu({ onAppearance }: { onAppearance(): void }) {
           </button>
           {inAndroidApp && (
             <button className="menu-item" role="menuitem" onClick={changeServer}>
-              <Icon name="link" size={24} /> Сменить сервер
+              <Icon name="link" size={24} /> {STANDALONE ? 'Подключиться к серверу' : 'Сменить сервер'}
             </button>
           )}
-          <button
-            className="menu-item"
-            role="menuitem"
-            onClick={() => {
-              logout();
-              resetLikes();
-              navigate('/');
-            }}
-          >
-            <Icon name="logout" size={24} /> Выйти
-          </button>
+          {/* The standalone app has one account on the device, which stays signed in. */}
+          {!STANDALONE && (
+            <button
+              className="menu-item"
+              role="menuitem"
+              onClick={() => {
+                logout();
+                resetLikes();
+                navigate('/');
+              }}
+            >
+              <Icon name="logout" size={24} /> Выйти
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -188,9 +194,11 @@ export function TopAppBar() {
           </button>
           {user ? (
             <>
-              <Link to="/upload" className="icon-btn topbar-compact-only" aria-label="Загрузить трек" title="Загрузить трек">
-                <Icon name="upload" size={24} />
-              </Link>
+              {!STANDALONE && (
+                <Link to="/upload" className="icon-btn topbar-compact-only" aria-label="Загрузить трек" title="Загрузить трек">
+                  <Icon name="upload" size={24} />
+                </Link>
+              )}
               <NotificationsMenu />
               <UserMenu onAppearance={() => setAppearance(true)} />
             </>

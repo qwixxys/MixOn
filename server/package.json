@@ -1,6 +1,6 @@
 {
   "name": "@soundfy/server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -9,7 +9,8 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "test": "node --import tsx --test --test-reporter=spec \"test/**/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:sqljs": "node --import tsx --import ./test/sqljs/register.mjs --test --test-reporter=spec \"test/**/*.test.ts\""
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

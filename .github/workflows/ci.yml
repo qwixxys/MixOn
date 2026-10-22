@@ -16,4 +16,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # The same tests on the SQLite build the standalone Android app uses (sql.js).
+      - run: npm run test:sqljs -w server
       - run: npm run build
+      - run: npm run build:standalone -w client

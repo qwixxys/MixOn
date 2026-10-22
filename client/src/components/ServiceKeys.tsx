@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../api/client';
 import type { ServiceKeyInfo } from '../api/types';
+import { STANDALONE } from '../lib/standalone';
 import { useFetch } from '../lib/useFetch';
 import { toast } from '../store/toasts';
 import { Icon } from './Icon';
@@ -46,10 +47,18 @@ function guides(origin: string): Record<string, Guide> {
       what: 'Поиск авторов, их новые треки, полное прослушивание, плейлисты по ссылке, вход через SoundCloud для импорта лайков и подписок.',
       steps: [
         <>Откройте {link('https://soundcloud.com/you/apps', 'soundcloud.com/you/apps')} и зарегистрируйте приложение (Register a new application). SoundCloud может проверять заявки вручную.</>,
-        <>
-          В поле Redirect URI укажите этот адрес: <CopyValue value={`${origin}/api/services/soundcloud/oauth/callback`} />
-        </>,
-        <>Скопируйте Client ID и Client Secret в поля ниже. Входить через SoundCloud нужно с этого же адреса, то есть на этом компьютере.</>,
+        STANDALONE ? (
+          <>В поле Redirect URI можно указать любой адрес, например http://localhost/callback: на телефоне он не используется.</>
+        ) : (
+          <>
+            В поле Redirect URI укажите этот адрес: <CopyValue value={`${origin}/api/services/soundcloud/oauth/callback`} />
+          </>
+        ),
+        STANDALONE ? (
+          <>Скопируйте Client ID и Client Secret в поля ниже.</>
+        ) : (
+          <>Скопируйте Client ID и Client Secret в поля ниже. Входить через SoundCloud нужно с этого же адреса, то есть на этом компьютере.</>
+        ),
       ],
     },
     genius: {
@@ -57,7 +66,7 @@ function guides(origin: string): Record<string, Guide> {
       what: 'Авторы и продюсеры песен, описание, сэмплы и виджет с текстом, если текста нет в LRCLIB.',
       steps: [
         <>Откройте {link('https://genius.com/api-clients', 'genius.com/api-clients')} и войдите в аккаунт Genius.</>,
-        <>Нажмите New API Client. Название любое, в App Website URL можно указать адрес этого сервера.</>,
+        <>Нажмите New API Client. Название любое, в App Website URL можно указать {STANDALONE ? 'любой сайт' : 'адрес этого сервера'}.</>,
         <>Нажмите Generate Access Token и вставьте Client Access Token ниже.</>,
       ],
     },
@@ -181,11 +190,18 @@ export function ServiceKeys({ onSaved }: { onSaved(): void }) {
   return (
     <section className="section" id="keys">
       <h2>Ключи сервисов</h2>
-      <p className="muted">
-        Эти сервисы работают только с вашими ключами API. Ключи хранятся на этом сервере, видны только вам как владельцу и сразу
-        включают сервис, перезапуск не нужен. Deezer, Apple Music, LRCLIB и импорт по ссылке работают без ключей, а ВКонтакте
-        каждый подключает своим токеном в карточке выше.
-      </p>
+      {STANDALONE ? (
+        <p className="muted">
+          Эти сервисы работают только с вашими ключами API. Ключи хранятся на телефоне и сразу включают сервис. Deezer, Apple
+          Music, LRCLIB и импорт по ссылке работают без ключей.
+        </p>
+      ) : (
+        <p className="muted">
+          Эти сервисы работают только с вашими ключами API. Ключи хранятся на этом сервере, видны только вам как владельцу и
+          сразу включают сервис, перезапуск не нужен. Deezer, Apple Music, LRCLIB и импорт по ссылке работают без ключей, а
+          ВКонтакте каждый подключает своим токеном в карточке выше.
+        </p>
+      )}
       {keys.loading && !keys.data && <Loading />}
       {keys.error && <ErrorState message={keys.error} onRetry={keys.reload} />}
       {keys.data && (

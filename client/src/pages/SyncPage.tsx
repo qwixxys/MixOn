@@ -12,6 +12,7 @@ import { runSync } from '../components/SyncWidget';
 import { Tabs } from '../components/Tabs';
 import { plural, timeAgo } from '../lib/format';
 import { serviceInfo } from '../lib/services';
+import { STANDALONE } from '../lib/standalone';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
@@ -129,7 +130,7 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
           <Icon name="warning" size={18} />
           <span>
             Работает без ключей через внутренний API сайта {service.name}, как его веб-плеер. Сервис не разрешает такое использование и
-            может в любой момент перестать отвечать. Режим включил администратор сервера.
+            может в любой момент перестать отвечать. {STANDALONE ? 'Режим включён в разделе «Ключи сервисов».' : 'Режим включил администратор сервера.'}
           </span>
         </div>
       )}
@@ -174,6 +175,12 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
             <Link to="/login?next=/sync" className="btn btn-outlined btn-small">
               Войдите, чтобы подключить
             </Link>
+          ) : service.connectMode === 'oauth' && STANDALONE ? (
+            // The service sends the listener back to a web address after sign-in, which only a server has.
+            <span className="small muted">
+              Вход через {service.name} для импорта лайков и подписок работает, когда телефон подключён к серверу soundFy. Поиск
+              и прослушивание работают и так.
+            </span>
           ) : service.connectMode === 'oauth' ? (
             <button className="btn btn-filled" onClick={connectOAuth} disabled={busy !== null}>
               <Icon name="login" size={18} /> Войти через {service.name}
@@ -442,8 +449,8 @@ export function SyncPage() {
       <div className="page-header page-header-column">
         <h1>Сервисы и синхронизация</h1>
         <p className="muted">
-          Подпишитесь на артистов в SoundCloud, ВК Музыке, Deezer, Apple Music и Jamendo. soundFy регулярно проверяет их новые треки,
-          добавляет в вашу ленту и присылает уведомления.
+          Подпишитесь на артистов в SoundCloud, {STANDALONE ? '' : 'ВК Музыке, '}Deezer, Apple Music и Jamendo. soundFy регулярно проверяет
+          их новые треки, добавляет в вашу ленту и присылает уведомления.
         </p>
       </div>
       {loading && <Loading />}

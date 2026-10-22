@@ -18,8 +18,17 @@ android {
         }
     }
     // Release builds are signed with the key from the environment (see .github/workflows/apps.yml);
-    // without it only the debug build, signed with a debug key, can be installed.
+    // without it only the debug build can be installed.
     signingConfigs {
+        // Debug builds use a fixed key from the repository, so each new version installs over the previous one and
+        // keeps the listener's data (a fresh key per build would make Android refuse the update). The key is public:
+        // for your own builds set the ANDROID_* secrets to sign release builds with a private key.
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
         release {
             def keystore = System.getenv('ANDROID_KEYSTORE_FILE')
             if (keystore) {

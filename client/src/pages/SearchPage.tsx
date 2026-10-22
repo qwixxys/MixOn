@@ -6,6 +6,7 @@ import { ServiceBadge } from '../components/ServiceBadge';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { TrackList } from '../components/TrackCard';
 import { formatCount, plural } from '../lib/format';
+import { STANDALONE } from '../lib/standalone';
 import { useFetch } from '../lib/useFetch';
 import { Icon } from '../components/Icon';
 
@@ -26,7 +27,7 @@ export function SearchPage() {
         <div className="search-hint">
           <Icon name="hub" size={18} />
           <span>
-            Ищете артиста из SoundCloud, ВК Музыки, Deezer или Apple Music?{' '}
+            Ищете артиста из SoundCloud, {STANDALONE ? '' : 'ВК Музыки, '}Deezer или Apple Music?{' '}
             <Link to={`/sync?q=${encodeURIComponent(q)}`}>Найдите «{q}» в сервисах</Link> и подпишитесь на новые релизы.
           </span>
         </div>

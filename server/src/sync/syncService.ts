@@ -382,7 +382,10 @@ export class SyncService {
         })
         .catch((err) => this.log.error('[sync] failed', err));
     };
-    this.timers.push(setTimeout(run, 15_000).unref(), setInterval(run, intervalMinutes * 60_000).unref());
+    // unref() lets a Node process exit while timers wait; browsers (the standalone app) have no such call.
+    const timers = [setTimeout(run, 15_000), setInterval(run, intervalMinutes * 60_000)];
+    for (const t of timers) (t as { unref?: () => void }).unref?.();
+    this.timers.push(...(timers as NodeJS.Timeout[]));
   }
 
   stop() {

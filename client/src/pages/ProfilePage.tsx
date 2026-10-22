@@ -10,6 +10,7 @@ import { Empty, ErrorState, Loading } from '../components/States';
 import { FilteredTrackList } from '../components/FilteredTrackList';
 import { Tabs } from '../components/Tabs';
 import { formatCount, formatDate, plural } from '../lib/format';
+import { STANDALONE } from '../lib/standalone';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
@@ -47,7 +48,9 @@ function EditProfileModal({ onClose, onSaved }: { onClose(): void; onSaved(): vo
       <form className="stack" onSubmit={submit}>
         <TextField label="Отображаемое имя" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required maxLength={60} />
         <TextArea label="О себе" rows={4} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={1000} />
-        <FileButton label="Выбрать аватар" accept="image/jpeg,image/png,image/webp,image/gif" file={avatar} onChange={setAvatar} icon={<Icon name="add_photo_alternate" size={18} />} />
+        {!STANDALONE && (
+          <FileButton label="Выбрать аватар" accept="image/jpeg,image/png,image/webp,image/gif" file={avatar} onChange={setAvatar} icon={<Icon name="add_photo_alternate" size={18} />} />
+        )}
         <div className="form-actions">
           <button type="button" className="btn btn-text" onClick={onClose}>
             Отмена
@@ -68,7 +71,8 @@ export function ProfilePage() {
   const me = useAuth((s) => s.user);
   const profile = useFetch<Profile>(`/users/${encodeURIComponent(username)}`);
   const playlists = useFetch<Playlist[]>(`/users/${encodeURIComponent(username)}/playlists`);
-  const [tab, setTab] = useState<Tab>('tracks');
+  // The standalone app has no uploads, so its profile opens on likes.
+  const [tab, setTab] = useState<Tab>(STANDALONE ? 'likes' : 'tracks');
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -104,7 +108,7 @@ export function ProfilePage() {
         <div className="profile-bar">
           <Tabs
             tabs={[
-              { id: 'tracks', label: 'Треки', count: p.trackCount },
+              ...(STANDALONE ? [] : [{ id: 'tracks' as const, label: 'Треки', count: p.trackCount }]),
               { id: 'playlists', label: 'Плейлисты', count: playlists.data?.length },
               { id: 'likes', label: 'Лайки', count: p.likeCount },
             ]}

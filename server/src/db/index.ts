@@ -222,9 +222,9 @@ export function migrate(db: DB): void {
   }
 }
 
-export function openDatabase(file: string): DB {
-  const db = new Database(file);
-  if (file !== ':memory:') db.pragma('journal_mode = WAL');
+/** Settings, helper functions and migrations every connection needs (also used by the standalone app's in-browser SQLite). */
+export function prepareDatabase(db: DB, { wal }: { wal: boolean }): DB {
+  if (wal) db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   // SQLite's lower()/LIKE only fold ASCII; this one handles Cyrillic and other scripts.
   db.function('ulower', { deterministic: true }, (value: unknown) =>
@@ -232,4 +232,8 @@ export function openDatabase(file: string): DB {
   );
   migrate(db);
   return db;
+}
+
+export function openDatabase(file: string): DB {
+  return prepareDatabase(new Database(file), { wal: file !== ':memory:' });
 }

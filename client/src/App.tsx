@@ -17,6 +17,7 @@ import { SearchPage } from './pages/SearchPage';
 import { SyncPage } from './pages/SyncPage';
 import { TrackPage } from './pages/TrackPage';
 import { UploadPage } from './pages/UploadPage';
+import { STANDALONE } from './lib/standalone';
 import { usePlayer } from './store/player';
 import { useAuth } from './store/auth';
 
@@ -61,14 +62,17 @@ export function App() {
             <Route path="/playlists/:id" element={<PlaylistPage />} />
             <Route path="/artists/:id" element={<ArtistPage />} />
             <Route path="/sync" element={<SyncPage />} />
-            <Route
-              path="/upload"
-              element={
-                <RequireAuth>
-                  <UploadPage />
-                </RequireAuth>
-              }
-            />
+            {/* The standalone app has nowhere to keep audio files. */}
+            {!STANDALONE && (
+              <Route
+                path="/upload"
+                element={
+                  <RequireAuth>
+                    <UploadPage />
+                  </RequireAuth>
+                }
+              />
+            )}
             <Route
               path="/library"
               element={
