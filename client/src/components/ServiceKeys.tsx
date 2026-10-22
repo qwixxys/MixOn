@@ -79,7 +79,9 @@ function guides(origin: string): Record<string, Guide> {
           аккаунт Google, создайте проект (Create project) и нажмите Enable.
         </>,
         <>
-          Откройте {link('https://console.cloud.google.com/apis/credentials', 'Credentials')} → Create credentials → API key и вставьте ключ ниже.
+          Откройте {link('https://console.cloud.google.com/apis/credentials', 'Credentials')} → Create credentials → <b>API key</b> (не OAuth client ID).
+          Если спросят, какие данные нужны, выберите Public data. Ограничение по приложениям (Android apps и т. п.) не ставьте: с ним
+          ключ не заработает. Вставьте ключ, он начинается с AIza, в поле ниже.
         </>,
         <>
           Ключ бесплатный. Его дневной квоты хватает примерно на 100 поисков артистов, а проверка новых релизов и импорт плейлистов

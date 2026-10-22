@@ -174,7 +174,7 @@ soundFy работает с **официальным API SoundCloud**.
 ## Подключение YouTube Music
 
 1. Откройте [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com) в Google Cloud, войдите в аккаунт Google, создайте проект и нажмите **Enable**.
-2. В [Credentials](https://console.cloud.google.com/apis/credentials) нажмите **Create credentials → API key** и вставьте ключ в «Ключи сервисов» (или `YOUTUBE_API_KEY` в `.env`).
+2. В [Credentials](https://console.cloud.google.com/apis/credentials) нажмите **Create credentials → API key** (не OAuth client ID; если спросят про данные — Public data) и вставьте ключ вида `AIza…` в «Ключи сервисов» (или `YOUTUBE_API_KEY` в `.env`). Ограничение «Application restrictions» не ставьте: с ним ключ не будет работать из soundFy. Ограничить ключ только YouTube Data API v3 можно.
 
 Ключ бесплатный, у него дневная квота: примерно 100 поисков артистов в день. Проверка новых релизов (2 единицы квоты на артиста) и импорт плейлистов (1 единица на 50 треков) почти её не тратят.
 
