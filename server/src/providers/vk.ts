@@ -109,6 +109,8 @@ export class VkProvider implements MusicProvider {
   readonly description =
     'Новые треки артистов из ВКонтакте и импорт ваших аудиозаписей. Полные треки, нужен токен с доступом к аудио.';
   readonly requiresToken = true;
+  readonly connectMode = 'token' as const;
+  readonly libraryLabel = 'мои аудиозаписи';
   readonly fullTracks = true;
   // VK links are bound to the client that requested them, so the server relays the audio.
   readonly proxyStreams = true;

@@ -38,6 +38,7 @@ export class ItunesProvider implements MusicProvider {
   readonly name = 'Apple Music / iTunes';
   readonly description = 'iTunes Search API: свежие песни артистов из каталога Apple, 30-секундные превью.';
   readonly requiresToken = false;
+  readonly connectMode = null;
   readonly fullTracks = false;
   readonly proxyStreams = false;
 

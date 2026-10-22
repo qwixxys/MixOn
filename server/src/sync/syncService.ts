@@ -1,6 +1,6 @@
 import type { DB } from '../db/index.js';
 import { badRequest, notFound } from '../lib/errors.js';
-import type { ExternalTrack, ProviderRegistry } from '../providers/index.js';
+import type { ExternalTrack, OAuthTokens, ProviderRegistry } from '../providers/index.js';
 
 /** Tracks older than this are imported silently instead of producing a "new release" notification. */
 const NOTIFY_MAX_AGE_DAYS = 30;
@@ -34,6 +34,7 @@ export class SyncService {
   private inflight = new Map<number, Promise<ArtistSyncResult>>();
   private timers: NodeJS.Timeout[] = [];
   private syncingAll: Promise<SyncSummary> | null = null;
+  private refreshing = new Map<string, Promise<string | null>>();
 
   constructor(
     private db: DB,
@@ -41,27 +42,83 @@ export class SyncService {
     private log: Logger = console,
   ) {}
 
-  /** A user's own token for a provider, if they connected one. */
-  userToken(provider: string, userId: number | null | undefined): string | null {
+  /** A user's own token for a provider, refreshed first if it has expired. */
+  async userToken(provider: string, userId: number | null | undefined): Promise<string | null> {
     if (!userId) return null;
     const row = this.db
-      .prepare('SELECT access_token FROM service_connections WHERE user_id = ? AND provider = ?')
-      .get(userId, provider) as { access_token: string } | undefined;
-    return row?.access_token ?? null;
+      .prepare('SELECT access_token, refresh_token, expires_at FROM service_connections WHERE user_id = ? AND provider = ?')
+      .get(userId, provider) as { access_token: string; refresh_token: string | null; expires_at: string | null } | undefined;
+    if (!row) return null;
+    const flow = this.providers.find(provider)?.oauth;
+    const expired = row.expires_at !== null && Date.parse(row.expires_at) - 60_000 <= Date.now();
+    if (!expired || !row.refresh_token || !flow) return row.access_token;
+
+    // Refresh tokens are single-use, so concurrent callers share one refresh.
+    const key = `${provider}:${userId}`;
+    let job = this.refreshing.get(key);
+    if (!job) {
+      job = flow
+        .refresh(row.refresh_token)
+        .then((t) => {
+          this.db
+            .prepare(
+              `UPDATE service_connections SET access_token = ?, refresh_token = COALESCE(?, refresh_token), expires_at = ?
+               WHERE user_id = ? AND provider = ?`,
+            )
+            .run(t.accessToken, t.refreshToken, t.expiresAt, userId, provider);
+          return t.accessToken;
+        })
+        .catch((err: Error) => {
+          this.log.warn(`[sync] ${provider}: не удалось обновить токен пользователя ${userId}: ${err.message}`);
+          return null;
+        })
+        .finally(() => this.refreshing.delete(key));
+      this.refreshing.set(key, job);
+    }
+    return job;
+  }
+
+  /** Saves the token a user linked, by pasting it or through OAuth. */
+  saveConnection(userId: number, provider: string, tokens: OAuthTokens, account: { externalUserId: string; displayName: string }) {
+    this.db
+      .prepare(
+        `INSERT INTO service_connections (user_id, provider, access_token, refresh_token, expires_at, external_user_id, display_name)
+         VALUES (@userId, @provider, @accessToken, @refreshToken, @expiresAt, @externalUserId, @displayName)
+         ON CONFLICT (user_id, provider) DO UPDATE SET access_token = excluded.access_token,
+           refresh_token = excluded.refresh_token, expires_at = excluded.expires_at,
+           external_user_id = excluded.external_user_id, display_name = excluded.display_name,
+           created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+      )
+      .run({ userId, provider, ...tokens, ...account });
   }
 
   /** Token to sync an artist with: the requesting user's, otherwise any subscriber's. */
-  private artistToken(provider: string, artistId: number, userId?: number | null): string | null {
-    const own = this.userToken(provider, userId);
+  private async artistToken(provider: string, artistId: number, userId?: number | null): Promise<string | null> {
+    const own = await this.userToken(provider, userId);
     if (own) return own;
     const row = this.db
       .prepare(
-        `SELECT sc.access_token FROM subscriptions s
+        `SELECT sc.user_id FROM subscriptions s
          JOIN service_connections sc ON sc.user_id = s.user_id AND sc.provider = ?
          WHERE s.external_artist_id = ? ORDER BY s.created_at LIMIT 1`,
       )
-      .get(provider, artistId) as { access_token: string } | undefined;
-    return row?.access_token ?? null;
+      .get(provider, artistId) as { user_id: number } | undefined;
+    return row ? this.userToken(provider, row.user_id) : null;
+  }
+
+  /** Creates or updates an external artist record and returns its id. */
+  upsertArtist(provider: string, artist: { externalId: string; name: string; imageUrl?: string | null; url?: string | null }): number {
+    this.db
+      .prepare(
+        `INSERT INTO external_artists (provider, external_id, name, image_url, url) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (provider, external_id) DO UPDATE SET name = excluded.name,
+           image_url = COALESCE(excluded.image_url, image_url), url = COALESCE(excluded.url, url)`,
+      )
+      .run(provider, artist.externalId, artist.name, artist.imageUrl ?? null, artist.url ?? null);
+    const { id } = this.db
+      .prepare('SELECT id FROM external_artists WHERE provider = ? AND external_id = ?')
+      .get(provider, artist.externalId) as { id: number };
+    return id;
   }
 
   /** Inserts or refreshes external tracks. Returns ids of all given tracks and of newly created ones. */
@@ -137,7 +194,7 @@ export class SyncService {
 
     try {
       const provider = this.providers.get(artist.provider);
-      const token = provider.requiresToken ? this.artistToken(provider.id, artistId, userId) : null;
+      const token = provider.requiresToken ? await this.artistToken(provider.id, artistId, userId) : null;
       const tracks = await provider.getArtistTracks({ externalId: artist.external_id, name: artist.name }, { token });
       const { newIds } = this.storeTracks(tracks, provider.id, artistId);
       result.fetched = tracks.length;
@@ -213,13 +270,13 @@ export class SyncService {
   async importLibrary(userId: number, providerId: string) {
     const provider = this.providers.get(providerId);
     if (!provider.getUserLibrary) throw badRequest(`${provider.name} не поддерживает импорт библиотеки`);
-    const token = this.userToken(provider.id, userId);
-    if (provider.requiresToken && !token) throw badRequest(`Сначала подключите ${provider.name}`);
+    const token = await this.userToken(provider.id, userId);
+    if (provider.connectMode && !token) throw badRequest(`Сначала подключите ${provider.name}`);
 
     const tracks = await provider.getUserLibrary({ token });
     const { ids, newIds } = this.storeTracks(tracks, provider.id, null);
 
-    const title = `${provider.name}: мои треки`;
+    const title = `${provider.name}: ${provider.libraryLabel ?? 'мои треки'}`;
     const playlistId = this.db.transaction(() => {
       const existing = this.db
         .prepare('SELECT id FROM playlists WHERE user_id = ? AND title = ?')
@@ -246,6 +303,26 @@ export class SyncService {
     })();
 
     return { playlistId, imported: ids.length, newTracks: newIds.length };
+  }
+
+  /** Subscribes the user to everyone they follow on a service; catalogues are imported in the background. */
+  async importFollowings(userId: number, providerId: string) {
+    const provider = this.providers.get(providerId);
+    if (!provider.getUserFollowings) throw badRequest(`${provider.name} не поддерживает импорт подписок`);
+    const token = await this.userToken(provider.id, userId);
+    if (!token) throw badRequest(`Сначала подключите ${provider.name}`);
+
+    const artists = await provider.getUserFollowings({ token });
+    const subscribe = this.db.prepare('INSERT OR IGNORE INTO subscriptions (user_id, external_artist_id) VALUES (?, ?)');
+    const subscribed = this.db.transaction(() => {
+      let count = 0;
+      for (const artist of artists) count += subscribe.run(userId, this.upsertArtist(provider.id, artist)).changes;
+      return count;
+    })();
+    if (subscribed) {
+      this.syncUser(userId).catch((err) => this.log.error('[sync] import followings', err));
+    }
+    return { found: artists.length, subscribed };
   }
 
   start(intervalMinutes: number) {

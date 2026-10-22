@@ -17,7 +17,8 @@ import {
 } from '../src/providers/index.js';
 import { SyncService } from '../src/sync/syncService.js';
 
-type Route = [match: string | RegExp, body: unknown, status?: number];
+type Responder = (url: string, init?: RequestInit) => unknown;
+type Route = [match: string | RegExp, body: unknown | Responder, status?: number];
 
 /** A fetch stand-in that answers JSON fixtures by URL and records every request. */
 export function fakeFetch(routes: Route[]) {
@@ -26,7 +27,8 @@ export function fakeFetch(routes: Route[]) {
     calls.push({ url, init });
     const route = routes.find(([m]) => (typeof m === 'string' ? url.includes(m) : m.test(url)));
     if (!route) return new Response('not found', { status: 404 });
-    const [, body, status = 200] = route;
+    const [, spec, status = 200] = route;
+    const body = typeof spec === 'function' ? (spec as Responder)(url, init) : spec;
     if (body instanceof Response) return body;
     return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
   };
@@ -56,6 +58,7 @@ export class FakeProvider implements MusicProvider {
   readonly name = 'Fake';
   readonly description = 'fake';
   readonly requiresToken: boolean = false;
+  readonly connectMode: 'token' | 'oauth' | null = null;
   readonly fullTracks: boolean = true;
   readonly proxyStreams: boolean = false;
   tracks: ExternalTrack[] = [];
@@ -84,9 +87,11 @@ export function testConfig(): AppConfig {
     syncIntervalMinutes: 0,
     maxUploadBytes: 5 * 1024 * 1024,
     clientDist: path.join(dataDir, 'no-client'),
+    publicUrl: null,
     itunes: { country: 'US' },
     jamendo: { clientId: null },
     vk: { accessToken: null, apiVersion: '5.131', userAgent: 'test' },
+    soundcloud: { clientId: null, clientSecret: null },
   };
 }
 

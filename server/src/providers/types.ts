@@ -1,4 +1,4 @@
-export type ProviderId = 'vk' | 'deezer' | 'itunes' | 'jamendo';
+export type ProviderId = 'vk' | 'deezer' | 'itunes' | 'jamendo' | 'soundcloud';
 
 export interface ExternalArtist {
   externalId: string;
@@ -42,6 +42,20 @@ export interface ProviderContext {
   token?: string | null;
 }
 
+export interface OAuthTokens {
+  accessToken: string;
+  refreshToken: string | null;
+  /** ISO time the access token stops working, if the service says. */
+  expiresAt: string | null;
+}
+
+/** OAuth 2.1 authorization-code flow with PKCE. */
+export interface OAuthFlow {
+  authorizeUrl(params: { state: string; codeChallenge: string; redirectUri: string }): string;
+  exchangeCode(params: { code: string; codeVerifier: string; redirectUri: string }): Promise<OAuthTokens>;
+  refresh(refreshToken: string): Promise<OAuthTokens>;
+}
+
 export interface StoredExternalTrack {
   externalId: string;
   streamUrl: string | null;
@@ -54,6 +68,10 @@ export interface MusicProvider {
   readonly description: string;
   /** Every request needs a user/server access token. */
   readonly requiresToken: boolean;
+  /** How a user links their account: by pasting a token, via OAuth, or not at all. */
+  readonly connectMode: 'token' | 'oauth' | null;
+  /** What `getUserLibrary` imports, e.g. "мои аудиозаписи" or "лайки". */
+  readonly libraryLabel?: string;
   /** Streams full tracks (as opposed to previews). */
   readonly fullTracks: boolean;
   /** Stream URLs must be fetched by the server and relayed to the browser. */
@@ -73,6 +91,9 @@ export interface MusicProvider {
   verifyToken?(token: string): Promise<{ externalUserId: string; displayName: string }>;
   /** The user's own saved tracks on the service. */
   getUserLibrary?(ctx: ProviderContext): Promise<ExternalTrack[]>;
+  /** Artists the user follows on the service. */
+  getUserFollowings?(ctx: ProviderContext): Promise<ExternalArtist[]>;
+  readonly oauth?: OAuthFlow;
 }
 
 export function streamKind(url: string): StreamSource['kind'] {

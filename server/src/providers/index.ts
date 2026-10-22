@@ -1,9 +1,11 @@
 import type { AppConfig } from '../config.js';
+import type { KeyValueStore } from '../db/index.js';
 import { notFound } from '../lib/errors.js';
 import type { FetchLike } from '../lib/http.js';
 import { DeezerProvider } from './deezer.js';
 import { ItunesProvider } from './itunes.js';
 import { JamendoProvider } from './jamendo.js';
+import { SoundCloudProvider } from './soundcloud.js';
 import type { MusicProvider } from './types.js';
 import { VkProvider } from './vk.js';
 
@@ -31,12 +33,13 @@ export class ProviderRegistry {
   }
 }
 
-export function createProviders(config: AppConfig, fetchImpl: FetchLike = fetch): ProviderRegistry {
+export function createProviders(config: AppConfig, store?: KeyValueStore, fetchImpl: FetchLike = fetch): ProviderRegistry {
   return new ProviderRegistry([
     new VkProvider(
       { apiVersion: config.vk.apiVersion, userAgent: config.vk.userAgent, fallbackToken: config.vk.accessToken },
       fetchImpl,
     ),
+    new SoundCloudProvider({ ...config.soundcloud, store }, fetchImpl),
     new DeezerProvider(fetchImpl),
     new ItunesProvider(config.itunes.country, fetchImpl),
     new JamendoProvider(config.jamendo.clientId, fetchImpl),

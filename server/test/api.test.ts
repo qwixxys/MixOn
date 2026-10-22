@@ -255,6 +255,7 @@ describe('proxied streams (VK-like services)', () => {
 
   class ProxyProvider extends FakeProvider {
     override readonly requiresToken = true;
+    override readonly connectMode = 'token' as const;
     override readonly proxyStreams = true;
     readonly streamHeaders = { 'user-agent': 'KateMobile' };
     tokens: (string | null | undefined)[] = [];

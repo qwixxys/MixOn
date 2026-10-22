@@ -50,6 +50,7 @@ export class DeezerProvider implements MusicProvider {
   readonly name = 'Deezer';
   readonly description = 'Открытый каталог Deezer: новые альбомы и синглы артистов, 30-секундные превью.';
   readonly requiresToken = false;
+  readonly connectMode = null;
   readonly fullTracks = false;
   readonly proxyStreams = false;
 

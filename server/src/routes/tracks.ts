@@ -357,7 +357,7 @@ export function trackRoutes(ctx: AppContext) {
     } catch {
       extra = null;
     }
-    const token = provider.requiresToken ? sync.userToken(provider.id, userId) : null;
+    const token = provider.requiresToken ? await sync.userToken(provider.id, userId) : null;
     const source = await provider.resolveStream(
       { externalId: row.external_id ?? '', streamUrl: row.stream_url, extra },
       { token },

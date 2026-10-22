@@ -24,9 +24,12 @@ export interface AppConfig {
   syncIntervalMinutes: number;
   maxUploadBytes: number;
   clientDist: string;
+  /** Public origin used in OAuth redirect URIs; derived from the request when unset. */
+  publicUrl: string | null;
   itunes: { country: string };
   jamendo: { clientId: string | null };
   vk: { accessToken: string | null; apiVersion: string; userAgent: string };
+  soundcloud: { clientId: string | null; clientSecret: string | null };
 }
 
 function resolveJwtSecret(dataDir: string): string {
@@ -51,6 +54,7 @@ export function loadConfig(): AppConfig {
     syncIntervalMinutes: num(process.env.SYNC_INTERVAL_MINUTES, 60),
     maxUploadBytes: num(process.env.MAX_UPLOAD_MB, 100) * 1024 * 1024,
     clientDist: path.join(rootDir, 'client', 'dist'),
+    publicUrl: process.env.PUBLIC_URL ? process.env.PUBLIC_URL.replace(/\/+$/, '') : null,
     itunes: { country: process.env.ITUNES_COUNTRY || 'US' },
     jamendo: { clientId: process.env.JAMENDO_CLIENT_ID || null },
     vk: {
@@ -59,6 +63,10 @@ export function loadConfig(): AppConfig {
       userAgent:
         process.env.VK_USER_AGENT ||
         'KateMobileAndroid/56 lite-460 (Android 4.4.2; SDK 19; x86; unknown Android SDK built for x86; en)',
+    },
+    soundcloud: {
+      clientId: process.env.SOUNDCLOUD_CLIENT_ID || null,
+      clientSecret: process.env.SOUNDCLOUD_CLIENT_SECRET || null,
     },
   };
 }

@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import crypto from 'node:crypto';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 import type { AppContext } from '../context.js';
 import { badRequest, notFound } from '../lib/errors.js';
@@ -7,6 +8,9 @@ import { queryTracks } from '../lib/tracks.js';
 import { idParam, parse } from '../lib/validate.js';
 import { requireUser } from '../middleware/auth.js';
 import type { MusicProvider } from '../providers/index.js';
+
+/** How long a started OAuth login may take before its state expires. */
+const OAUTH_TTL_MS = 10 * 60_000;
 
 const connectSchema = z.object({ accessToken: z.string().trim().min(10, 'вставьте токен').max(2000) });
 const httpUrl = z
@@ -84,6 +88,7 @@ export function serviceRoutes(ctx: AppContext) {
       name: p.name,
       description: p.description,
       requiresToken: p.requiresToken,
+      connectMode: p.connectMode,
       fullTracks: p.fullTracks,
       configured: p.isConfigured(),
       connected: Boolean(connection),
@@ -91,6 +96,8 @@ export function serviceRoutes(ctx: AppContext) {
       serverToken,
       available: p.isConfigured() && (!p.requiresToken || Boolean(connection) || serverToken),
       canImportLibrary: Boolean(p.getUserLibrary),
+      canImportFollowings: Boolean(p.getUserFollowings),
+      libraryLabel: p.libraryLabel ?? null,
     };
   };
 
@@ -101,16 +108,12 @@ export function serviceRoutes(ctx: AppContext) {
   r.post('/services/:id/connect', async (req, res) => {
     const me = requireUser(req);
     const provider = providers.get(req.params.id);
-    if (!provider.verifyToken) throw badRequest(`${provider.name} не требует подключения аккаунта`);
+    if (provider.connectMode !== 'token' || !provider.verifyToken) {
+      throw badRequest(`${provider.name} подключается не по токену`);
+    }
     const token = extractToken(parse(connectSchema, req.body).accessToken);
     const account = await provider.verifyToken(token);
-    db.prepare(
-      `INSERT INTO service_connections (user_id, provider, access_token, external_user_id, display_name)
-       VALUES (@me, @provider, @token, @externalUserId, @displayName)
-       ON CONFLICT (user_id, provider) DO UPDATE SET access_token = excluded.access_token,
-         external_user_id = excluded.external_user_id, display_name = excluded.display_name,
-         created_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
-    ).run({ me, provider: provider.id, token, ...account });
+    sync.saveConnection(me, provider.id, { accessToken: token, refreshToken: null, expiresAt: null }, account);
     res.json(describe(provider, me));
   });
 
@@ -121,12 +124,60 @@ export function serviceRoutes(ctx: AppContext) {
     res.json(describe(provider, me));
   });
 
+  // ---------- OAuth (SoundCloud) ----------
+
+  const pendingLogins = new Map<string, { userId: number; provider: string; verifier: string; redirectUri: string; expires: number }>();
+  const redirectUri = (req: Request, providerId: string) =>
+    `${config.publicUrl ?? `${req.protocol}://${req.get('host')}`}/api/services/${providerId}/oauth/callback`;
+
+  r.post('/services/:id/oauth/start', (req, res) => {
+    const me = requireUser(req);
+    const provider = providers.get(req.params.id);
+    if (provider.connectMode !== 'oauth' || !provider.oauth) throw badRequest(`${provider.name} не поддерживает вход через OAuth`);
+    if (!provider.isConfigured()) throw badRequest(`${provider.name} не настроен на сервере`);
+
+    for (const [key, login] of pendingLogins) if (login.expires < Date.now()) pendingLogins.delete(key);
+    const state = crypto.randomBytes(24).toString('base64url');
+    const verifier = crypto.randomBytes(48).toString('base64url');
+    const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+    const uri = redirectUri(req, provider.id);
+    pendingLogins.set(state, { userId: me, provider: provider.id, verifier, redirectUri: uri, expires: Date.now() + OAUTH_TTL_MS });
+    res.json({ url: provider.oauth.authorizeUrl({ state, codeChallenge: challenge, redirectUri: uri }) });
+  });
+
+  /** The service redirects the browser here; we finish the login and send the user back to /sync. */
+  r.get('/services/:id/oauth/callback', async (req, res) => {
+    const back = (params: Record<string, string>) => res.redirect(302, `/sync?${new URLSearchParams(params)}`);
+    const state = String(req.query.state ?? '');
+    const login = pendingLogins.get(state);
+    pendingLogins.delete(state);
+    if (!login || login.expires < Date.now() || login.provider !== req.params.id) {
+      return back({ error: 'Сессия входа устарела, попробуйте ещё раз' });
+    }
+    const provider = providers.get(login.provider);
+    if (req.query.error || !req.query.code || !provider.oauth || !provider.verifyToken) {
+      return back({ error: `${provider.name}: вход отменён` });
+    }
+    try {
+      const tokens = await provider.oauth.exchangeCode({
+        code: String(req.query.code),
+        codeVerifier: login.verifier,
+        redirectUri: login.redirectUri,
+      });
+      const account = await provider.verifyToken(tokens.accessToken);
+      sync.saveConnection(login.userId, provider.id, tokens, account);
+      back({ connected: provider.id });
+    } catch (err) {
+      back({ error: (err as Error).message });
+    }
+  });
+
   r.get('/services/:id/artists', async (req, res) => {
     const provider = providers.get(req.params.id);
     const q = String(req.query.q ?? '').trim();
     if (!q) return res.json([]);
     if (!provider.isConfigured()) throw badRequest(`${provider.name} не настроен на сервере`);
-    const token = sync.userToken(provider.id, req.userId);
+    const token = await sync.userToken(provider.id, req.userId);
     const found = await provider.searchArtists(q, { token });
     const known = db.prepare(
       `SELECT ea.id, EXISTS (SELECT 1 FROM subscriptions s WHERE s.external_artist_id = ea.id AND s.user_id = ?) AS subscribed
@@ -145,6 +196,11 @@ export function serviceRoutes(ctx: AppContext) {
   r.post('/services/:id/import', async (req, res) => {
     const me = requireUser(req);
     res.json(await sync.importLibrary(me, providers.get(req.params.id).id));
+  });
+
+  r.post('/services/:id/import-followings', async (req, res) => {
+    const me = requireUser(req);
+    res.json(await sync.importFollowings(me, providers.get(req.params.id).id));
   });
 
   // ---------- subscriptions ----------
@@ -168,14 +224,7 @@ export function serviceRoutes(ctx: AppContext) {
     if (!provider.isConfigured()) throw badRequest(`${provider.name} не настроен на сервере`);
 
     const artistId = db.transaction(() => {
-      db.prepare(
-        `INSERT INTO external_artists (provider, external_id, name, image_url, url) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT (provider, external_id) DO UPDATE SET name = excluded.name,
-           image_url = COALESCE(excluded.image_url, image_url), url = COALESCE(excluded.url, url)`,
-      ).run(provider.id, input.externalId, input.name, input.imageUrl ?? null, input.url ?? null);
-      const { id } = db
-        .prepare('SELECT id FROM external_artists WHERE provider = ? AND external_id = ?')
-        .get(provider.id, input.externalId) as { id: number };
+      const id = sync.upsertArtist(provider.id, input);
       db.prepare('INSERT OR IGNORE INTO subscriptions (user_id, external_artist_id) VALUES (?, ?)').run(me, id);
       return id;
     })();

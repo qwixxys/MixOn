@@ -147,7 +147,32 @@ const migrations: string[] = [
     PRIMARY KEY (user_id, provider)
   );
   `,
+  `
+  -- OAuth services (SoundCloud) hand out short-lived tokens that must be refreshed.
+  ALTER TABLE service_connections ADD COLUMN refresh_token TEXT;
+  ALTER TABLE service_connections ADD COLUMN expires_at TEXT;
+
+  -- Small server-wide key/value store (e.g. cached app access tokens).
+  CREATE TABLE app_state (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
 ];
+
+export interface KeyValueStore {
+  get(key: string): string | null;
+  set(key: string, value: string): void;
+}
+
+export function dbStore(db: DB): KeyValueStore {
+  return {
+    get: (key) => (db.prepare('SELECT value FROM app_state WHERE key = ?').get(key) as { value: string } | undefined)?.value ?? null,
+    set: (key, value) => {
+      db.prepare('INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value').run(key, value);
+    },
+  };
+}
 
 export function migrate(db: DB): void {
   const current = db.pragma('user_version', { simple: true }) as number;

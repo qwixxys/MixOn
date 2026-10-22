@@ -33,6 +33,7 @@ export class JamendoProvider implements MusicProvider {
   readonly name = 'Jamendo';
   readonly description = 'Независимые артисты с музыкой под Creative Commons — полные треки.';
   readonly requiresToken = false;
+  readonly connectMode = null;
   readonly fullTracks = true;
   readonly proxyStreams = false;
 
