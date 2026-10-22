@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { LrclibClient, parseLrc, type LrclibRecord } from '../src/lyrics/lrclib.js';
 import { pickRecord } from '../src/lyrics/service.js';
+import { songQuery } from '../src/lib/matching.js';
 import { createTestApp, fakeFetch, register, sineWav } from './helpers.js';
 
 // Placeholder text only: these tests never contain real song lyrics.
@@ -30,6 +31,20 @@ describe('parseLrc', () => {
     ]);
   });
 
+  it('uses only the timestamps at the start of a line', () => {
+    assert.deepEqual(parseLrc('[00:10.00]Встреча в [12:30] у входа\n[00:12.00]Слово [00:12.50]за словом'), [
+      { time: 10, text: 'Встреча в [12:30] у входа' },
+      { time: 12, text: 'Слово за словом' },
+    ]);
+  });
+
+  it('bounds what one odd record can produce', () => {
+    const lines = parseLrc(`${'[0:0]'.repeat(5000)}${'а'.repeat(5000)}`);
+    assert.equal(lines.length, 10);
+    assert.equal(lines[0].text.length, 1000);
+    assert.equal(parseLrc(Array.from({ length: 5000 }, (_, i) => `[00:${String(i % 60).padStart(2, '0')}.00]x`).join('\n')).length, 3000);
+  });
+
   it('keeps empty lines as pauses', () => {
     assert.deepEqual(parseLrc('[00:01.00] а\n[00:02.00]\n'), [
       { time: 1, text: 'а' },
@@ -52,6 +67,17 @@ describe('pickRecord', () => {
       track,
     );
     assert.equal(picked?.id, 4);
+  });
+
+  it('splits "Artist - Song" upload titles', () => {
+    assert.deepEqual(songQuery({ title: 'Тестовый Артист - Тестовая песня', artist: 'какой-то аккаунт' }), {
+      title: 'Тестовая песня',
+      artist: 'Тестовый Артист',
+    });
+    assert.deepEqual(songQuery({ title: 'Тестовый Артист - Тестовая песня', artist: 'Тестовый Артист' }), {
+      title: 'Тестовая песня',
+      artist: 'Тестовый Артист',
+    });
   });
 
   it('returns null when nothing matches', () => {
@@ -81,6 +107,7 @@ describe('lyrics API', () => {
         if (q.get('track_name') === 'Тестовая песня') return record(10, { duration: 2 });
         if (q.get('track_name') === 'С альбомом' && !q.has('album_name')) return record(30, { trackName: 'С альбомом', duration: 2 });
         if (q.get('track_name') === 'Только текст') return record(40, { trackName: 'Только текст', duration: 2, syncedLyrics: null });
+        if (q.get('track_name') === 'Поиск сломан') return record(50, { trackName: 'Поиск сломан', duration: 2, syncedLyrics: null });
         return new Response('{"code":404,"name":"TrackNotFound"}', { status: 404 });
       },
     ],
@@ -90,6 +117,7 @@ describe('lyrics API', () => {
         calls.push(url);
         const q = new URL(url).searchParams;
         if (q.get('track_name') === 'Только текст') return [record(41, { trackName: 'Только текст', duration: 2 })];
+        if (q.get('track_name') === 'Поиск сломан') return new Response('{"name":"ServerOverloaded"}', { status: 503 });
         return q.get('track_name') === 'Через поиск' ? [record(20, { trackName: 'Через поиск', duration: 2 })] : [];
       },
     ],
@@ -100,7 +128,7 @@ describe('lyrics API', () => {
 
   before(async () => {
     const user = await register(t.request, 'singer');
-    for (const title of ['Тестовая песня', 'Через поиск', 'Нигде нет', 'С альбомом', 'Только текст']) {
+    for (const title of ['Тестовая песня', 'Через поиск', 'Нигде нет', 'С альбомом', 'Только текст', 'Поиск сломан']) {
       const res = await t.request
         .post('/api/tracks')
         .set(user.auth)
@@ -143,6 +171,25 @@ describe('lyrics API', () => {
   it('prefers a synced version found by search over a plain exact match', async () => {
     const res = await t.request.get(`/api/tracks/${ids['Только текст']}/lyrics`).expect(200);
     assert.ok(res.body.synced?.length, 'synced lines from the search hit');
+  });
+
+  it('keeps plain lyrics when the extra search fails', async () => {
+    const res = await t.request.get(`/api/tracks/${ids['Поиск сломан']}/lyrics`).expect(200);
+    assert.equal(res.body.found, true);
+    assert.equal(res.body.synced, null);
+    assert.ok(res.body.plain);
+  });
+
+  it('forgets cached lyrics when the author renames the track', async () => {
+    const owner = await t.request.post('/api/auth/login').send({ login: 'singer', password: 'secret123' });
+    const auth = { Authorization: `Bearer ${owner.body.token}` };
+    await t.request.get(`/api/tracks/${ids['Тестовая песня']}/lyrics`).expect(200);
+    const count = () => (t.ctx.db.prepare('SELECT COUNT(*) AS c FROM lyrics_cache WHERE track_id = ?').get(ids['Тестовая песня']) as { c: number }).c;
+    assert.equal(count(), 1);
+    await t.request.patch(`/api/tracks/${ids['Тестовая песня']}`).set(auth).field('description', 'новое описание').expect(200);
+    assert.equal(count(), 1, 'other edits keep the cache');
+    await t.request.patch(`/api/tracks/${ids['Тестовая песня']}`).set(auth).field('title', 'Новое название').expect(200);
+    assert.equal(count(), 0);
   });
 
   it('remembers misses', async () => {

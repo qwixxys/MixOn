@@ -182,7 +182,7 @@ export class DeezerProvider implements MusicProvider {
       // The embedded list can come back shorter than the album; the paged endpoint has all of it.
       if (album.nb_tracks && list.length < album.nb_tracks) list = await this.pages(`/album/${id}/tracks`);
       const tracks = list.map((t) => mapTrack(t, album)).filter((t): t is ExternalTrack => t !== null);
-      return { title: album.title, description: null, url: `https://www.deezer.com/album/${id}`, tracks, total: album.nb_tracks ?? album.tracks?.data.length ?? tracks.length };
+      return { title: album.title, description: null, url: `https://www.deezer.com/album/${id}`, tracks, total: album.nb_tracks ?? list.length, fetched: list.length };
     }
     const playlist = await this.get<DzPlaylist>(`/playlist/${id}`);
     const raw = await this.pages(`/playlist/${id}/tracks`);
@@ -193,6 +193,7 @@ export class DeezerProvider implements MusicProvider {
       url: `https://www.deezer.com/playlist/${id}`,
       tracks,
       total: playlist.nb_tracks ?? raw.length,
+      fetched: raw.length,
     };
   }
 

@@ -109,6 +109,14 @@ describe('Deezer import', () => {
     );
   });
 
+  it('stops at the import limit and says how many tracks were read', async () => {
+    const { impl } = deezerPlaylist(1500);
+    const playlist = await new DeezerProvider(impl).importPlaylist(new URL('https://www.deezer.com/playlist/77'));
+    assert.equal(playlist.fetched, 1000);
+    assert.equal(playlist.total, 1500);
+    assert.equal(playlist.tracks.length, 999, 'one of them is unplayable');
+  });
+
   it('pages an album when the embedded track list is short and ignores unknown dates', async () => {
     const { impl, calls } = fakeFetch([
       ['api.deezer.com/album/6/tracks', { data: [dzTrack(1), dzTrack(2), dzTrack(3)] }],
@@ -214,6 +222,7 @@ describe('import API', () => {
     assert.equal(first.body.title, 'Подборка');
     assert.equal(first.body.imported, 2);
     assert.equal(first.body.total, 3);
+    assert.equal(first.body.fetched, 3);
     assert.equal(first.body.newTracks, 2);
 
     const again = await t.request.post('/api/import').set(auth).send({ url: 'link.deezer.com/s/short' }).expect(201);

@@ -8,6 +8,7 @@ import { toast } from '../store/toasts';
 import { Icon } from './Icon';
 import { TextField } from './Material';
 import { Modal } from './Modal';
+import { ErrorState, Loading } from './States';
 
 const EXAMPLES: Record<string, string> = {
   deezer: 'deezer.com/playlist/… или /album/…',
@@ -40,10 +41,11 @@ export function ImportLinkForm({ services, onDone }: { services: Service[]; onDo
     setBusy(true);
     try {
       const r = await api<ImportResult>('/import', { body: { url: url.trim() } });
-      const skipped = r.total - r.imported;
+      const unavailable = r.fetched - r.imported;
       toast.success(
         `«${r.title}»: ${r.imported} ${plural(r.imported, ['трек', 'трека', 'треков'])}` +
-          (skipped > 0 ? `, ${skipped} недоступно для прослушивания` : ''),
+          (unavailable > 0 ? `, ${unavailable} недоступно для прослушивания` : '') +
+          (r.total > r.fetched ? `. Взяты первые ${r.fetched} из ${r.total}` : ''),
       );
       onDone?.();
       navigate(`/playlists/${r.playlistId}`);
@@ -88,6 +90,8 @@ export function ImportPlaylistDialog({ onClose, onImported }: { onClose(): void;
   const services = useFetch<Service[]>('/services');
   return (
     <Modal title="Импорт по ссылке" onClose={onClose}>
+      {services.loading && <Loading />}
+      {services.error && <ErrorState message={services.error} onRetry={services.reload} />}
       {services.data && (
         <ImportLinkForm
           services={services.data}

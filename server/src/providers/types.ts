@@ -65,6 +65,8 @@ export interface ImportedPlaylist {
   tracks: ExternalTrack[];
   /** Tracks the source lists, including ones that could not be imported. */
   total: number;
+  /** Tracks actually read: fewer than `total` when the import limit cut the list short. */
+  fetched: number;
 }
 
 export interface StoredExternalTrack {

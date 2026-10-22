@@ -1,5 +1,5 @@
 import type { DB } from '../db/index.js';
-import { cleanTitle, closeness, normalizeText, primaryArtist } from '../lib/matching.js';
+import { cleanTitle, closeness, normalizeText, primaryArtist, songQuery } from '../lib/matching.js';
 import type { TrackRow } from '../lib/tracks.js';
 import type { GeniusArtistRaw, GeniusClient, GeniusHitRaw, GeniusSongRaw } from './client.js';
 
@@ -100,16 +100,7 @@ export { cleanTitle, normalizeText, primaryArtist };
 
 /** Picks the hit that matches both title and artist; null when nothing is convincing. */
 export function pickMatch(hits: GeniusHitRaw[], track: { title: string; artist: string }): GeniusHitRaw | null {
-  let title = cleanTitle(track.title);
-  let artist = primaryArtist(track.artist);
-  // SoundCloud uploads are often titled "Artist - Song".
-  const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
-  if (dash && closeness(normalizeText(dash[1]), normalizeText(artist)) === 0) {
-    artist = primaryArtist(dash[1]);
-    title = dash[2];
-  } else if (dash && closeness(normalizeText(dash[1]), normalizeText(artist)) > 0) {
-    title = dash[2];
-  }
+  const { title, artist } = songQuery(track);
   const wantTitle = normalizeText(title);
   const wantArtist = normalizeText(artist);
 

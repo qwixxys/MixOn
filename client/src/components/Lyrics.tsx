@@ -133,7 +133,7 @@ export function LyricsTab({ track, lyrics, genius, geniusLoading, onFindOnGenius
 
   if (song) return <GeniusLyrics key={song.id} song={song} />;
 
-  if (lyrics.error && !genius?.configured) return <ErrorState message={lyrics.error} onRetry={lyrics.reload} />;
+  if (lyrics.error) return <ErrorState message={lyrics.error} onRetry={lyrics.reload} />;
 
   const lrclib = Boolean(lyrics.data?.enabled);
   const geniusOn = Boolean(genius?.configured);

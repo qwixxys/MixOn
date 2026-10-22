@@ -19,9 +19,17 @@ export interface LyricLine {
   text: string;
 }
 
+/** Bounds for community-submitted lyrics, so one odd record cannot blow up a response. */
+const MAX_STAMPS_PER_LINE = 10;
+const MAX_LINES = 3000;
+const MAX_LINE_LENGTH = 1000;
+
+const STAMP = /\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]/g;
+
 /**
- * Parses LRC ("[01:23.45] text"). A line may carry several timestamps; metadata tags such as
- * [ar:…] are ignored and an [offset:±ms] tag is applied. Lines come back sorted by time.
+ * Parses LRC ("[01:23.45] text"). Only the timestamps at the start of a line count, and a line may repeat under
+ * several of them; metadata tags such as [ar:…] are ignored and an [offset:±ms] tag is applied. Word timings inside
+ * a line (<01:23.45> or [01:23.45]) are dropped. Lines come back sorted by time.
  */
 export function parseLrc(lrc: string): LyricLine[] {
   const lines: LyricLine[] = [];
@@ -32,16 +40,21 @@ export function parseLrc(lrc: string): LyricLine[] {
       offset = Number(meta[1]) / 1000;
       continue;
     }
-    const stamps = [...raw.matchAll(/\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]/g)];
-    if (!stamps.length) continue;
-    // Strip leading timestamps and inline word stamps (<mm:ss.xx>) of the "enhanced" LRC flavour.
-    const text = raw.replace(/\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\]/g, '').replace(/<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>/g, '').trim();
-    for (const s of stamps) {
+    const head = raw.match(/^\s*(?:\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\]\s*)+/);
+    if (!head) continue;
+    const text = raw
+      .slice(head[0].length)
+      .replace(/<\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?>|\[\d{1,3}:\d{1,2}[.:]\d{1,3}\]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, MAX_LINE_LENGTH);
+    for (const s of [...head[0].matchAll(STAMP)].slice(0, MAX_STAMPS_PER_LINE)) {
       const time = Number(s[1]) * 60 + Number(s[2].replace(':', '.')) - offset;
       lines.push({ time: Math.max(0, Math.round(time * 1000) / 1000), text });
     }
+    if (lines.length >= MAX_LINES) break;
   }
-  return lines.sort((a, b) => a.time - b.time);
+  return lines.slice(0, MAX_LINES).sort((a, b) => a.time - b.time);
 }
 
 /** LRCLIB: free, community-run lyrics database; no API key. */

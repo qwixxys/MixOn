@@ -33,3 +33,18 @@ export function closeness(a: string, b: string): number {
   if (a === b) return 2;
   return a.includes(b) || b.includes(a) ? 1 : 0;
 }
+
+/**
+ * Title and performer to look a song up by. Uploads are often titled "Artist - Song" by an account that is not the
+ * artist; the part before the dash then names the performer, and a repeated artist name is dropped from the title.
+ */
+export function songQuery(track: { title: string; artist: string }): { title: string; artist: string } {
+  let title = cleanTitle(track.title);
+  let artist = primaryArtist(track.artist);
+  const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  if (dash) {
+    if (closeness(normalizeText(dash[1]), normalizeText(artist)) === 0) artist = primaryArtist(dash[1]);
+    title = dash[2];
+  }
+  return { title, artist };
+}

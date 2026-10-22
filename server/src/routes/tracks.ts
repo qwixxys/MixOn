@@ -196,6 +196,10 @@ export function trackRoutes(ctx: AppContext) {
         cover: req.file?.filename ?? null,
       });
       if (req.file) removeUpload(config, 'covers', row.cover_path);
+      // Lyrics were looked up by the old names.
+      if ((input.title && input.title !== row.title) || (nonEmpty(input.artist) && input.artist !== row.artist)) {
+        db.prepare('DELETE FROM lyrics_cache WHERE track_id = ?').run(row.id);
+      }
       res.json(getTrack(db, row.id, me));
     }),
   );

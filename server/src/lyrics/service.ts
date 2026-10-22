@@ -1,5 +1,5 @@
 import type { DB } from '../db/index.js';
-import { cleanTitle, closeness, normalizeText, primaryArtist } from '../lib/matching.js';
+import { cleanTitle, closeness, normalizeText, primaryArtist, songQuery } from '../lib/matching.js';
 import type { TrackRow } from '../lib/tracks.js';
 import { parseLrc, type LrclibClient, type LrclibRecord, type LyricLine } from './lrclib.js';
 
@@ -8,6 +8,10 @@ const FOUND_TTL_MS = 30 * 86400_000;
 const MISS_TTL_MS = 3 * 86400_000;
 /** How far (seconds) a search hit's duration may be from the track's. */
 const DURATION_TOLERANCE = 4;
+/** Longer lyrics than this are not stored; real songs are far shorter. */
+const MAX_LYRICS_LENGTH = 100_000;
+/** Sources whose titles are often "Artist - Song" written by someone else's account. */
+const UPLOAD_SOURCES = new Set(['local', 'soundcloud']);
 
 export interface TrackLyrics {
   enabled: boolean;
@@ -32,7 +36,8 @@ export function pickRecord(records: LrclibRecord[], track: { title: string; arti
   const title = normalizeText(cleanTitle(track.title));
   const artist = normalizeText(primaryArtist(track.artist));
   const scored = records
-    .filter((r) => r.syncedLyrics || r.plainLyrics || r.instrumental)
+    // Search results are community data: skip empty and absurdly long records before matching on them.
+    .filter((r) => (r.syncedLyrics || r.plainLyrics || r.instrumental) && (r.trackName?.length ?? 0) < 500 && (r.artistName?.length ?? 0) < 500)
     .map((r) => ({
       r,
       title: closeness(normalizeText(cleanTitle(r.trackName)), title),
@@ -82,13 +87,19 @@ export class LyricsService {
 
     let record: LrclibRecord | null;
     try {
-      const query = { artist: primaryArtist(track.artist), title: cleanTitle(track.title), album: track.album, duration: track.duration };
+      const names = UPLOAD_SOURCES.has(track.source) ? songQuery(track) : { title: cleanTitle(track.title), artist: primaryArtist(track.artist) };
+      const query = { ...names, album: track.album, duration: track.duration };
       // A differently named album makes the exact lookup miss, so try again without it.
       record = (await this.lrclib.get(query)) ?? (query.album ? await this.lrclib.get({ ...query, album: null }) : null);
       // The exact lookup returns the oldest match, which may be plain text while a synced version exists.
       if (!record?.syncedLyrics && !record?.instrumental) {
-        const found = pickRecord(await this.lrclib.search(query), track);
-        if (found && (found.syncedLyrics || !record)) record = found;
+        try {
+          const found = pickRecord(await this.lrclib.search(query), query);
+          if (found && (found.syncedLyrics || !record)) record = found;
+        } catch (err) {
+          // Search is only an extra here; keep the plain lyrics already found.
+          if (!record) throw err;
+        }
       }
     } catch (err) {
       // Keep serving what we had if LRCLIB is down.
@@ -96,10 +107,13 @@ export class LyricsService {
       throw err;
     }
 
+    const fit = (text: string | null | undefined) => (text && text.length <= MAX_LYRICS_LENGTH ? text : null);
+    const synced = fit(record?.syncedLyrics);
+    const plain = fit(record?.plainLyrics);
     const row: CacheRow = {
-      source: record ? 'lrclib' : null,
-      synced: record?.syncedLyrics ?? null,
-      plain: record?.plainLyrics ?? null,
+      source: record && (synced || plain || record.instrumental) ? 'lrclib' : null,
+      synced,
+      plain,
       instrumental: record?.instrumental ? 1 : 0,
       fetched_at: new Date().toISOString(),
     };
@@ -110,7 +124,7 @@ export class LyricsService {
          ON CONFLICT (track_id) DO UPDATE SET source = excluded.source, external_id = excluded.external_id,
            synced = excluded.synced, plain = excluded.plain, instrumental = excluded.instrumental, fetched_at = excluded.fetched_at`,
       )
-      .run({ ...row, trackId: track.id, externalId: record ? String(record.id) : null });
+      .run({ ...row, trackId: track.id, externalId: row.source && record ? String(record.id) : null });
     return this.toLyrics(row);
   }
 }

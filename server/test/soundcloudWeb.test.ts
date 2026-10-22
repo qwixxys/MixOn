@@ -218,6 +218,15 @@ describe('SoundCloud web provider', () => {
     assert.equal(calls.filter((c) => c.url.includes('api-v2')).length, 3);
   });
 
+  it('explains that artist lists are blocked without asking for a new client_id', async () => {
+    const { impl, calls } = site([['api-v2.soundcloud.com/users/7/tracks', () => new Response('{}', { status: 403 })]]);
+    await assert.rejects(
+      new SoundCloudWebProvider({ intervalMs: 0 }, impl).getArtistTracks({ externalId: 'soundcloud:users:7', name: 'producer' }),
+      /официальные ключи/,
+    );
+    assert.equal(calls.filter((c) => c.url === 'https://soundcloud.com/').length, 1);
+  });
+
   it('accepts station playlists', async () => {
     const { impl } = site([
       ['api-v2.soundcloud.com/resolve', { kind: 'system-playlist', id: 3, title: 'Станция', track_count: 1, tracks: [webTrack(1)] }],

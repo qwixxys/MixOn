@@ -109,6 +109,8 @@ export interface ImportResult {
   playlistId: number;
   title: string;
   imported: number;
+  /** Tracks read from the source; `total` can be larger when the import limit was reached. */
+  fetched: number;
   total: number;
   newTracks: number;
 }

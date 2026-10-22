@@ -32,6 +32,8 @@ const HYDRATE_BATCH = 50;
 const MAX_IMPORT = 1000;
 /** soundcloud.com is read again for a new client_id at most this often, however many requests get rejected. */
 const RESCRAPE_COOLDOWN_MS = 10 * 60_000;
+const BLOCKED_MESSAGE =
+  'SoundCloud отклонил запрос (HTTP 403): он ограничивает неофициальных клиентов, и с этого сервера режим без ключей может не работать';
 
 interface Transcoding {
   url: string;
@@ -120,7 +122,8 @@ function isListenable(t: ScWebTrack) {
 export class SoundCloudWebProvider implements MusicProvider {
   readonly id = 'soundcloud' as const;
   readonly name = 'SoundCloud';
-  readonly description = 'Новые треки артистов, плейлисты по ссылке и полное прослушивание без ключей API.';
+  readonly description =
+    'Поиск, плейлисты по ссылке и полное прослушивание без ключей API. Новые треки артистов SoundCloud может не отдавать неофициальным клиентам.';
   readonly requiresToken = false;
   readonly connectMode = null;
   readonly fullTracks = true;
@@ -189,7 +192,7 @@ export class SoundCloudWebProvider implements MusicProvider {
    * GET on api-v2 with the client_id. A rejected id is looked up again once, but not more often than the cooldown:
    * a 403 can also be SoundCloud's bot protection, which a new id does not fix.
    */
-  private async get<T>(pathOrUrl: string, retry = true): Promise<T> {
+  private async get<T>(pathOrUrl: string, retry = true, blocked403 = BLOCKED_MESSAGE): Promise<T> {
     const url = new URL(pathOrUrl, API);
     // Paging links and stream links come from SoundCloud's answers; never send the id anywhere else.
     if (url.protocol !== 'https:' || url.hostname !== API_HOST) throw new ProviderError(this.id, 'SoundCloud вернул неожиданную ссылку');
@@ -206,15 +209,9 @@ export class SoundCloudWebProvider implements MusicProvider {
       await res.body?.cancel().catch(() => {});
       this.lastRescrape = Date.now();
       await this.getClientId(true);
-      return this.get<T>(pathOrUrl, false);
+      return this.get<T>(pathOrUrl, false, blocked403);
     }
-    if (res.status === 403) {
-      throw new ProviderError(
-        this.id,
-        'SoundCloud отклонил запрос (HTTP 403): он ограничивает неофициальных клиентов, и с этого сервера режим без ключей может не работать',
-        403,
-      );
-    }
+    if (res.status === 403) throw new ProviderError(this.id, blocked403, 403);
     if (res.status === 404) throw new ProviderError(this.id, 'Не найдено на SoundCloud', 404);
     if (res.status === 429) throw new ProviderError(this.id, 'SoundCloud временно ограничил запросы, попробуйте позже', 429);
     if (!res.ok) throw new ProviderError(this.id, `SoundCloud ответил ошибкой HTTP ${res.status}`, res.status);
@@ -246,8 +243,13 @@ export class SoundCloudWebProvider implements MusicProvider {
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {
-    // The newest uploads are enough to find new releases; the site itself asks for 20 at a time.
-    const page = await this.get<ScWebPage<ScWebTrack>>(`/users/${scNumericId(artist.externalId)}/tracks?limit=20`);
+    // The newest uploads are enough to find new releases; the site itself asks for 20 at a time. SoundCloud's bot
+    // protection answers this list with 403 to non-browser clients, which a new client_id does not change.
+    const page = await this.get<ScWebPage<ScWebTrack>>(
+      `/users/${scNumericId(artist.externalId)}/tracks?limit=20`,
+      false,
+      'SoundCloud не отдаёт список треков автора неофициальным клиентам (HTTP 403). Для подписок на авторов SoundCloud нужны официальные ключи',
+    );
     return this.mapTracks(page.collection);
   }
 
@@ -298,7 +300,8 @@ export class SoundCloudWebProvider implements MusicProvider {
       description: playlist.description || null,
       url: playlist.permalink_url ?? link,
       tracks: this.mapTracks(tracks),
-      total: playlist.track_count ?? listed.length,
+      total: playlist.track_count ?? (playlist.tracks ?? []).length,
+      fetched: listed.length,
     };
   }
 }

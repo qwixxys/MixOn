@@ -122,12 +122,17 @@ export class SyncService {
     return id;
   }
 
-  /** Inserts or refreshes external tracks. Returns ids of all given tracks and of newly created ones. */
+  /**
+   * Inserts or refreshes external tracks. Returns ids of all given tracks and of the ones that are new to `artistId`:
+   * just created, or known before (say, from an imported playlist) but not yet linked to the artist.
+   */
   storeTracks(tracks: ExternalTrack[], source: string, artistId: number | null): { ids: number[]; newIds: number[] } {
-    const find = this.db.prepare('SELECT id FROM tracks WHERE source = ? AND external_id = ?');
+    const find = this.db.prepare('SELECT id, external_artist_id FROM tracks WHERE source = ? AND external_id = ?');
+    // Playlist listings can lack what the artist's own catalogue has (Deezer gives no release date or genre there).
     const update = this.db.prepare(
       `UPDATE tracks SET stream_url = @streamUrl, cover_url = COALESCE(@coverUrl, cover_url), extra = @extra,
-         external_artist_id = COALESCE(external_artist_id, @artistId)
+         external_artist_id = COALESCE(external_artist_id, @artistId), released_at = COALESCE(released_at, @releasedAt),
+         genre = COALESCE(genre, @genre), album = COALESCE(album, @album)
        WHERE id = @id`,
     );
     const insert = this.db.prepare(
@@ -142,10 +147,20 @@ export class SyncService {
     this.db.transaction(() => {
       for (const t of tracks) {
         const extra = t.extra ? JSON.stringify(t.extra) : null;
-        const existing = find.get(source, t.externalId) as { id: number } | undefined;
+        const existing = find.get(source, t.externalId) as { id: number; external_artist_id: number | null } | undefined;
         if (existing) {
-          update.run({ id: existing.id, streamUrl: t.streamUrl, coverUrl: t.coverUrl, extra, artistId });
+          update.run({
+            id: existing.id,
+            streamUrl: t.streamUrl,
+            coverUrl: t.coverUrl,
+            extra,
+            artistId,
+            releasedAt: t.releasedAt,
+            genre: normalizeGenre(t.genre),
+            album: t.album,
+          });
           ids.push(existing.id);
+          if (artistId !== null && existing.external_artist_id === null) newIds.push(existing.id);
           continue;
         }
         const { lastInsertRowid } = insert.run({
@@ -300,7 +315,7 @@ export class SyncService {
     const source = `Импортировано из ${provider.name}: ${playlist.url}`;
     const description = [playlist.description?.trim().slice(0, 2000 - source.length - 2), source].filter(Boolean).join('\n\n');
     const playlistId = this.savePlaylist(userId, title, description, ids, source);
-    return { playlistId, title, imported: ids.length, total: playlist.total, newTracks: newIds.length };
+    return { playlistId, title, imported: ids.length, fetched: playlist.fetched, total: playlist.total, newTracks: newIds.length };
   }
 
   /**

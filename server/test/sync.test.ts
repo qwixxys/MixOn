@@ -70,6 +70,33 @@ describe('SyncService', () => {
     assert.deepEqual(rows, [{ stream_url: 'https://cdn.example/new.mp3' }]);
   });
 
+  it('completes tracks first seen in an imported playlist and still announces them', async () => {
+    const { db, provider, sync, user, artist, subscribe, notifications } = setup();
+    const alice = user('alice');
+    subscribe(alice);
+    provider.tracks = [track('1')];
+    await sync.syncArtist(artist);
+
+    // Someone imports a playlist with the artist's new single before the next sync; playlists lack date and genre.
+    sync.storeTracks([track('2', { releasedAt: null, genre: null, album: null })], 'deezer', null);
+    provider.tracks = [track('2', { genre: 'Rock', album: 'Single' }), track('1')];
+    const result = await sync.syncArtist(artist);
+
+    const row = db.prepare(`SELECT id, external_artist_id, released_at, genre, album FROM tracks WHERE external_id = '2'`).get() as {
+      id: number;
+      external_artist_id: number;
+      released_at: string | null;
+      genre: string | null;
+      album: string | null;
+    };
+    assert.equal(row.external_artist_id, artist);
+    assert.ok(row.released_at);
+    assert.ok(row.genre);
+    assert.equal(row.album, 'Single');
+    assert.equal(result.newTracks, 1);
+    assert.deepEqual(notifications(alice), [{ track_id: row.id }]);
+  });
+
   it('records provider errors on the artist', async () => {
     const { db, provider, sync, artist } = setup();
     provider.fail = 'service down';

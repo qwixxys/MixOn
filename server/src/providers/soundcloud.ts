@@ -338,6 +338,7 @@ export class SoundCloudProvider implements MusicProvider {
       url: playlist.permalink_url ?? link,
       tracks: this.mapTracks(raw),
       total: playlist.track_count ?? raw.length,
+      fetched: raw.length,
     };
   }
 

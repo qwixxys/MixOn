@@ -3114,6 +3114,8 @@ a.person-chip:hover {
   position: relative;
   max-height: min(60vh, 560px);
   overflow-y: auto;
+  /* The active line grows a little and must not add a horizontal scrollbar. */
+  overflow-x: hidden;
   overscroll-behavior: contain;
   padding: 32px 8px;
   border-radius: var(--md-sys-shape-corner-large);

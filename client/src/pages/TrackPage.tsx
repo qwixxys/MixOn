@@ -191,10 +191,16 @@ export function TrackPage() {
     if (location.hash === '#comments' && comments.data) document.getElementById('comments')?.scrollIntoView();
   }, [comments.data]);
 
+  // The page stays mounted when a related track is opened; start each track on its comments.
+  useEffect(() => setTab('comments'), [id]);
+
   if (track.loading) return <Loading />;
   if (track.error || !t) return <ErrorState message={track.error ?? 'Трек не найден'} />;
 
   const duration = isCurrent && playerDuration ? playerDuration : playableDuration(t);
+  // Tabs stay while lyrics load or fail, so the comments and the retry button are always reachable.
+  const showTabs = Boolean(lyrics.loading || lyrics.error || lyrics.data?.enabled || genius.data?.configured);
+  const activeTab = showTabs ? tab : 'comments';
   const isOwner = user && t.uploader?.id === user.id;
   const service = serviceInfo(t.source);
 
@@ -317,21 +323,21 @@ export function TrackPage() {
               </div>
             </div>
 
-            {(lyrics.data?.enabled || genius.data?.configured) && (
+            {showTabs && (
               <Tabs
                 tabs={[
                   { id: 'comments' as const, label: 'Комментарии', count: comments.data?.length ?? t.commentCount },
                   { id: 'lyrics' as const, label: 'Текст' },
                   ...(genius.data?.configured ? [{ id: 'about' as const, label: 'О песне' }] : []),
                 ]}
-                value={tab}
+                value={activeTab}
                 onChange={setTab}
               />
             )}
-            {tab === 'comments' && comments.data && (
+            {activeTab === 'comments' && comments.data && (
               <Comments track={t} comments={comments.data} setComments={(c) => comments.setData(() => c)} />
             )}
-            {tab === 'lyrics' && (
+            {activeTab === 'lyrics' && (
               <LyricsTab
                 track={t}
                 lyrics={lyrics}
@@ -340,9 +346,9 @@ export function TrackPage() {
                 onFindOnGenius={() => setLinking(true)}
               />
             )}
-            {tab === 'about' && genius.loading && <Loading label="Ищем песню на Genius…" />}
-            {tab === 'about' && genius.error && <ErrorState message={genius.error} onRetry={genius.reload} />}
-            {tab === 'about' && genius.data && !song && (
+            {activeTab === 'about' && genius.loading && <Loading label="Ищем песню на Genius…" />}
+            {activeTab === 'about' && genius.error && <ErrorState message={genius.error} onRetry={genius.reload} />}
+            {activeTab === 'about' && genius.data && !song && (
               <Empty icon={<Icon name="lyrics" size={32} />} title="Песня не найдена на Genius">
                 {genius.data.manual ? 'Для этого трека отмечено, что песни на Genius нет.' : 'Автоматически подобрать песню не получилось.'}
                 {genius.data.canEdit && (
@@ -354,8 +360,8 @@ export function TrackPage() {
                 )}
               </Empty>
             )}
-            {tab === 'about' && song && <GeniusAbout song={song} />}
-            {tab !== 'comments' && song && genius.data?.canEdit && !(tab === 'lyrics' && lyrics.data?.found) && (
+            {activeTab === 'about' && song && <GeniusAbout song={song} />}
+            {activeTab !== 'comments' && song && genius.data?.canEdit && !(activeTab === 'lyrics' && lyrics.data?.found) && (
               <div className="genius-relink">
                 <button className="btn btn-text btn-small" onClick={() => setLinking(true)}>
                   <Icon name="edit" size={18} /> Не та песня? Выбрать другую
