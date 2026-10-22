@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { dbStore, openDatabase } from '../src/db/index.js';
-import { createProviders } from '../src/providers/index.js';
+import { createProviders, signedUrlExpiry } from '../src/providers/index.js';
 import { SoundCloudProvider } from '../src/providers/soundcloud.js';
 import {
   findClientId,
@@ -77,6 +77,16 @@ describe('SoundCloud web mode helpers', () => {
   });
 });
 
+describe('signed stream links', () => {
+  it('reads when SoundCloud and Deezer links expire', () => {
+    assert.equal(signedUrlExpiry('https://playback.media-streaming.soundcloud.cloud/x/playlist.m3u8?expires=1790000000&Policy=p'), 1790000000_000);
+    assert.equal(signedUrlExpiry('https://cf-media.sndcdn.com/a.mp3?Expires=1790000000&Signature=s'), 1790000000_000);
+    assert.equal(signedUrlExpiry('https://cdnt-preview.dzcdn.net/api/1/1/a.mp3?hdnea=exp=1790000900~acl=/api/*~hmac=ab'), 1790000900_000);
+    assert.equal(signedUrlExpiry('https://cdn.example/a.mp3'), null);
+    assert.equal(signedUrlExpiry('/api/tracks/1/stream'), null);
+  });
+});
+
 describe('SoundCloud web provider', () => {
   it('looks the client_id up once, keeps it and sends it with requests', async () => {
     const store = dbStore(openDatabase(':memory:'));
@@ -139,12 +149,15 @@ describe('SoundCloud web provider', () => {
             webTrack(3, { policy: 'SNIP', duration: 30_000, full_duration: 200_000 }),
             webTrack(4, { media: { transcodings: [transcoding('ctr-encrypted-hls', 'audio/mp4')] } }),
             webTrack(5, { streamable: false }),
+            webTrack(6, {
+              media: { transcodings: [transcoding('ctr-encrypted-hls', 'audio/mp4'), transcoding('hls', 'audio/mpeg', { preset: 'mp3_1_0' })] },
+            }),
           ],
         },
       ],
     ]);
     const tracks = await new SoundCloudWebProvider({ intervalMs: 0 }, impl).getArtistTracks({ externalId: 'soundcloud:users:7', name: 'producer' });
-    assert.match(calls.at(-1)!.url, /\/users\/7\/tracks\?limit=50&client_id=/);
+    assert.match(calls.at(-1)!.url, /\/users\/7\/tracks\?limit=20&client_id=/);
     assert.deepEqual(
       tracks.map((t) => [t.externalId, t.isPreview]),
       [
@@ -188,11 +201,29 @@ describe('SoundCloud web provider', () => {
     assert.equal(source?.kind, 'hls');
   });
 
-  it('puts adaptive presets last', () => {
-    const abr = transcoding('hls', 'audio/mp4', { preset: 'abr_sq' });
-    const aac = transcoding('hls', 'audio/mp4', { preset: 'aac_160k' });
-    assert.equal(pickTranscoding([abr, aac]), aac);
+  it('puts adaptive presets last and prefers the higher bitrate', () => {
+    const abr = transcoding('hls', 'audio/mpegurl', { preset: 'abr_sq' });
+    const aac96 = transcoding('hls', 'audio/mp4', { preset: 'aac_96k' });
+    const aac160 = transcoding('hls', 'audio/mp4', { preset: 'aac_160k' });
+    assert.equal(pickTranscoding([abr, aac96, aac160]), aac160);
     assert.equal(pickTranscoding([abr]), abr);
+  });
+
+  it('does not ask soundcloud.com for a new client_id on every rejected request', async () => {
+    const { impl, calls } = site([['api-v2.soundcloud.com', () => new Response('{}', { status: 403 })]]);
+    const provider = new SoundCloudWebProvider({ intervalMs: 0 }, impl);
+    await assert.rejects(provider.searchArtists('a'), /HTTP 403/);
+    await assert.rejects(provider.searchArtists('b'), /HTTP 403/);
+    assert.equal(calls.filter((c) => c.url === 'https://soundcloud.com/').length, 2, 'first lookup plus one retry, then the cooldown');
+    assert.equal(calls.filter((c) => c.url.includes('api-v2')).length, 3);
+  });
+
+  it('accepts station playlists', async () => {
+    const { impl } = site([
+      ['api-v2.soundcloud.com/resolve', { kind: 'system-playlist', id: 3, title: 'Станция', track_count: 1, tracks: [webTrack(1)] }],
+    ]);
+    const playlist = await new SoundCloudWebProvider({ intervalMs: 0 }, impl).importPlaylist(new URL('https://soundcloud.com/discover/sets/track-stations:1'));
+    assert.equal(playlist.tracks.length, 1);
   });
 
   it('never sends the client_id to hosts other than api-v2', async () => {

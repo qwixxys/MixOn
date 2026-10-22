@@ -115,6 +115,22 @@ export interface MusicProvider {
   readonly oauth?: OAuthFlow;
 }
 
+/**
+ * When a signed CDN link stops working, if the link says so: `expires`/`Expires` (unix seconds, SoundCloud's CloudFront
+ * links) or `hdnea=exp=…` (Deezer previews). Milliseconds since the epoch.
+ */
+export function signedUrlExpiry(url: string): number | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const value = parsed.searchParams.get('expires') ?? parsed.searchParams.get('Expires') ?? parsed.searchParams.get('hdnea')?.match(/(?:^|~)exp=(\d+)/)?.[1];
+  const seconds = Number(value);
+  return value && Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
+}
+
 export function streamKind(url: string): StreamSource['kind'] {
   return /\.m3u8(\?|$)/i.test(url) ? 'hls' : 'direct';
 }

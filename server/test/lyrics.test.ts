@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { parseLrc, type LrclibRecord } from '../src/lyrics/lrclib.js';
+import { LrclibClient, parseLrc, type LrclibRecord } from '../src/lyrics/lrclib.js';
 import { pickRecord } from '../src/lyrics/service.js';
 import { createTestApp, fakeFetch, register, sineWav } from './helpers.js';
 
@@ -59,6 +59,17 @@ describe('pickRecord', () => {
   });
 });
 
+describe('LRCLIB client', () => {
+  it('identifies itself, skips durations LRCLIB rejects and treats empty records as missing', async () => {
+    const { impl, calls } = fakeFetch([['lrclib.test/api/get', record(1, { plainLyrics: null, syncedLyrics: null })]]);
+    const client = new LrclibClient('https://lrclib.test', 'soundFy v0.1.0 (https://example.test)', impl, 0);
+    assert.equal(await client.get({ artist: 'a', title: 'b', album: null, duration: 7200 }), null);
+    const url = new URL(calls[0].url);
+    assert.equal(url.searchParams.has('duration'), false);
+    assert.equal((calls[0].init?.headers as Record<string, string>)['lrclib-client'], 'soundFy v0.1.0 (https://example.test)');
+  });
+});
+
 describe('lyrics API', () => {
   const calls: string[] = [];
   const { impl } = fakeFetch([
@@ -68,6 +79,8 @@ describe('lyrics API', () => {
         calls.push(url);
         const q = new URL(url).searchParams;
         if (q.get('track_name') === 'Тестовая песня') return record(10, { duration: 2 });
+        if (q.get('track_name') === 'С альбомом' && !q.has('album_name')) return record(30, { trackName: 'С альбомом', duration: 2 });
+        if (q.get('track_name') === 'Только текст') return record(40, { trackName: 'Только текст', duration: 2, syncedLyrics: null });
         return new Response('{"code":404,"name":"TrackNotFound"}', { status: 404 });
       },
     ],
@@ -76,6 +89,7 @@ describe('lyrics API', () => {
       (url: string) => {
         calls.push(url);
         const q = new URL(url).searchParams;
+        if (q.get('track_name') === 'Только текст') return [record(41, { trackName: 'Только текст', duration: 2 })];
         return q.get('track_name') === 'Через поиск' ? [record(20, { trackName: 'Через поиск', duration: 2 })] : [];
       },
     ],
@@ -86,7 +100,7 @@ describe('lyrics API', () => {
 
   before(async () => {
     const user = await register(t.request, 'singer');
-    for (const title of ['Тестовая песня', 'Через поиск', 'Нигде нет']) {
+    for (const title of ['Тестовая песня', 'Через поиск', 'Нигде нет', 'С альбомом', 'Только текст']) {
       const res = await t.request
         .post('/api/tracks')
         .set(user.auth)
@@ -116,6 +130,19 @@ describe('lyrics API', () => {
     const res = await t.request.get(`/api/tracks/${ids['Через поиск']}/lyrics`).expect(200);
     assert.equal(res.body.found, true);
     assert.ok(calls.some((u) => u.includes('/api/search')));
+  });
+
+  it('retries without an album that LRCLIB does not know', async () => {
+    t.ctx.db.prepare('UPDATE tracks SET album = ? WHERE id = ?').run('Другой альбом', ids['С альбомом']);
+    const res = await t.request.get(`/api/tracks/${ids['С альбомом']}/lyrics`).expect(200);
+    assert.equal(res.body.found, true);
+    const lookups = calls.filter((u) => u.includes('/api/get') && u.includes(encodeURIComponent('С альбомом').replace(/%20/g, '+')));
+    assert.equal(lookups.length, 2);
+  });
+
+  it('prefers a synced version found by search over a plain exact match', async () => {
+    const res = await t.request.get(`/api/tracks/${ids['Только текст']}/lyrics`).expect(200);
+    assert.ok(res.body.synced?.length, 'synced lines from the search hit');
   });
 
   it('remembers misses', async () => {

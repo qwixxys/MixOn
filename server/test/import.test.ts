@@ -61,7 +61,22 @@ describe('link expansion', () => {
 
   it('reports dead short links', async () => {
     const { impl } = fakeFetch([['link.deezer.com', { ok: true }]]);
-    await assert.rejects(expandLink('https://link.deezer.com/s/dead', ['link.deezer.com'], impl), /никуда не ведёт/);
+    await assert.rejects(expandLink('https://link.deezer.com/s/dead', ['link.deezer.com'], impl), /устарела или удалена/);
+  });
+
+  it('reads the target from share pages without requesting them', async () => {
+    const target = encodeURIComponent('https://www.deezer.com/playlist/77?utm_source=user_sharing&deferredFl=1');
+    const { impl, calls } = fakeFetch([
+      ['link.deezer.com/s/abc', () => new Response(null, { status: 301, headers: { location: `https://link.deezer.com/?dest=${target}` } })],
+    ]);
+    const url = await expandLink('https://link.deezer.com/s/abc', ['link.deezer.com'], impl);
+    assert.equal(url.origin + url.pathname, 'https://www.deezer.com/playlist/77');
+    assert.equal(calls.length, 1, 'only the short link itself is requested');
+
+    // A target outside the allowlist is returned for checking, never fetched.
+    const evil = await expandLink(`https://link.deezer.com/?dest=${encodeURIComponent('http://169.254.169.254/latest')}`, ['link.deezer.com'], impl);
+    assert.equal(evil.hostname, '169.254.169.254');
+    assert.equal(calls.length, 1);
   });
 });
 
@@ -92,6 +107,17 @@ describe('Deezer import', () => {
         'https://api.deezer.com/playlist/77/tracks?index=100&limit=100',
       ],
     );
+  });
+
+  it('pages an album when the embedded track list is short and ignores unknown dates', async () => {
+    const { impl, calls } = fakeFetch([
+      ['api.deezer.com/album/6/tracks', { data: [dzTrack(1), dzTrack(2), dzTrack(3)] }],
+      ['api.deezer.com/album/6', { id: 6, title: 'Сборник', release_date: '0000-00-00', nb_tracks: 3, tracks: { data: [dzTrack(1)] } }],
+    ]);
+    const album = await new DeezerProvider(impl).importPlaylist(new URL('https://www.deezer.com/album/6'));
+    assert.equal(album.tracks.length, 3);
+    assert.equal(album.tracks[0].releasedAt, null);
+    assert.equal(calls[1].url, 'https://api.deezer.com/album/6/tracks?index=0&limit=100');
   });
 
   it('reads albums with their own cover and release date', async () => {

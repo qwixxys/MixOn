@@ -1,7 +1,9 @@
 import { badRequest } from './errors.js';
 import type { FetchLike } from './http.js';
 
-const MAX_HOPS = 3;
+const MAX_HOPS = 4;
+/** Share-link pages that carry their target in the query (link.deezer.com/?dest=…, old Firebase links ?link=…). */
+const TARGET_PARAMS = ['dest', 'link', 'awf', 'gwf', 'iwf'];
 
 function parse(input: string): URL {
   let url: URL;
@@ -26,6 +28,12 @@ function parse(input: string): URL {
 export async function expandLink(input: string, shortLinkHosts: string[], fetchImpl: FetchLike): Promise<URL> {
   let url = parse(input);
   for (let hop = 0; hop < MAX_HOPS && shortLinkHosts.includes(url.hostname); hop++) {
+    // The target is already in the link: use it without a request. It is checked like any pasted link afterwards.
+    const target = TARGET_PARAMS.map((p) => url.searchParams.get(p)).find((v) => v && /^https?:\/\//i.test(v));
+    if (target) {
+      url = parse(target);
+      continue;
+    }
     let res: Response;
     try {
       res = await fetchImpl(url.toString(), { redirect: 'manual', signal: AbortSignal.timeout(10_000) });
@@ -34,7 +42,9 @@ export async function expandLink(input: string, shortLinkHosts: string[], fetchI
     }
     await res.body?.cancel().catch(() => {});
     const location = res.headers.get('location');
-    if (res.status < 300 || res.status >= 400 || !location) throw badRequest('Короткая ссылка никуда не ведёт');
+    if (res.status < 300 || res.status >= 400 || !location) {
+      throw badRequest('Короткая ссылка не открывается: она устарела или удалена. Скопируйте ссылку в сервисе заново');
+    }
     url = parse(new URL(location, url).toString());
   }
   return url;

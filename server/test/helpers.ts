@@ -112,7 +112,7 @@ export function createTestApp(
   const registry = new ProviderRegistry(providers);
   const sync = new SyncService(db, registry, { info() {}, warn() {}, error() {} });
   const genius = new GeniusService(db, new GeniusClient(geniusToken, fetchImpl));
-  const lyrics = new LyricsService(db, new LrclibClient(lrclibUrl, 'soundFy-test', fetchImpl));
+  const lyrics = new LyricsService(db, new LrclibClient(lrclibUrl, 'soundFy-test', fetchImpl, 0));
   const ctx: AppContext = { db, config, providers: registry, sync, genius, lyrics, fetchImpl };
   const app = createApp(ctx);
   return { ctx, app, request: supertest(app), cleanup: () => fs.rmSync(config.dataDir, { recursive: true, force: true }) };

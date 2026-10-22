@@ -1,4 +1,4 @@
-import { fetchJson, ProviderError, type FetchLike } from '../lib/http.js';
+import { fetchJson, ProviderError, RateLimiter, type FetchLike } from '../lib/http.js';
 
 /** A lyrics record as LRCLIB returns it (https://lrclib.net/docs). */
 export interface LrclibRecord {
@@ -46,11 +46,17 @@ export function parseLrc(lrc: string): LyricLine[] {
 
 /** LRCLIB: free, community-run lyrics database; no API key. */
 export class LrclibClient {
+  // LRCLIB asks clients to send requests one after another with a short pause.
+  private limiter: RateLimiter;
+
   constructor(
     private baseUrl: string | null,
     private userAgent: string,
     private fetchImpl: FetchLike = fetch,
-  ) {}
+    intervalMs = 300,
+  ) {
+    this.limiter = new RateLimiter(intervalMs);
+  }
 
   isEnabled() {
     return Boolean(this.baseUrl);
@@ -59,21 +65,28 @@ export class LrclibClient {
   private async request<T>(path: string, params: Record<string, string>): Promise<T | null> {
     const url = `${this.baseUrl}${path}?${new URLSearchParams(params)}`;
     try {
-      // LRCLIB asks clients to identify themselves with a User-Agent.
-      return await fetchJson<T>(this.fetchImpl, 'lrclib', url, { headers: { 'user-agent': this.userAgent, accept: 'application/json' } });
+      await this.limiter.wait();
+      // LRCLIB requires clients to identify themselves ("<app> v<version> (<homepage>)").
+      return await fetchJson<T>(this.fetchImpl, 'lrclib', url, {
+        headers: { 'user-agent': this.userAgent, 'lrclib-client': this.userAgent, accept: 'application/json' },
+      });
     } catch (err) {
       if (err instanceof ProviderError && err.code === 404) return null;
       throw err;
     }
   }
 
-  /** Exact lookup; LRCLIB only matches when the duration is within a couple of seconds. */
-  get(q: { artist: string; title: string; album?: string | null; duration: number }): Promise<LrclibRecord | null> {
+  /**
+   * Exact lookup: names must match after LRCLIB's normalisation, the album too when given, and the duration within ±2 s.
+   * A record without any lyrics counts as not found.
+   */
+  async get(q: { artist: string; title: string; album?: string | null; duration: number }): Promise<LrclibRecord | null> {
     const params: Record<string, string> = { artist_name: q.artist, track_name: q.title };
     // LRCLIB rejects durations outside 1..3600 s; without one it matches on the names alone.
     if (q.duration >= 1 && q.duration <= 3600) params.duration = String(Math.round(q.duration));
     if (q.album) params.album_name = q.album;
-    return this.request<LrclibRecord>('/api/get', params);
+    const record = await this.request<LrclibRecord>('/api/get', params);
+    return record && (record.syncedLyrics || record.plainLyrics || record.instrumental) ? record : null;
   }
 
   async search(q: { artist: string; title: string }): Promise<LrclibRecord[]> {

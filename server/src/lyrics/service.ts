@@ -83,8 +83,13 @@ export class LyricsService {
     let record: LrclibRecord | null;
     try {
       const query = { artist: primaryArtist(track.artist), title: cleanTitle(track.title), album: track.album, duration: track.duration };
-      record = await this.lrclib.get(query);
-      if (!record) record = pickRecord(await this.lrclib.search(query), track);
+      // A differently named album makes the exact lookup miss, so try again without it.
+      record = (await this.lrclib.get(query)) ?? (query.album ? await this.lrclib.get({ ...query, album: null }) : null);
+      // The exact lookup returns the oldest match, which may be plain text while a synced version exists.
+      if (!record?.syncedLyrics && !record?.instrumental) {
+        const found = pickRecord(await this.lrclib.search(query), track);
+        if (found && (found.syncedLyrics || !record)) record = found;
+      }
     } catch (err) {
       // Keep serving what we had if LRCLIB is down.
       if (cached) return this.toLyrics(cached);

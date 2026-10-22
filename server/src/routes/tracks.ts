@@ -18,7 +18,7 @@ import { AUDIO_TYPES, createUploader, removeUpload, uploadDir, withUploads } fro
 import { idParam, parse } from '../lib/validate.js';
 import { normalizeWaveform } from '../lib/waveform.js';
 import { requireUser } from '../middleware/auth.js';
-import type { StreamSource } from '../providers/index.js';
+import { signedUrlExpiry, type StreamSource } from '../providers/index.js';
 
 const STREAM_CACHE_TTL_MS = 10 * 60_000;
 const STREAM_TOKEN_TTL = '6h';
@@ -335,7 +335,9 @@ export function trackRoutes(ctx: AppContext) {
       { token },
     );
     if (!source) throw notFound(`Трек больше недоступен в сервисе ${provider.name}`);
-    streamCache.set(key, { source, expires: Date.now() + STREAM_CACHE_TTL_MS });
+    // Signed links can expire sooner than the cache would keep them (SoundCloud's last about as long as the track).
+    const expires = Math.min(Date.now() + STREAM_CACHE_TTL_MS, (signedUrlExpiry(source.url) ?? Infinity) - 60_000);
+    if (expires > Date.now()) streamCache.set(key, { source, expires });
     return source;
   };
 

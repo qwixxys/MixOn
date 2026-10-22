@@ -321,11 +321,17 @@ export class SoundCloudProvider implements MusicProvider {
   async importPlaylist(url: URL): Promise<ImportedPlaylist> {
     const link = `https://soundcloud.com${url.pathname.replace(/\/$/, '')}`;
     const playlist = await this.get<ScPlaylist>(`/resolve?url=${encodeURIComponent(link)}`);
-    if (playlist.kind && playlist.kind !== 'playlist') throw new ProviderError(this.id, 'Это ссылка не на плейлист SoundCloud');
-    const raw = await this.collect<ScTrack>(
-      `/playlists/${encodeURIComponent(playlist.urn ?? String(playlist.id))}/tracks?limit=200&linked_partitioning=true&access=playable,preview`,
-      null,
-    );
+    // Station links (soundcloud.com/discover/sets/…) resolve to system playlists, which list their tracks inline.
+    if (playlist.kind && playlist.kind !== 'playlist' && playlist.kind !== 'system-playlist') {
+      throw new ProviderError(this.id, 'Это ссылка не на плейлист SoundCloud');
+    }
+    const raw =
+      playlist.kind === 'system-playlist'
+        ? (playlist.tracks ?? [])
+        : await this.collect<ScTrack>(
+            `/playlists/${encodeURIComponent(playlist.urn ?? String(playlist.id))}/tracks?limit=200&linked_partitioning=true&access=playable,preview`,
+            null,
+          );
     return {
       title: playlist.title,
       description: playlist.description || null,

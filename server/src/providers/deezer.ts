@@ -91,6 +91,13 @@ export function formatFans(n: number | undefined): string | null {
   return `${n} подписчиков`;
 }
 
+/** Deezer dates are "YYYY-MM-DD"; unknown ones come as "0000-00-00". */
+export function deezerDate(value: string | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000')) return null;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 /** A playable preview track, or null when Deezer cannot play it in this region. */
 function mapTrack(t: DzTrack, album: Partial<DzAlbum> | undefined): ExternalTrack | null {
   if (t.readable === false || !t.preview) return null;
@@ -103,7 +110,7 @@ function mapTrack(t: DzTrack, album: Partial<DzAlbum> | undefined): ExternalTrac
     streamUrl: t.preview,
     coverUrl: album?.cover_big ?? album?.cover_medium ?? null,
     externalUrl: t.link,
-    releasedAt: album?.release_date ? new Date(`${album.release_date}T00:00:00Z`).toISOString() : null,
+    releasedAt: deezerDate(album?.release_date),
     genre: album?.genre_id ? (DEEZER_GENRES[album.genre_id] ?? null) : null,
     isPreview: true,
   };
@@ -171,16 +178,14 @@ export class DeezerProvider implements MusicProvider {
     const [, kind, id] = url.pathname.match(LINK)!;
     if (kind.toLowerCase() === 'album') {
       const album = await this.get<DzAlbumDetail>(`/album/${id}`);
-      const tracks = (album.tracks?.data ?? []).map((t) => mapTrack(t, album)).filter((t): t is ExternalTrack => t !== null);
+      let list = album.tracks?.data ?? [];
+      // The embedded list can come back shorter than the album; the paged endpoint has all of it.
+      if (album.nb_tracks && list.length < album.nb_tracks) list = await this.pages(`/album/${id}/tracks`);
+      const tracks = list.map((t) => mapTrack(t, album)).filter((t): t is ExternalTrack => t !== null);
       return { title: album.title, description: null, url: `https://www.deezer.com/album/${id}`, tracks, total: album.nb_tracks ?? album.tracks?.data.length ?? tracks.length };
     }
     const playlist = await this.get<DzPlaylist>(`/playlist/${id}`);
-    const raw: DzTrack[] = [];
-    while (raw.length < MAX_IMPORT) {
-      const page = await this.get<DeezerList<DzTrack>>(`/playlist/${id}/tracks?index=${raw.length}&limit=${PAGE}`);
-      raw.push(...(page.data ?? []));
-      if (!page.data?.length || page.data.length < PAGE) break;
-    }
+    const raw = await this.pages(`/playlist/${id}/tracks`);
     const tracks = raw.map((t) => mapTrack(t, t.album)).filter((t): t is ExternalTrack => t !== null);
     return {
       title: playlist.title,
@@ -189,6 +194,17 @@ export class DeezerProvider implements MusicProvider {
       tracks,
       total: playlist.nb_tracks ?? raw.length,
     };
+  }
+
+  /** Reads a paged track list up to the import limit. */
+  private async pages(path: string): Promise<DzTrack[]> {
+    const items: DzTrack[] = [];
+    while (items.length < MAX_IMPORT) {
+      const page = await this.get<DeezerList<DzTrack>>(`${path}?index=${items.length}&limit=${PAGE}`);
+      items.push(...(page.data ?? []));
+      if (!page.data?.length || page.data.length < PAGE) break;
+    }
+    return items.slice(0, MAX_IMPORT);
   }
 
   async resolveStream(track: StoredExternalTrack): Promise<StreamSource | null> {

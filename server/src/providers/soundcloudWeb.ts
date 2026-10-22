@@ -27,9 +27,11 @@ const CLIENT_ID_KEY = 'soundcloud.web_client_id';
 const CLIENT_ID_TTL_MS = 24 * 3600_000;
 /** Scripts checked for the client_id, newest bundles last on the page, so they are read from the end. */
 const MAX_SCRIPTS = 8;
-/** Stub tracks in a playlist are filled in this many at a time (the API's own limit). */
+/** Stub tracks in a playlist are filled in this many at a time (the batch size other clients use). */
 const HYDRATE_BATCH = 50;
 const MAX_IMPORT = 1000;
+/** soundcloud.com is read again for a new client_id at most this often, however many requests get rejected. */
+const RESCRAPE_COOLDOWN_MS = 10 * 60_000;
 
 interface Transcoding {
   url: string;
@@ -87,15 +89,19 @@ export function findScripts(html: string): string[] {
 const isEncrypted = (t: Transcoding) => !['progressive', 'hls'].includes(t.format?.protocol ?? '');
 /** Browsers (and hls.js) cannot play Opus inside HLS; MP3 and AAC work everywhere. */
 const isPlayable = (t: Transcoding) => !isEncrypted(t) && !/ogg|opus/i.test(t.format?.mime_type ?? '');
+/** Widevine/PlayReady/FairPlay streams. Such tracks also list MP3 streams, but those answer 404. */
+const hasDrm = (list: Transcoding[] | undefined) => (list ?? []).some((t) => /^(ctr|cbc)-/.test(t.format?.protocol ?? ''));
+const bitrate = (t: Transcoding) => Number(t.preset?.match(/(\d+)k/)?.[1] ?? 0);
 
 /**
- * Streams a browser can play, best first: full over snippet, then a plain MP3 file, then HLS, with the adaptive
- * "abr" presets (which other clients report as unreliable) last. Encrypted (DRM) ones are skipped.
+ * Streams a browser can play, best first: full over snippet, a plain file over HLS (SoundCloud removed MP3 files in
+ * 2026, so it is usually AAC over HLS), higher bitrate first, and the adaptive "abr" presets, which other clients
+ * report as broken, last. Encrypted ones are skipped.
  */
 export function rankTranscodings(list: Transcoding[] | undefined): Transcoding[] {
   const rank = (t: Transcoding) =>
     (t.snipped ? 10 : 0) + (t.preset?.startsWith('abr') ? 5 : 0) + (t.format?.protocol === 'progressive' ? 0 : 1);
-  return (list ?? []).filter(isPlayable).sort((a, b) => rank(a) - rank(b));
+  return (list ?? []).filter(isPlayable).sort((a, b) => rank(a) - rank(b) || bitrate(b) - bitrate(a));
 }
 
 export const pickTranscoding = (list: Transcoding[] | undefined): Transcoding | null => rankTranscodings(list)[0] ?? null;
@@ -108,7 +114,7 @@ function isSnippet(t: ScWebTrack) {
 }
 
 function isListenable(t: ScWebTrack) {
-  return t.streamable !== false && t.policy !== 'BLOCK' && Boolean(pickTranscoding(t.media?.transcodings));
+  return t.streamable !== false && t.policy !== 'BLOCK' && !hasDrm(t.media?.transcodings) && Boolean(pickTranscoding(t.media?.transcodings));
 }
 
 export class SoundCloudWebProvider implements MusicProvider {
@@ -124,13 +130,15 @@ export class SoundCloudWebProvider implements MusicProvider {
 
   private clientId: { id: string; at: number } | null = null;
   private lookup: Promise<string> | null = null;
+  private lastRescrape = 0;
   private limiter: RateLimiter;
 
   constructor(
     private options: SoundCloudWebOptions = {},
     private fetchImpl: FetchLike = fetch,
   ) {
-    this.limiter = new RateLimiter(options.intervalMs ?? 250);
+    // SoundCloud starts answering 429 at roughly 600 requests per 10 minutes.
+    this.limiter = new RateLimiter(options.intervalMs ?? 500);
     const saved = options.store?.get(CLIENT_ID_KEY);
     if (saved) {
       try {
@@ -177,7 +185,10 @@ export class SoundCloudWebProvider implements MusicProvider {
     return this.lookup;
   }
 
-  /** GET on api-v2 with the client_id; a rejected id is looked up again once. */
+  /**
+   * GET on api-v2 with the client_id. A rejected id is looked up again once, but not more often than the cooldown:
+   * a 403 can also be SoundCloud's bot protection, which a new id does not fix.
+   */
   private async get<T>(pathOrUrl: string, retry = true): Promise<T> {
     const url = new URL(pathOrUrl, API);
     // Paging links and stream links come from SoundCloud's answers; never send the id anywhere else.
@@ -191,10 +202,18 @@ export class SoundCloudWebProvider implements MusicProvider {
     } catch (err) {
       throw new ProviderError(this.id, `SoundCloud недоступен: ${(err as Error).message}`);
     }
-    if ((res.status === 401 || res.status === 403) && retry) {
+    if ((res.status === 401 || res.status === 403) && retry && Date.now() - this.lastRescrape > RESCRAPE_COOLDOWN_MS) {
       await res.body?.cancel().catch(() => {});
+      this.lastRescrape = Date.now();
       await this.getClientId(true);
       return this.get<T>(pathOrUrl, false);
+    }
+    if (res.status === 403) {
+      throw new ProviderError(
+        this.id,
+        'SoundCloud отклонил запрос (HTTP 403): он ограничивает неофициальных клиентов, и с этого сервера режим без ключей может не работать',
+        403,
+      );
     }
     if (res.status === 404) throw new ProviderError(this.id, 'Не найдено на SoundCloud', 404);
     if (res.status === 429) throw new ProviderError(this.id, 'SoundCloud временно ограничил запросы, попробуйте позже', 429);
@@ -227,14 +246,15 @@ export class SoundCloudWebProvider implements MusicProvider {
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {
-    const page = await this.get<ScWebPage<ScWebTrack>>(`/users/${scNumericId(artist.externalId)}/tracks?limit=50`);
+    // The newest uploads are enough to find new releases; the site itself asks for 20 at a time.
+    const page = await this.get<ScWebPage<ScWebTrack>>(`/users/${scNumericId(artist.externalId)}/tracks?limit=20`);
     return this.mapTracks(page.collection);
   }
 
   async resolveStream(track: StoredExternalTrack): Promise<StreamSource | null> {
     // Stream links are signed per request with the track's authorization, so read the track fresh every time.
     const t = await this.get<ScWebTrack>(`/tracks/${scNumericId(track.externalId)}`);
-    if (t.policy === 'BLOCK') return null;
+    if (t.policy === 'BLOCK' || hasDrm(t.media?.transcodings)) return null;
     // A listed stream can still be missing (404); then the next best one is tried.
     for (const pick of rankTranscodings(t.media?.transcodings).slice(0, 3)) {
       const path = new URL(pick.url);
@@ -258,7 +278,9 @@ export class SoundCloudWebProvider implements MusicProvider {
   async importPlaylist(url: URL): Promise<ImportedPlaylist> {
     const link = `https://soundcloud.com${url.pathname.replace(/\/$/, '')}`;
     const playlist = await this.get<ScWebPlaylist>(`/resolve?url=${encodeURIComponent(link)}`);
-    if (playlist.kind && playlist.kind !== 'playlist') throw new ProviderError(this.id, 'Это ссылка не на плейлист SoundCloud');
+    if (playlist.kind && playlist.kind !== 'playlist' && playlist.kind !== 'system-playlist') {
+      throw new ProviderError(this.id, 'Это ссылка не на плейлист SoundCloud');
+    }
 
     // Only the first few tracks come complete; the rest are id stubs to be filled in.
     const listed = (playlist.tracks ?? []).slice(0, MAX_IMPORT);
