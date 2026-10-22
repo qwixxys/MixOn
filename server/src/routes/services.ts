@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { AppContext } from '../context.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { ProviderError } from '../lib/http.js';
+import { expandLink } from '../lib/links.js';
 import { listOptions, listTracks, resolveScope } from '../lib/trackLists.js';
 import { idParam, parse } from '../lib/validate.js';
 import { requireUser } from '../middleware/auth.js';
@@ -19,6 +20,7 @@ const httpUrl = z
   .string()
   .max(2000)
   .refine((u) => /^https?:\/\/[^\s]+$/i.test(u), 'нужна ссылка http(s)');
+const importSchema = z.object({ url: z.string().trim().min(1, 'вставьте ссылку').max(2000) });
 const subscribeSchema = z.object({
   provider: z.string().min(1),
   externalId: z.string().trim().min(1).max(200),
@@ -92,6 +94,7 @@ export function serviceRoutes(ctx: AppContext) {
       requiresToken: p.requiresToken,
       connectMode: p.connectMode,
       fullTracks: p.fullTracks,
+      unofficial: Boolean(p.unofficial),
       configured: p.isConfigured(),
       connected: Boolean(connection),
       account: connection ? { displayName: connection.display_name, connectedAt: connection.created_at } : null,
@@ -100,6 +103,7 @@ export function serviceRoutes(ctx: AppContext) {
       canImportLibrary: Boolean(p.getUserLibrary),
       canImportFollowings: Boolean(p.getUserFollowings),
       libraryLabel: p.libraryLabel ?? null,
+      importsLinks: Boolean(p.importPlaylist) && p.isConfigured(),
     };
   };
 
@@ -200,6 +204,14 @@ export function serviceRoutes(ctx: AppContext) {
   r.post('/services/:id/import', async (req, res) => {
     const me = requireUser(req);
     res.json(await sync.importLibrary(me, providers.get(req.params.id).id));
+  });
+
+  /** Imports a public playlist or album by a link from any service that understands it. */
+  r.post('/import', async (req, res) => {
+    const me = requireUser(req);
+    const { url } = parse(importSchema, req.body);
+    const shortHosts = providers.list().flatMap((p) => p.shortLinkHosts ?? []);
+    res.status(201).json(await sync.importFromUrl(me, await expandLink(url, shortHosts, ctx.fetchImpl)));
   });
 
   r.post('/services/:id/import-followings', async (req, res) => {

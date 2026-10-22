@@ -4,6 +4,8 @@ import { loadConfig } from './config.js';
 import { dbStore, openDatabase } from './db/index.js';
 import { GeniusClient } from './genius/client.js';
 import { GeniusService } from './genius/service.js';
+import { LrclibClient } from './lyrics/lrclib.js';
+import { LyricsService } from './lyrics/service.js';
 import { createProviders } from './providers/index.js';
 import { SyncService } from './sync/syncService.js';
 
@@ -12,7 +14,8 @@ const db = openDatabase(path.join(config.dataDir, 'soundfy.db'));
 const providers = createProviders(config, dbStore(db));
 const sync = new SyncService(db, providers);
 const genius = new GeniusService(db, new GeniusClient(config.genius.accessToken));
-const app = createApp({ db, config, providers, sync, genius, fetchImpl: fetch });
+const lyrics = new LyricsService(db, new LrclibClient(config.lrclib.baseUrl, config.lrclib.userAgent));
+const app = createApp({ db, config, providers, sync, genius, lyrics, fetchImpl: fetch });
 
 const server = app.listen(config.port, () => {
   console.info(`soundFy server: http://localhost:${config.port}`);

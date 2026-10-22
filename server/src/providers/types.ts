@@ -56,6 +56,17 @@ export interface OAuthFlow {
   refresh(refreshToken: string): Promise<OAuthTokens>;
 }
 
+/** A playlist or album read from a public link. */
+export interface ImportedPlaylist {
+  title: string;
+  description: string | null;
+  /** Canonical link to the source; the same playlist imported again is recognised by it. */
+  url: string;
+  tracks: ExternalTrack[];
+  /** Tracks the source lists, including ones that could not be imported. */
+  total: number;
+}
+
 export interface StoredExternalTrack {
   externalId: string;
   streamUrl: string | null;
@@ -76,6 +87,8 @@ export interface MusicProvider {
   readonly fullTracks: boolean;
   /** Stream URLs must be fetched by the server and relayed to the browser. */
   readonly proxyStreams: boolean;
+  /** Works through a service's internal API rather than an official one, which may break or be blocked. */
+  readonly unofficial?: boolean;
   /** Extra request headers the service expects when the server fetches audio. */
   readonly streamHeaders?: Record<string, string>;
 
@@ -93,6 +106,12 @@ export interface MusicProvider {
   getUserLibrary?(ctx: ProviderContext): Promise<ExternalTrack[]>;
   /** Artists the user follows on the service. */
   getUserFollowings?(ctx: ProviderContext): Promise<ExternalArtist[]>;
+
+  /** Whether `importPlaylist` understands this (already expanded) link. */
+  canImport?(url: URL): boolean;
+  importPlaylist?(url: URL, ctx: ProviderContext): Promise<ImportedPlaylist>;
+  /** Share-link hosts that redirect to the service (fetched only to read the redirect). */
+  readonly shortLinkHosts?: string[];
   readonly oauth?: OAuthFlow;
 }
 

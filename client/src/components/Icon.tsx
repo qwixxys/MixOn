@@ -11,6 +11,7 @@ import msCheck from '@material-symbols/svg-400/rounded/check.svg?raw';
 import msClose from '@material-symbols/svg-400/rounded/close.svg?raw';
 import msCloudUpload from '@material-symbols/svg-400/rounded/cloud_upload.svg?raw';
 import msColorize from '@material-symbols/svg-400/rounded/colorize.svg?raw';
+import msContentPaste from '@material-symbols/svg-400/rounded/content_paste.svg?raw';
 import msDarkMode from '@material-symbols/svg-400/rounded/dark_mode.svg?raw';
 import msDelete from '@material-symbols/svg-400/rounded/delete.svg?raw';
 import msDescription from '@material-symbols/svg-400/rounded/description.svg?raw';
@@ -22,6 +23,7 @@ import msExplore from '@material-symbols/svg-400/rounded/explore.svg?raw';
 import msFavorite from '@material-symbols/svg-400/rounded/favorite.svg?raw';
 import msFilterList from '@material-symbols/svg-400/rounded/filter_list.svg?raw';
 import msGroup from '@material-symbols/svg-400/rounded/group.svg?raw';
+import msGraphicEq from '@material-symbols/svg-400/rounded/graphic_eq.svg?raw';
 import msHome from '@material-symbols/svg-400/rounded/home.svg?raw';
 import msHub from '@material-symbols/svg-400/rounded/hub.svg?raw';
 import msInfo from '@material-symbols/svg-400/rounded/info.svg?raw';
@@ -63,6 +65,7 @@ import msVisibility from '@material-symbols/svg-400/rounded/visibility.svg?raw';
 import msVolumeDown from '@material-symbols/svg-400/rounded/volume_down.svg?raw';
 import msVolumeOff from '@material-symbols/svg-400/rounded/volume_off.svg?raw';
 import msVolumeUp from '@material-symbols/svg-400/rounded/volume_up.svg?raw';
+import msWarning from '@material-symbols/svg-400/rounded/warning.svg?raw';
 import msChatBubbleFill from '@material-symbols/svg-400/rounded/chat_bubble-fill.svg?raw';
 import msErrorFill from '@material-symbols/svg-400/rounded/error-fill.svg?raw';
 import msExploreFill from '@material-symbols/svg-400/rounded/explore-fill.svg?raw';
@@ -90,6 +93,7 @@ const ICONS = {
   close: msClose,
   cloud_upload: msCloudUpload,
   colorize: msColorize,
+  content_paste: msContentPaste,
   dark_mode: msDarkMode,
   delete: msDelete,
   description: msDescription,
@@ -100,6 +104,7 @@ const ICONS = {
   explore: msExplore,
   favorite: msFavorite,
   filter_list: msFilterList,
+  graphic_eq: msGraphicEq,
   group: msGroup,
   home: msHome,
   hub: msHub,
@@ -142,6 +147,7 @@ const ICONS = {
   volume_down: msVolumeDown,
   volume_off: msVolumeOff,
   volume_up: msVolumeUp,
+  warning: msWarning,
 };
 
 const FILLED: Partial<Record<IconName, string>> = {

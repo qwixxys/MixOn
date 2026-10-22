@@ -1,5 +1,5 @@
 import { fetchJson, ProviderError, type FetchLike } from '../lib/http.js';
-import type { ArtistRef, ExternalArtist, ExternalTrack, MusicProvider, StoredExternalTrack, StreamSource } from './types.js';
+import type { ArtistRef, ExternalArtist, ExternalTrack, ImportedPlaylist, MusicProvider, StoredExternalTrack, StreamSource } from './types.js';
 
 const API = 'https://api.deezer.com';
 /** How many of the newest releases (albums/EPs/singles) to scan per sync. */
@@ -66,7 +66,23 @@ interface DzTrack extends DeezerError {
   link: string;
   artist: { id: number; name: string };
   readable?: boolean;
+  /** Present in playlist track lists, absent in album track lists. */
+  album?: { id: number; title: string; cover_medium?: string; cover_big?: string };
 }
+interface DzPlaylist extends DeezerError {
+  id: number;
+  title: string;
+  description?: string;
+  nb_tracks?: number;
+}
+interface DzAlbumDetail extends DzAlbum, DeezerError {
+  nb_tracks?: number;
+  tracks?: { data: DzTrack[] };
+}
+
+/** Most tracks a single import reads from a Deezer playlist. */
+const MAX_IMPORT = 1000;
+const PAGE = 100;
 
 export function formatFans(n: number | undefined): string | null {
   if (!n) return null;
@@ -74,6 +90,26 @@ export function formatFans(n: number | undefined): string | null {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K подписчиков`;
   return `${n} подписчиков`;
 }
+
+/** A playable preview track, or null when Deezer cannot play it in this region. */
+function mapTrack(t: DzTrack, album: Partial<DzAlbum> | undefined): ExternalTrack | null {
+  if (t.readable === false || !t.preview) return null;
+  return {
+    externalId: String(t.id),
+    title: t.title,
+    artist: t.artist?.name ?? '',
+    album: album?.title ?? null,
+    duration: t.duration,
+    streamUrl: t.preview,
+    coverUrl: album?.cover_big ?? album?.cover_medium ?? null,
+    externalUrl: t.link,
+    releasedAt: album?.release_date ? new Date(`${album.release_date}T00:00:00Z`).toISOString() : null,
+    genre: album?.genre_id ? (DEEZER_GENRES[album.genre_id] ?? null) : null,
+    isPreview: true,
+  };
+}
+
+const LINK = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?(playlist|album)\/(\d+)/i;
 
 export class DeezerProvider implements MusicProvider {
   readonly id = 'deezer' as const;
@@ -83,6 +119,7 @@ export class DeezerProvider implements MusicProvider {
   readonly connectMode = null;
   readonly fullTracks = false;
   readonly proxyStreams = false;
+  readonly shortLinkHosts = ['link.deezer.com', 'deezer.page.link', 'dzr.page.link'];
 
   constructor(private fetchImpl: FetchLike = fetch) {}
 
@@ -118,23 +155,40 @@ export class DeezerProvider implements MusicProvider {
     for (const album of latest) {
       const list = await this.get<DeezerList<DzTrack>>(`/album/${album.id}/tracks?limit=100`);
       for (const t of list.data ?? []) {
-        if (t.readable === false || !t.preview) continue;
-        tracks.push({
-          externalId: String(t.id),
-          title: t.title,
-          artist: t.artist?.name ?? '',
-          album: album.title,
-          duration: t.duration,
-          streamUrl: t.preview,
-          coverUrl: album.cover_big ?? album.cover_medium ?? null,
-          externalUrl: t.link,
-          releasedAt: album.release_date ? new Date(`${album.release_date}T00:00:00Z`).toISOString() : null,
-          genre: album.genre_id ? (DEEZER_GENRES[album.genre_id] ?? null) : null,
-          isPreview: true,
-        });
+        const track = mapTrack(t, album);
+        if (track) tracks.push(track);
       }
     }
     return tracks;
+  }
+
+  canImport(url: URL): boolean {
+    return /(^|\.)deezer\.com$/.test(url.hostname) && LINK.test(url.pathname);
+  }
+
+  /** Public playlists and albums; the public API needs no key and no login. */
+  async importPlaylist(url: URL): Promise<ImportedPlaylist> {
+    const [, kind, id] = url.pathname.match(LINK)!;
+    if (kind.toLowerCase() === 'album') {
+      const album = await this.get<DzAlbumDetail>(`/album/${id}`);
+      const tracks = (album.tracks?.data ?? []).map((t) => mapTrack(t, album)).filter((t): t is ExternalTrack => t !== null);
+      return { title: album.title, description: null, url: `https://www.deezer.com/album/${id}`, tracks, total: album.nb_tracks ?? album.tracks?.data.length ?? tracks.length };
+    }
+    const playlist = await this.get<DzPlaylist>(`/playlist/${id}`);
+    const raw: DzTrack[] = [];
+    while (raw.length < MAX_IMPORT) {
+      const page = await this.get<DeezerList<DzTrack>>(`/playlist/${id}/tracks?index=${raw.length}&limit=${PAGE}`);
+      raw.push(...(page.data ?? []));
+      if (!page.data?.length || page.data.length < PAGE) break;
+    }
+    const tracks = raw.map((t) => mapTrack(t, t.album)).filter((t): t is ExternalTrack => t !== null);
+    return {
+      title: playlist.title,
+      description: playlist.description || null,
+      url: `https://www.deezer.com/playlist/${id}`,
+      tracks,
+      total: playlist.nb_tracks ?? raw.length,
+    };
   }
 
   async resolveStream(track: StoredExternalTrack): Promise<StreamSource | null> {

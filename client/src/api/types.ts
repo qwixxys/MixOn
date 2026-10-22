@@ -99,6 +99,18 @@ export interface Service {
   canImportLibrary: boolean;
   canImportFollowings: boolean;
   libraryLabel: string | null;
+  /** Works through the service's internal API without keys; it may break or be blocked. */
+  unofficial: boolean;
+  /** Public playlists from this service can be imported by link. */
+  importsLinks: boolean;
+}
+
+export interface ImportResult {
+  playlistId: number;
+  title: string;
+  imported: number;
+  total: number;
+  newTracks: number;
 }
 
 export interface FoundArtist {
@@ -213,4 +225,19 @@ export interface TrackGenius {
   song: GeniusSong | null;
   manual: boolean;
   canEdit: boolean;
+}
+
+export interface LyricLine {
+  /** Seconds from the start of the full track. */
+  time: number;
+  text: string;
+}
+
+export interface TrackLyrics {
+  enabled: boolean;
+  found: boolean;
+  source: 'lrclib' | null;
+  instrumental: boolean;
+  synced: LyricLine[] | null;
+  plain: string | null;
 }

@@ -29,8 +29,11 @@ export interface AppConfig {
   itunes: { country: string };
   jamendo: { clientId: string | null };
   vk: { accessToken: string | null; apiVersion: string; userAgent: string };
-  soundcloud: { clientId: string | null; clientSecret: string | null };
+  /** `publicClient` allows the unofficial keyless mode when no official keys are set. */
+  soundcloud: { clientId: string | null; clientSecret: string | null; publicClient: boolean };
   genius: { accessToken: string | null };
+  /** LRCLIB base URL for synced lyrics, or null when turned off. */
+  lrclib: { baseUrl: string | null; userAgent: string };
 }
 
 function resolveJwtSecret(dataDir: string): string {
@@ -44,6 +47,13 @@ function resolveJwtSecret(dataDir: string): string {
     fs.writeFileSync(file, secret, { mode: 0o600 });
     return secret;
   }
+}
+
+/** LRCLIB is on by default; "off" disables it, any other value points to a self-hosted mirror. */
+function lrclibUrl(value: string | undefined): string | null {
+  if (value === undefined || value === '') return 'https://lrclib.net';
+  if (['off', 'false', '0', 'no'].includes(value.toLowerCase())) return null;
+  return value.replace(/\/+$/, '');
 }
 
 export function loadConfig(): AppConfig {
@@ -68,7 +78,12 @@ export function loadConfig(): AppConfig {
     soundcloud: {
       clientId: process.env.SOUNDCLOUD_CLIENT_ID || null,
       clientSecret: process.env.SOUNDCLOUD_CLIENT_SECRET || null,
+      publicClient: ['1', 'true', 'yes', 'on'].includes((process.env.SOUNDCLOUD_PUBLIC_CLIENT ?? '').toLowerCase()),
     },
     genius: { accessToken: process.env.GENIUS_ACCESS_TOKEN || null },
+    lrclib: {
+      baseUrl: lrclibUrl(process.env.LRCLIB_URL),
+      userAgent: 'soundFy/0.1 (self-hosted music player; https://github.com/qwixxys/soundFy)',
+    },
   };
 }

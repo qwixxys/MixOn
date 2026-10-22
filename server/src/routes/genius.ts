@@ -35,6 +35,11 @@ export function geniusRoutes(ctx: AppContext) {
     res.json({ ...(await genius.link(row, geniusId)), canEdit: true });
   });
 
+  /** Time-synced (or plain) lyrics from LRCLIB. */
+  r.get('/tracks/:id/lyrics', async (req, res) => {
+    res.json(await ctx.lyrics.forTrack(requireTrack(idParam(req.params.id))));
+  });
+
   r.get('/genius/search', async (req, res) => {
     requireUser(req);
     if (!genius.isConfigured()) throw badRequest('Genius не настроен на сервере');

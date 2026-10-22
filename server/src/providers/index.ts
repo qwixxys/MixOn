@@ -6,6 +6,7 @@ import { DeezerProvider } from './deezer.js';
 import { ItunesProvider } from './itunes.js';
 import { JamendoProvider } from './jamendo.js';
 import { SoundCloudProvider } from './soundcloud.js';
+import { SoundCloudWebProvider } from './soundcloudWeb.js';
 import type { MusicProvider } from './types.js';
 import { VkProvider } from './vk.js';
 
@@ -34,12 +35,18 @@ export class ProviderRegistry {
 }
 
 export function createProviders(config: AppConfig, store?: KeyValueStore, fetchImpl: FetchLike = fetch): ProviderRegistry {
+  const { clientId, clientSecret, publicClient } = config.soundcloud;
+  // Official keys always win; the keyless mode is only an opt-in fallback.
+  const soundcloud =
+    publicClient && !(clientId && clientSecret)
+      ? new SoundCloudWebProvider({ store }, fetchImpl)
+      : new SoundCloudProvider({ clientId, clientSecret, store }, fetchImpl);
   return new ProviderRegistry([
     new VkProvider(
       { apiVersion: config.vk.apiVersion, userAgent: config.vk.userAgent, fallbackToken: config.vk.accessToken },
       fetchImpl,
     ),
-    new SoundCloudProvider({ ...config.soundcloud, store }, fetchImpl),
+    soundcloud,
     new DeezerProvider(fetchImpl),
     new ItunesProvider(config.itunes.country, fetchImpl),
     new JamendoProvider(config.jamendo.clientId, fetchImpl),

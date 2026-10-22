@@ -5,6 +5,7 @@ import type { Artist, FoundArtist, Service, SyncResult, SyncSummary } from '../a
 import { Avatar } from '../components/Cover';
 import { TextField } from '../components/Material';
 import { ServiceBadge, ServiceIcon } from '../components/ServiceBadge';
+import { ImportLinkForm } from '../components/ImportPlaylist';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { runSync } from '../components/SyncWidget';
 import { Tabs } from '../components/Tabs';
@@ -129,10 +130,25 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
           <div className="row-gap">
             <span className="pill">{service.fullTracks ? 'Полные треки' : 'Превью 30 сек'}</span>
             {status}
+            {service.unofficial && (
+              <span className="pill pill-warn">
+                <Icon name="warning" size={16} /> Неофициально
+              </span>
+            )}
           </div>
         </div>
       </div>
       <p className="muted">{service.description}</p>
+
+      {service.unofficial && (
+        <div className="small notice notice-warn">
+          <Icon name="warning" size={18} />
+          <span>
+            Работает без ключей через внутренний API сайта {service.name}, как его веб-плеер. Сервис не разрешает такое использование и
+            может в любой момент перестать отвечать. Режим включил администратор сервера.
+          </span>
+        </div>
+      )}
 
       {!service.configured && (
         <>
@@ -454,6 +470,12 @@ export function SyncPage() {
               <ServiceCard key={s.id} service={s} onChange={(u) => setData((list) => list?.map((x) => (x.id === u.id ? u : x)) ?? null)} />
             ))}
           </div>
+          {user && services.some((s) => s.importsLinks) && (
+            <section className="section">
+              <h2>Импорт плейлиста по ссылке</h2>
+              <ImportLinkForm services={services} />
+            </section>
+          )}
           <ArtistSearch services={services} onSubscribed={() => setVersion((v) => v + 1)} />
         </>
       )}

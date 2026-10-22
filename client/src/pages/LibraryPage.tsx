@@ -9,6 +9,7 @@ import { PlaylistGrid } from '../components/PlaylistTile';
 import { ServiceBadge } from '../components/ServiceBadge';
 import { Empty, Loading } from '../components/States';
 import { FilteredTrackList } from '../components/FilteredTrackList';
+import { ImportPlaylistDialog } from '../components/ImportPlaylist';
 import { Tabs } from '../components/Tabs';
 import { plural } from '../lib/format';
 import { useFetch } from '../lib/useFetch';
@@ -49,18 +50,25 @@ function NewPlaylistModal({ onClose, onCreated }: { onClose(): void; onCreated()
 function Playlists() {
   const { data, loading, reload } = useFetch<Playlist[]>('/me/playlists');
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   return (
     <>
       <div className="section-header">
         <span />
-        <button className="btn btn-outlined btn-small" onClick={() => setCreating(true)}>
-          <Icon name="add" size={18} /> Новый плейлист
-        </button>
+        <div className="row-gap">
+          <button className="btn btn-text btn-small" onClick={() => setImporting(true)}>
+            <Icon name="link" size={18} /> Импорт по ссылке
+          </button>
+          <button className="btn btn-outlined btn-small" onClick={() => setCreating(true)}>
+            <Icon name="add" size={18} /> Новый плейлист
+          </button>
+        </div>
       </div>
       {loading && <Loading />}
       {data && !data.length && <Empty title="Плейлистов пока нет">Добавляйте треки в плейлисты кнопкой «+» на карточке трека.</Empty>}
       {data && <PlaylistGrid playlists={data} />}
       {creating && <NewPlaylistModal onClose={() => setCreating(false)} onCreated={reload} />}
+      {importing && <ImportPlaylistDialog onClose={() => setImporting(false)} />}
     </>
   );
 }

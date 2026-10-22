@@ -23,7 +23,9 @@ describe('normalizeGenre', () => {
   });
 
   it('normalises genres stored before the migration', () => {
+    // Recreate a database as it was at schema version 3 (before the genre and lyrics migrations).
     const db = openDatabase(':memory:');
+    db.exec('DROP TABLE lyrics_cache');
     db.pragma('user_version = 3');
     db.prepare(`INSERT INTO tracks (title, artist, genre) VALUES ('a', 'x', 'Rap/Hip Hop'), ('b', 'x', 'other'), ('c', 'x', 'Jazz')`).run();
     migrate(db);

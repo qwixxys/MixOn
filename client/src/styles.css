@@ -1162,6 +1162,10 @@ code {
   flex: none;
   margin-top: 2px;
 }
+.notice-warn {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
+}
 .notice-error {
   background: var(--md-sys-color-error-container);
   color: var(--md-sys-color-on-error-container);
@@ -3106,6 +3110,83 @@ a.person-chip:hover {
   background: #fff;
   transition: height var(--md-sys-motion-duration-medium) var(--md-sys-motion-easing-standard);
 }
+.synced-lyrics {
+  position: relative;
+  max-height: min(60vh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 32px 8px;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+  /* Lines fade out towards the edges, the way lyrics read in a player. */
+  mask-image: linear-gradient(transparent, #000 10%, #000 90%, transparent);
+}
+.lyric-line {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-medium);
+  background: none;
+  color: var(--md-sys-color-on-surface-variant);
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  opacity: 0.55;
+  transition:
+    color var(--md-sys-motion-duration-medium) var(--md-sys-motion-easing-standard),
+    opacity var(--md-sys-motion-duration-medium) var(--md-sys-motion-easing-standard),
+    transform var(--md-sys-motion-duration-medium) var(--md-sys-motion-easing-standard);
+  transform-origin: left center;
+}
+button.lyric-line {
+  cursor: pointer;
+}
+button.lyric-line:hover {
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+  opacity: 0.85;
+}
+button.lyric-line:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: -2px;
+}
+.lyric-line.past {
+  opacity: 0.75;
+}
+.lyric-line.active {
+  color: var(--md-sys-color-primary);
+  opacity: 1;
+  transform: scale(1.03);
+}
+.synced-lyrics-static .lyric-line {
+  opacity: 0.85;
+  font-size: 18px;
+}
+.plain-lyrics {
+  white-space: pre-line;
+  padding: 16px 20px;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+  font-size: 17px;
+  line-height: 1.7;
+}
+@media (max-width: 640px) {
+  .lyric-line {
+    font-size: 19px;
+    padding: 6px 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lyric-line {
+    transition: none;
+  }
+  .lyric-line.active {
+    transform: none;
+  }
+}
 .lyrics-footer,
 .genius-relink {
   display: flex;
@@ -3167,4 +3248,44 @@ a.person-chip:hover {
   display: flex;
   flex-direction: column;
   color: var(--md-sys-color-on-surface);
+}
+
+/* ---------- import by link ---------- */
+
+.import-link-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.import-link-row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.import-link-row > .icon-btn,
+.import-link-row > .btn {
+  flex: none;
+  margin-top: 8px;
+}
+/* In a dialog and on phones the button moves under the field so the label is not cut off. */
+.modal .import-link-row {
+  flex-wrap: wrap;
+}
+.modal .import-link-row > :first-child {
+  flex-basis: calc(100% - 56px);
+}
+.modal .import-link-row > .btn {
+  margin-top: 0;
+  margin-left: auto;
+}
+@media (max-width: 640px) {
+  .import-link-row {
+    flex-wrap: wrap;
+  }
+  .import-link-row > :first-child {
+    flex-basis: calc(100% - 56px);
+  }
+  .import-link-row > .btn {
+    margin-top: 0;
+    margin-left: auto;
+  }
 }

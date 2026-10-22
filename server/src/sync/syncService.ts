@@ -278,16 +278,50 @@ export class SyncService {
     const { ids, newIds } = this.storeTracks(tracks, provider.id, null);
 
     const title = `${provider.name}: ${provider.libraryLabel ?? 'мои треки'}`;
-    const playlistId = this.db.transaction(() => {
-      const existing = this.db
-        .prepare('SELECT id FROM playlists WHERE user_id = ? AND title = ?')
-        .get(userId, title) as { id: number } | undefined;
+    const playlistId = this.savePlaylist(userId, title, `Импортировано из ${provider.name}`, ids);
+    return { playlistId, imported: ids.length, newTracks: newIds.length };
+  }
+
+  /** Imports a public playlist or album by its link into a private playlist. Importing the same link again tops it up. */
+  async importFromUrl(userId: number, url: URL) {
+    const matching = this.providers.list().filter((p) => p.canImport?.(url));
+    const provider = matching.find((p) => p.isConfigured());
+    if (!provider?.importPlaylist) {
+      if (matching.length) throw badRequest(`${matching[0].name} не настроен на сервере`);
+      throw badRequest('Такие ссылки пока не поддерживаются: подойдут плейлисты и альбомы Deezer или плейлисты SoundCloud');
+    }
+
+    const playlist = await provider.importPlaylist(url, { token: await this.userToken(provider.id, userId) });
+    if (!playlist.tracks.length) throw badRequest(`В «${playlist.title}» нет треков, которые можно слушать`);
+    const { ids, newIds } = this.storeTracks(playlist.tracks, provider.id, null);
+
+    const title = playlist.title.trim().slice(0, 100) || `${provider.name}: плейлист`;
+    // The source line identifies the playlist when the same link is imported again.
+    const source = `Импортировано из ${provider.name}: ${playlist.url}`;
+    const description = [playlist.description?.trim().slice(0, 2000 - source.length - 2), source].filter(Boolean).join('\n\n');
+    const playlistId = this.savePlaylist(userId, title, description, ids, source);
+    return { playlistId, title, imported: ids.length, total: playlist.total, newTracks: newIds.length };
+  }
+
+  /**
+   * Appends tracks to the user's private playlist, creating it first. An existing playlist is found by its title,
+   * or, when `marker` is given, by a description ending with it.
+   */
+  private savePlaylist(userId: number, title: string, description: string, trackIds: number[], marker?: string): number {
+    return this.db.transaction(() => {
+      const existing = (
+        marker
+          ? this.db
+              .prepare(`SELECT id FROM playlists WHERE user_id = ? AND substr(description, -length(?)) = ? ORDER BY id LIMIT 1`)
+              .get(userId, marker, marker)
+          : this.db.prepare('SELECT id FROM playlists WHERE user_id = ? AND title = ?').get(userId, title)
+      ) as { id: number } | undefined;
       const id =
         existing?.id ??
         Number(
           this.db
             .prepare('INSERT INTO playlists (user_id, title, description, is_public) VALUES (?, ?, ?, 0)')
-            .run(userId, title, `Импортировано из ${provider.name}`).lastInsertRowid,
+            .run(userId, title, description).lastInsertRowid,
         );
       const { pos } = this.db
         .prepare('SELECT COALESCE(MAX(position), -1) AS pos FROM playlist_tracks WHERE playlist_id = ?')
@@ -296,14 +330,12 @@ export class SyncService {
         'INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)',
       );
       let next = pos + 1;
-      for (const trackId of ids) {
+      for (const trackId of trackIds) {
         if (add.run(id, trackId, next).changes) next++;
       }
       this.db.prepare(`UPDATE playlists SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`).run(id);
       return id;
     })();
-
-    return { playlistId, imported: ids.length, newTracks: newIds.length };
   }
 
   /** Subscribes the user to everyone they follow on a service; catalogues are imported in the background. */

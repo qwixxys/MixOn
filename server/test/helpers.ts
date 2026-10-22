@@ -8,6 +8,8 @@ import type { AppContext } from '../src/context.js';
 import { openDatabase } from '../src/db/index.js';
 import { GeniusClient } from '../src/genius/client.js';
 import { GeniusService } from '../src/genius/service.js';
+import { LrclibClient } from '../src/lyrics/lrclib.js';
+import { LyricsService } from '../src/lyrics/service.js';
 import type { FetchLike } from '../src/lib/http.js';
 import {
   ProviderRegistry,
@@ -93,8 +95,9 @@ export function testConfig(): AppConfig {
     itunes: { country: 'US' },
     jamendo: { clientId: null },
     vk: { accessToken: null, apiVersion: '5.131', userAgent: 'test' },
-    soundcloud: { clientId: null, clientSecret: null },
+    soundcloud: { clientId: null, clientSecret: null, publicClient: false },
     genius: { accessToken: null },
+    lrclib: { baseUrl: null, userAgent: 'soundFy-test' },
   };
 }
 
@@ -102,13 +105,15 @@ export function createTestApp(
   providers: MusicProvider[] = [new FakeProvider()],
   fetchImpl: FetchLike = fetch,
   geniusToken: string | null = null,
+  lrclibUrl: string | null = null,
 ) {
   const config = testConfig();
   const db = openDatabase(':memory:');
   const registry = new ProviderRegistry(providers);
   const sync = new SyncService(db, registry, { info() {}, warn() {}, error() {} });
   const genius = new GeniusService(db, new GeniusClient(geniusToken, fetchImpl));
-  const ctx: AppContext = { db, config, providers: registry, sync, genius, fetchImpl };
+  const lyrics = new LyricsService(db, new LrclibClient(lrclibUrl, 'soundFy-test', fetchImpl));
+  const ctx: AppContext = { db, config, providers: registry, sync, genius, lyrics, fetchImpl };
   const app = createApp(ctx);
   return { ctx, app, request: supertest(app), cleanup: () => fs.rmSync(config.dataDir, { recursive: true, force: true }) };
 }

@@ -8,6 +8,7 @@ import {
   type ExternalTrack,
   type MusicProvider,
   type OAuthFlow,
+  type ImportedPlaylist,
   type OAuthTokens,
   type ProviderContext,
   type StoredExternalTrack,
@@ -20,7 +21,7 @@ const APP_TOKEN_KEY = 'soundcloud.app_token';
 /** Upper bound for paginated imports (likes, followings). */
 const MAX_IMPORT = 1000;
 
-interface ScUser {
+export interface ScUser {
   id: number;
   urn?: string;
   username: string;
@@ -36,12 +37,24 @@ export interface ScTrack {
   title: string;
   user?: ScUser;
   duration: number;
+  /** api-v2 only: the whole track's length when `duration` is just the playable snippet. */
+  full_duration?: number;
   artwork_url?: string | null;
   permalink_url?: string;
   created_at?: string;
   genre?: string | null;
   streamable?: boolean;
   access?: 'playable' | 'preview' | 'blocked' | null;
+}
+export interface ScPlaylist {
+  id: number;
+  urn?: string;
+  kind?: string;
+  title: string;
+  description?: string | null;
+  permalink_url?: string;
+  track_count?: number;
+  tracks?: ScTrack[];
 }
 interface ScStreams {
   http_mp3_128_url?: string;
@@ -79,6 +92,53 @@ export function scArtwork(url: string | null | undefined): string | null {
   return url ? url.replace(/-large(\.\w+)(\?.*)?$/, '-t500x500$1$2') : null;
 }
 
+/** Track and user ids are kept as URNs ("soundcloud:tracks:123") in both the official and web APIs. */
+export const scTrackId = (t: { id: number; urn?: string }) => t.urn ?? `soundcloud:tracks:${t.id}`;
+export const scUserId = (u: { id: number; urn?: string }) => u.urn ?? `soundcloud:users:${u.id}`;
+
+/** The numeric id from a URN or a plain id, for APIs that only take numbers. */
+export function scNumericId(id: string): string {
+  const match = id.match(/(\d+)$/);
+  if (!match) throw new ProviderError('soundcloud', 'Некорректный идентификатор SoundCloud');
+  return match[1];
+}
+
+export function mapScUser(u: ScUser): ExternalArtist {
+  const fans = formatFans(u.followers_count);
+  const tracks = u.track_count ? `${u.track_count} треков` : null;
+  return {
+    externalId: scUserId(u),
+    name: u.username,
+    imageUrl: scArtwork(u.avatar_url),
+    url: u.permalink_url ?? null,
+    subtitle: [fans, tracks].filter(Boolean).join(' · ') || null,
+  };
+}
+
+export function mapScTrack(t: ScTrack, isPreview: boolean): ExternalTrack {
+  return {
+    externalId: scTrackId(t),
+    title: t.title,
+    artist: t.user?.username ?? '',
+    album: null,
+    duration: Math.round((t.full_duration ?? t.duration) / 1000),
+    streamUrl: null,
+    coverUrl: scArtwork(t.artwork_url ?? t.user?.avatar_url),
+    externalUrl: t.permalink_url ?? null,
+    // Uploads are what "new" means on SoundCloud.
+    releasedAt: parseScDate(t.created_at),
+    genre: t.genre || null,
+    isPreview,
+  };
+}
+
+/** soundcloud.com/<user>/sets/<playlist> (playlists and albums). */
+export function isScPlaylistUrl(url: URL) {
+  return /^(www\.|m\.)?soundcloud\.com$/.test(url.hostname) && /^\/[^/]+\/sets\/[^/]+\/?$/.test(url.pathname);
+}
+
+export const SC_SHORT_LINK_HOSTS = ['on.soundcloud.com'];
+
 function tokensFrom(res: ScTokenResponse): OAuthTokens {
   return {
     accessToken: res.access_token,
@@ -97,6 +157,7 @@ export class SoundCloudProvider implements MusicProvider {
   readonly fullTracks = true;
   // Resolved stream URLs are signed CDN links that browsers can open directly.
   readonly proxyStreams = false;
+  readonly shortLinkHosts = SC_SHORT_LINK_HOSTS;
   readonly oauth: OAuthFlow;
 
   private appToken: { token: string; expiresAt: number } | null = null;
@@ -212,42 +273,13 @@ export class SoundCloudProvider implements MusicProvider {
     return items.slice(0, max);
   }
 
-  private mapUser(u: ScUser): ExternalArtist {
-    const fans = formatFans(u.followers_count);
-    const tracks = u.track_count ? `${u.track_count} треков` : null;
-    return {
-      externalId: u.urn ?? String(u.id),
-      name: u.username,
-      imageUrl: scArtwork(u.avatar_url),
-      url: u.permalink_url ?? null,
-      subtitle: [fans, tracks].filter(Boolean).join(' · ') || null,
-    };
-  }
-
-  private mapTrack(t: ScTrack): ExternalTrack {
-    return {
-      externalId: t.urn ?? String(t.id),
-      title: t.title,
-      artist: t.user?.username ?? '',
-      album: null,
-      duration: Math.round(t.duration / 1000),
-      streamUrl: null,
-      coverUrl: scArtwork(t.artwork_url ?? t.user?.avatar_url),
-      externalUrl: t.permalink_url ?? null,
-      // Uploads are what "new" means on SoundCloud.
-      releasedAt: parseScDate(t.created_at),
-      genre: t.genre || null,
-      isPreview: t.access === 'preview',
-    };
-  }
-
   private mapTracks(tracks: ScTrack[]): ExternalTrack[] {
-    return tracks.filter((t) => t.streamable !== false && t.access !== 'blocked').map((t) => this.mapTrack(t));
+    return tracks.filter((t) => t.streamable !== false && t.access !== 'blocked').map((t) => mapScTrack(t, t.access === 'preview'));
   }
 
   async searchArtists(query: string): Promise<ExternalArtist[]> {
     const page = await this.get<ScPage<ScUser>>(`/users?${new URLSearchParams({ q: query, limit: '20', linked_partitioning: 'true' })}`);
-    return page.collection.map((u) => this.mapUser(u));
+    return page.collection.map(mapScUser);
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {
@@ -282,6 +314,27 @@ export class SoundCloudProvider implements MusicProvider {
     throw new ProviderError(this.id, `SoundCloud не отдал поток (HTTP ${res.status})`, res.status);
   }
 
+  canImport(url: URL) {
+    return isScPlaylistUrl(url);
+  }
+
+  async importPlaylist(url: URL): Promise<ImportedPlaylist> {
+    const link = `https://soundcloud.com${url.pathname.replace(/\/$/, '')}`;
+    const playlist = await this.get<ScPlaylist>(`/resolve?url=${encodeURIComponent(link)}`);
+    if (playlist.kind && playlist.kind !== 'playlist') throw new ProviderError(this.id, 'Это ссылка не на плейлист SoundCloud');
+    const raw = await this.collect<ScTrack>(
+      `/playlists/${encodeURIComponent(playlist.urn ?? String(playlist.id))}/tracks?limit=200&linked_partitioning=true&access=playable,preview`,
+      null,
+    );
+    return {
+      title: playlist.title,
+      description: playlist.description || null,
+      url: playlist.permalink_url ?? link,
+      tracks: this.mapTracks(raw),
+      total: playlist.track_count ?? raw.length,
+    };
+  }
+
   async verifyToken(token: string) {
     const me = await this.get<ScUser>('/me', token);
     return { externalUserId: me.urn ?? String(me.id), displayName: me.full_name || me.username };
@@ -296,6 +349,6 @@ export class SoundCloudProvider implements MusicProvider {
   async getUserFollowings(ctx: ProviderContext): Promise<ExternalArtist[]> {
     if (!ctx.token) throw new ProviderError(this.id, 'Подключите аккаунт SoundCloud', 'no_token');
     const users = await this.collect<ScUser>('/me/followings?limit=200&linked_partitioning=true', ctx.token);
-    return users.map((u) => this.mapUser(u));
+    return users.map(mapScUser);
   }
 }

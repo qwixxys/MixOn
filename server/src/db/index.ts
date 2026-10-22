@@ -182,6 +182,18 @@ const migrations: (string | ((db: DB) => void))[] = [
       if (genre !== row.genre) update.run(genre, row.id);
     }
   },
+  `
+  -- Lyrics fetched from LRCLIB; a row with NULL source records that nothing was found.
+  CREATE TABLE lyrics_cache (
+    track_id     INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+    source       TEXT,
+    external_id  TEXT,
+    synced       TEXT,
+    plain        TEXT,
+    instrumental INTEGER NOT NULL DEFAULT 0,
+    fetched_at   TEXT NOT NULL
+  );
+  `,
 ];
 
 export interface KeyValueStore {
