@@ -1,4 +1,3 @@
-import { Check, Lock, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '../api/client';
 import type { Playlist } from '../api/types';
@@ -10,6 +9,7 @@ import { Cover } from './Cover';
 import { Switch, TextField } from './Material';
 import { Modal } from './Modal';
 import { Loading } from './States';
+import { Icon } from './Icon';
 
 export function PlaylistPicker() {
   const track = usePlaylistPicker((s) => s.track);
@@ -57,7 +57,7 @@ function PickerDialog({ trackId, title, onClose }: { trackId: number; title: str
         <Switch checked={!isPublic} onChange={(v) => setIsPublic(!v)} label="Приватный" />
         <div className="form-actions">
           <button className="btn btn-tonal" disabled={busy || !newTitle.trim()}>
-            <Plus size={18} /> Создать и добавить
+            <Icon name="add" size={18} /> Создать и добавить
           </button>
         </div>
       </form>
@@ -70,14 +70,14 @@ function PickerDialog({ trackId, title, onClose }: { trackId: number; title: str
               <Cover url={p.coverUrl} seed={`p${p.id}`} size={40} />
               <div className="picker-item-main">
                 <span>
-                  {!p.isPublic && <Lock size={12} />} {p.title}
+                  {!p.isPublic && <Icon name="lock" size={18} />} {p.title}
                 </span>
                 <span className="muted small">
                   {p.trackCount + (done ? 1 : 0)} {plural(p.trackCount + (done ? 1 : 0), ['трек', 'трека', 'треков'])}
                 </span>
               </div>
               <button className={`btn btn-small ${done ? 'btn-text' : 'btn-outlined'}`} disabled={done} onClick={() => add(p)}>
-                {done ? <Check size={18} /> : 'Добавить'}
+                {done ? <Icon name="check" size={18} /> : 'Добавить'}
               </button>
             </div>
           );

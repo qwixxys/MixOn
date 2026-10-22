@@ -1,9 +1,9 @@
-import { Check, Moon, Pipette, Sun, SunMoon } from 'lucide-react';
 import { useMemo } from 'react';
 import { buildScheme, roleHex, type SchemeVariant } from '../theme/scheme';
 import { activeSeed, useTheme, type ThemeMode } from '../theme/store';
 import { SegmentedButtons, Switch } from './Material';
 import { Modal } from './Modal';
+import { Icon } from './Icon';
 
 const PRESETS = [
   { hex: '#ff5500', name: 'Оранжевый (SoundCloud)' },
@@ -68,9 +68,9 @@ export function AppearanceDialog({ onClose }: { onClose(): void }) {
             value={theme.mode}
             onChange={(mode) => theme.update({ mode })}
             options={[
-              { id: 'light', label: 'Светлая', icon: <Sun size={18} /> },
-              { id: 'system', label: 'Авто', icon: <SunMoon size={18} /> },
-              { id: 'dark', label: 'Тёмная', icon: <Moon size={18} /> },
+              { id: 'light', label: 'Светлая', icon: <Icon name="light_mode" size={18} /> },
+              { id: 'system', label: 'Авто', icon: <Icon name="brightness_auto" size={18} /> },
+              { id: 'dark', label: 'Тёмная', icon: <Icon name="dark_mode" size={18} /> },
             ]}
           />
         </section>
@@ -92,7 +92,7 @@ export function AppearanceDialog({ onClose }: { onClose(): void }) {
                   <SwatchDial hex={p.hex} />
                   {selected && (
                     <span className="swatch-check">
-                      <Check size={20} />
+                      <Icon name="check" size={20} />
                     </span>
                   )}
                 </button>
@@ -103,7 +103,7 @@ export function AppearanceDialog({ onClose }: { onClose(): void }) {
               title="Свой цвет"
               aria-label="Свой цвет"
             >
-              {custom ? <SwatchDial hex={theme.seed} /> : <Pipette size={22} />}
+              {custom ? <SwatchDial hex={theme.seed} /> : <Icon name="colorize" size={24} />}
               <input type="color" value={theme.seed} onChange={(e) => theme.update({ seed: e.target.value, fromCover: false })} />
             </label>
           </div>
@@ -130,7 +130,7 @@ export function AppearanceDialog({ onClose }: { onClose(): void }) {
                 aria-pressed={theme.variant === v.id}
                 onClick={() => theme.update({ variant: v.id })}
               >
-                {theme.variant === v.id && <Check size={18} />}
+                {theme.variant === v.id && <Icon name="check" size={18} />}
                 {v.label}
               </button>
             ))}

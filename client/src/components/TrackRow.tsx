@@ -1,4 +1,3 @@
-import { Pause, Play, X } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Track } from '../api/types';
 import { formatTime } from '../lib/format';
@@ -6,6 +5,7 @@ import { usePlayer } from '../store/player';
 import { Cover } from './Cover';
 import { LikeButton } from './LikeButton';
 import { ServiceBadge } from './ServiceBadge';
+import { Icon } from './Icon';
 
 /** Compact single-line track entry for playlists, queues and sidebars. */
 export function TrackRow({
@@ -29,7 +29,7 @@ export function TrackRow({
     <div className={`track-row ${isCurrent ? 'is-current' : ''} ${compact ? 'track-row-compact' : ''}`}>
       <button className="track-row-cover" onClick={() => play(track, queue)} aria-label={playing ? 'Пауза' : 'Слушать'}>
         <Cover url={track.coverUrl} seed={track.id} />
-        <span className="track-row-overlay">{playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</span>
+        <span className="track-row-overlay">{playing ? <Icon name="pause" size={18} filled /> : <Icon name="play_arrow" size={18} filled />}</span>
       </button>
       {index !== undefined && <span className="track-row-index">{index + 1}</span>}
       <div className="track-row-main">
@@ -43,7 +43,7 @@ export function TrackRow({
       {!compact && <span className="muted small track-row-duration">{formatTime(track.duration)}</span>}
       {onRemove && (
         <button className="icon-btn" onClick={onRemove} title="Убрать">
-          <X size={16} />
+          <Icon name="close" size={20} />
         </button>
       )}
     </div>

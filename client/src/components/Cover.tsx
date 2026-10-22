@@ -1,5 +1,5 @@
-import { Music } from 'lucide-react';
 import { gradientFor } from '../lib/gradient';
+import { Icon } from './Icon';
 
 export function Cover({ url, seed, size, className = '' }: { url: string | null; seed: string | number; size?: number; className?: string }) {
   return (
@@ -7,7 +7,7 @@ export function Cover({ url, seed, size, className = '' }: { url: string | null;
       className={`cover ${className}`}
       style={{ background: gradientFor(seed), ...(size ? { width: size, height: size } : {}) }}
     >
-      {url ? <img src={url} alt="" loading="lazy" /> : <Music className="cover-icon" />}
+      {url ? <img src={url} alt="" loading="lazy" /> : <Icon name="music_note" size={null} className="cover-icon" />}
     </div>
   );
 }

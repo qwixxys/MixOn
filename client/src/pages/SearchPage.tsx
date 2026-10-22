@@ -1,4 +1,3 @@
-import { Radio } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
 import type { SearchResults } from '../api/types';
 import { Avatar } from '../components/Cover';
@@ -8,6 +7,7 @@ import { Empty, ErrorState, Loading } from '../components/States';
 import { TrackList } from '../components/TrackCard';
 import { formatCount, plural } from '../lib/format';
 import { useFetch } from '../lib/useFetch';
+import { Icon } from '../components/Icon';
 
 export function SearchPage() {
   const [params] = useSearchParams();
@@ -24,7 +24,7 @@ export function SearchPage() {
       {error && <ErrorState message={error} onRetry={reload} />}
       {q && (
         <div className="search-hint">
-          <Radio size={18} />
+          <Icon name="hub" size={18} />
           <span>
             Ищете артиста из SoundCloud, ВК Музыки, Deezer или Apple Music?{' '}
             <Link to={`/sync?q=${encodeURIComponent(q)}`}>Найдите «{q}» в сервисах</Link> и подпишитесь на новые релизы.

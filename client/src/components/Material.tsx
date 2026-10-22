@@ -1,5 +1,5 @@
-import { Check } from 'lucide-react';
 import { useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { Icon } from './Icon';
 
 interface FieldOptions {
   label: string;
@@ -88,7 +88,7 @@ export function SegmentedButtons<T extends string>({
     <div className={`segmented ${block ? 'segmented-block' : ''}`} role="group" aria-label={label}>
       {options.map((o) => (
         <button key={o.id} type="button" aria-pressed={o.id === value} onClick={() => onChange(o.id)}>
-          {o.id === value ? <Check size={18} /> : o.icon}
+          {o.id === value ? <Icon name="check" size={18} /> : o.icon}
           {o.label}
         </button>
       ))}

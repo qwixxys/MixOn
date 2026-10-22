@@ -1,18 +1,3 @@
-import {
-  ListMusic,
-  LoaderCircle,
-  Pause,
-  Play,
-  Repeat,
-  Repeat1,
-  Shuffle,
-  SkipBack,
-  SkipForward,
-  Volume1,
-  Volume2,
-  VolumeX,
-  X,
-} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { formatTime } from '../lib/format';
@@ -22,6 +7,7 @@ import { Cover } from './Cover';
 import { LikeButton } from './LikeButton';
 import { ServiceBadge } from './ServiceBadge';
 import { TrackRow } from './TrackRow';
+import { Icon } from './Icon';
 
 function rangeStyle(value: number, max: number) {
   const pct = max > 0 ? (value / max) * 100 : 0;
@@ -66,12 +52,12 @@ function Volume() {
   const muted = usePlayer((s) => s.muted);
   const setVolume = usePlayer((s) => s.setVolume);
   const toggleMute = usePlayer((s) => s.toggleMute);
-  const Icon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+  const icon = muted || volume === 0 ? 'volume_off' : volume < 0.5 ? 'volume_down' : 'volume_up';
   const shown = muted ? 0 : volume;
   return (
     <div className="player-volume">
       <button className="icon-btn" onClick={toggleMute} aria-label={muted ? 'Включить звук' : 'Выключить звук'}>
-        <Icon size={18} />
+        <Icon name={icon} size={24} />
       </button>
       <input
         type="range"
@@ -107,7 +93,7 @@ function QueuePanel({ onClose }: { onClose(): void }) {
           Очистить
         </button>
         <button className="icon-btn" onClick={onClose} aria-label="Закрыть очередь">
-          <X size={18} />
+          <Icon name="close" />
         </button>
       </div>
       <div className="queue-list">
@@ -173,22 +159,22 @@ export function PlayerBar() {
 
         <div className="player-controls">
           <button className={`icon-btn player-secondary ${shuffle ? 'icon-btn-selected' : ''}`} onClick={toggleShuffle} aria-label="Перемешать" aria-pressed={shuffle}>
-            <Shuffle size={20} />
+            <Icon name="shuffle" size={24} />
           </button>
           <button className="icon-btn player-secondary" onClick={prev} aria-label="Предыдущий">
-            <SkipBack size={20} fill="currentColor" />
+            <Icon name="skip_previous" size={24} filled />
           </button>
           <button className={`icon-btn player-main-btn ${playing ? 'is-playing' : ''}`} onClick={toggle} aria-label={playing ? 'Пауза' : 'Играть'}>
             {loading && !playing ? (
-              <LoaderCircle size={24} className="spin" />
+              <Icon name="progress_activity" size={24} className="spin" />
             ) : playing ? (
-              <Pause size={24} fill="currentColor" />
+              <Icon name="pause" size={24} filled />
             ) : (
-              <Play size={24} fill="currentColor" />
+              <Icon name="play_arrow" size={24} filled />
             )}
           </button>
           <button className="icon-btn" onClick={() => next()} aria-label="Следующий">
-            <SkipForward size={20} fill="currentColor" />
+            <Icon name="skip_next" size={24} filled />
           </button>
           <button
             className={`icon-btn player-secondary ${repeat !== 'off' ? 'icon-btn-selected' : ''}`}
@@ -196,7 +182,7 @@ export function PlayerBar() {
             aria-label={repeat === 'one' ? 'Повтор трека' : repeat === 'all' ? 'Повтор очереди' : 'Повтор выключен'}
             title={repeat === 'one' ? 'Повтор трека' : repeat === 'all' ? 'Повтор очереди' : 'Повтор выключен'}
           >
-            {repeat === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
+            {repeat === 'one' ? <Icon name="repeat_one" size={24} /> : <Icon name="repeat" size={24} />}
           </button>
         </div>
 
@@ -212,7 +198,7 @@ export function PlayerBar() {
             aria-label="Очередь"
             title="Очередь"
           >
-            <ListMusic size={22} />
+            <Icon name="queue_music" size={24} />
           </button>
         </div>
       </div>

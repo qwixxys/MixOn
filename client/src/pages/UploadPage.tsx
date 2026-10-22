@@ -1,4 +1,3 @@
-import { ImagePlus, LoaderCircle, Music, UploadCloud, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { uploadWithProgress } from '../api/client';
@@ -9,6 +8,7 @@ import { formatTime } from '../lib/format';
 import { analyseAudio } from '../lib/waveform';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
+import { Icon } from '../components/Icon';
 
 export const GENRES = [
   'Hip-Hop',
@@ -115,7 +115,7 @@ export function UploadPage() {
           onClick={() => fileInput.current?.click()}
         >
           <span className="dropzone-icon">
-            <UploadCloud size={44} />
+            <Icon name="cloud_upload" size={44} />
           </span>
           <h2>Перетащите аудиофайл сюда</h2>
           <p className="muted">MP3, M4A, AAC, OGG, OPUS, WAV или FLAC до {MAX_MB} МБ</p>
@@ -142,21 +142,21 @@ export function UploadPage() {
       </div>
       <form className="upload-form" onSubmit={submit}>
         <div className="upload-file">
-          <Music size={20} />
+          <Icon name="music_note" size={20} />
           <span className="upload-file-name">{file.name}</span>
           <span className="muted small">
             {(file.size / 1024 / 1024).toFixed(1)} МБ{analysis && ` · ${formatTime(analysis.duration)}`}
           </span>
           {!uploading && (
             <button type="button" className="icon-btn" onClick={() => setFile(null)} aria-label="Выбрать другой файл">
-              <X size={18} />
+              <Icon name="close" />
             </button>
           )}
         </div>
         <div className="upload-waveform">
           {analysing ? (
             <span className="muted">
-              <LoaderCircle size={16} className="spin" /> Анализируем звук…
+              <Icon name="progress_activity" size={18} className="spin" /> Анализируем звук…
             </span>
           ) : analysis ? (
             <Waveform peaks={analysis.peaks} progress={progress ?? 0} height={70} />
@@ -169,7 +169,7 @@ export function UploadPage() {
           <label className="cover-picker" style={coverPreview ? { backgroundImage: `url(${coverPreview})` } : undefined}>
             {!coverPreview && (
               <>
-                <ImagePlus size={32} />
+                <Icon name="add_photo_alternate" size={32} />
                 <span className="title-medium">Обложка</span>
                 <span className="muted small">Если не выбрать — возьмём из тегов файла</span>
               </>

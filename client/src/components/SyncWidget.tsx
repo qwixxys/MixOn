@@ -1,4 +1,3 @@
-import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../api/client';
@@ -7,6 +6,7 @@ import { plural, timeAgo } from '../lib/format';
 import { useFetch } from '../lib/useFetch';
 import { toast } from '../store/toasts';
 import { Avatar } from './Cover';
+import { Icon } from './Icon';
 
 export function announceSync(summary: SyncSummary) {
   window.dispatchEvent(new CustomEvent('soundfy:synced', { detail: summary }));
@@ -67,7 +67,7 @@ export function SyncWidget({ onSynced }: { onSynced?: () => void }) {
             ))}
           </div>
           <button className="btn btn-outlined btn-block" onClick={sync} disabled={busy}>
-            <RefreshCw size={15} className={busy ? 'spin' : ''} /> {busy ? 'Проверяем…' : 'Проверить новинки'}
+            <Icon name="refresh" size={18} className={busy ? 'spin' : ''} /> {busy ? 'Проверяем…' : 'Проверить новинки'}
           </button>
         </>
       ) : (

@@ -1,4 +1,3 @@
-import { AlertCircle, Check, Download, ExternalLink, Link2, LogIn, LogOut, RefreshCw, Search, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../api/client';
@@ -14,6 +13,7 @@ import { serviceInfo } from '../lib/services';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
+import { Icon } from '../components/Icon';
 
 function VkInstructions() {
   return (
@@ -114,7 +114,7 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
     <span className="pill pill-warn">Не настроен</span>
   ) : service.available ? (
     <span className="pill pill-good">
-      <Check size={14} /> Доступен
+      <Icon name="check" size={18} /> Доступен
     </span>
   ) : (
     <span className="pill pill-warn">Нужно подключение</span>
@@ -137,7 +137,7 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
       {!service.configured && (
         <>
           <div className="small notice">
-            <AlertCircle size={16} />
+            <Icon name="error" size={18} />
             <span>
               Администратор сервера должен указать ключи API в <code>.env</code> (см. README).
             </span>
@@ -151,21 +151,21 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
           {service.connected ? (
             <div className="stack">
               <span className="row-gap">
-                <Link2 size={16} /> Аккаунт <strong>{service.account?.displayName}</strong>
+                <Icon name="link" size={18} /> Аккаунт <strong>{service.account?.displayName}</strong>
               </span>
               <div className="row-gap">
                 {service.canImportLibrary && (
                   <button className="btn btn-tonal btn-small" onClick={importLibrary} disabled={busy !== null}>
-                    <Download size={16} className={busy === 'import' ? 'spin' : ''} /> Импортировать {service.libraryLabel ?? 'библиотеку'}
+                    <Icon name="download" size={18} className={busy === 'import' ? 'spin' : ''} /> Импортировать {service.libraryLabel ?? 'библиотеку'}
                   </button>
                 )}
                 {service.canImportFollowings && (
                   <button className="btn btn-tonal btn-small" onClick={importFollowings} disabled={busy !== null}>
-                    <Users size={16} className={busy === 'followings' ? 'spin' : ''} /> Подписаться на моих авторов
+                    <Icon name="group" size={18} className={busy === 'followings' ? 'spin' : ''} /> Подписаться на моих авторов
                   </button>
                 )}
                 <button className="btn btn-text btn-small" onClick={disconnect} disabled={busy !== null}>
-                  <LogOut size={16} /> Отключить
+                  <Icon name="logout" size={18} /> Отключить
                 </button>
               </div>
             </div>
@@ -175,7 +175,7 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
             </Link>
           ) : service.connectMode === 'oauth' ? (
             <button className="btn btn-filled" onClick={connectOAuth} disabled={busy !== null}>
-              <LogIn size={18} /> Войти через {service.name}
+              <Icon name="login" size={18} /> Войти через {service.name}
             </button>
           ) : (
             <form className="stack" onSubmit={connectToken}>
@@ -275,7 +275,7 @@ function ArtistSearch({ services, onSubscribed }: { services: Service[]; onSubsc
           void search();
         }}
       >
-        <Search size={18} />
+        <Icon name="search" size={18} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Имя артиста или группы" />
         <button className="btn btn-filled btn-small" disabled={loading || !q.trim()}>
           Найти
@@ -294,7 +294,7 @@ function ArtistSearch({ services, onSubscribed }: { services: Service[]; onSubsc
             </div>
             {a.url && (
               <a className="icon-btn" href={a.url} target="_blank" rel="noreferrer" title="Открыть в сервисе">
-                <ExternalLink size={16} />
+                <Icon name="open_in_new" />
               </a>
             )}
             {user ? (
@@ -358,7 +358,7 @@ function MyArtists() {
         <h2>Мои артисты</h2>
         {data && data.length > 0 && (
           <button className="btn btn-filled btn-small" onClick={syncAll} disabled={syncing !== null}>
-            <RefreshCw size={14} className={syncing === 'all' ? 'spin' : ''} /> Проверить новинки у всех
+            <Icon name="refresh" size={18} className={syncing === 'all' ? 'spin' : ''} /> Проверить новинки у всех
           </button>
         )}
       </div>
@@ -387,15 +387,15 @@ function MyArtists() {
               </span>
               {a.lastError && (
                 <span className="small error-text">
-                  <AlertCircle size={12} /> {a.lastError}
+                  <Icon name="error" size={18} /> {a.lastError}
                 </span>
               )}
             </div>
             <button className="icon-btn" onClick={() => syncOne(a)} disabled={syncing !== null} title="Проверить новинки">
-              <RefreshCw size={16} className={syncing === a.id ? 'spin' : ''} />
+              <Icon name="refresh" className={syncing === a.id ? 'spin' : ''} />
             </button>
             <button className="icon-btn" onClick={() => unsubscribe(a)} title="Отписаться">
-              <Trash2 size={16} />
+              <Icon name="delete" />
             </button>
           </div>
         ))}

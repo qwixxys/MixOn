@@ -1,4 +1,3 @@
-import { ImagePlus, Info, MessageCircle, Pencil, Play, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api } from '../api/client';
@@ -21,6 +20,7 @@ import { useLikeState } from '../store/likes';
 import { usePlayer, useTrackProgress } from '../store/player';
 import { toast } from '../store/toasts';
 import { GENRES } from './UploadPage';
+import { Icon } from '../components/Icon';
 
 function EditTrackModal({ track, onClose, onSaved }: { track: Track; onClose(): void; onSaved(t: Track): void }) {
   const [form, setForm] = useState({
@@ -61,7 +61,7 @@ function EditTrackModal({ track, onClose, onSaved }: { track: Track; onClose(): 
           ))}
         </datalist>
         <TextArea label="Описание" rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={5000} />
-        <FileButton label="Заменить обложку" accept="image/jpeg,image/png,image/webp,image/gif" file={cover} onChange={setCover} icon={<ImagePlus size={18} />} />
+        <FileButton label="Заменить обложку" accept="image/jpeg,image/png,image/webp,image/gif" file={cover} onChange={setCover} icon={<Icon name="add_photo_alternate" size={18} />} />
         <div className="form-actions">
           <button type="button" className="btn btn-text" onClick={onClose}>
             Отмена
@@ -129,7 +129,7 @@ function Comments({ track, comments, setComments }: { track: Track; comments: Co
         </p>
       )}
       <h3 className="comments-title">
-        <MessageCircle size={16} /> {comments.length} {plural(comments.length, ['комментарий', 'комментария', 'комментариев'])}
+        <Icon name="chat_bubble" size={18} /> {comments.length} {plural(comments.length, ['комментарий', 'комментария', 'комментариев'])}
       </h3>
       {comments.map((c) => (
         <div key={c.id} className="comment">
@@ -154,7 +154,7 @@ function Comments({ track, comments, setComments }: { track: Track; comments: Co
           </div>
           {c.canDelete && (
             <button className="icon-btn" onClick={() => remove(c)} title="Удалить комментарий">
-              <Trash2 size={18} />
+              <Icon name="delete" size={18} />
             </button>
           )}
         </div>
@@ -243,27 +243,27 @@ export function TrackPage() {
               {isOwner && (
                 <div className="track-actions">
                   <button className="action-btn" onClick={() => setEditing(true)}>
-                    <Pencil size={18} /> <span>Изменить</span>
+                    <Icon name="edit" size={18} /> <span>Изменить</span>
                   </button>
                   <button className="action-btn action-btn-danger" onClick={remove}>
-                    <Trash2 size={18} /> <span>Удалить</span>
+                    <Icon name="delete" size={18} /> <span>Удалить</span>
                   </button>
                 </div>
               )}
               <div className="track-stats">
                 <span>
-                  <Play size={12} fill="currentColor" /> {formatCount(t.playCount)}
+                  <Icon name="play_arrow" size={18} filled /> {formatCount(t.playCount)}
                 </span>
                 <span>♥ {formatCount(likes.likeCount)}</span>
                 <span>
-                  <MessageCircle size={12} /> {formatCount(comments.data?.length ?? t.commentCount)}
+                  <Icon name="chat_bubble" size={18} /> {formatCount(comments.data?.length ?? t.commentCount)}
                 </span>
               </div>
             </div>
 
             {t.isPreview && (
               <div className="notice">
-                <Info size={16} />
+                <Icon name="info" size={18} />
                 <span>
                   {service.label} отдаёт только 30-секундный фрагмент.{' '}
                   {t.externalUrl && (

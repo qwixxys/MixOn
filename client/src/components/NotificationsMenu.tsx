@@ -1,4 +1,3 @@
-import { Bell } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../api/client';
@@ -8,6 +7,7 @@ import { useDismiss } from '../lib/useDismiss';
 import { Cover } from './Cover';
 import { PlayButton } from './PlayButton';
 import { Loading } from './States';
+import { Icon } from './Icon';
 
 const POLL_MS = 60_000;
 
@@ -55,7 +55,7 @@ export function NotificationsMenu() {
   return (
     <div className="menu" ref={ref}>
       <button className="icon-btn" onClick={toggle} aria-label="Уведомления" title="Уведомления">
-        <Bell size={22} />
+        <Icon name="notifications" size={24} />
         {unread > 0 && <span className="badge">{unread > 99 ? '99+' : unread}</span>}
       </button>
       {open && (

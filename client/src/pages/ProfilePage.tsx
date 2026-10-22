@@ -1,4 +1,3 @@
-import { ImagePlus, Pencil, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api } from '../api/client';
@@ -15,6 +14,7 @@ import { useFetch } from '../lib/useFetch';
 import { usePaged } from '../lib/usePaged';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
+import { Icon } from '../components/Icon';
 
 function EditProfileModal({ onClose, onSaved }: { onClose(): void; onSaved(): void }) {
   const user = useAuth((s) => s.user)!;
@@ -48,7 +48,7 @@ function EditProfileModal({ onClose, onSaved }: { onClose(): void; onSaved(): vo
       <form className="stack" onSubmit={submit}>
         <TextField label="Отображаемое имя" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required maxLength={60} />
         <TextArea label="О себе" rows={4} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={1000} />
-        <FileButton label="Выбрать аватар" accept="image/jpeg,image/png,image/webp,image/gif" file={avatar} onChange={setAvatar} icon={<ImagePlus size={18} />} />
+        <FileButton label="Выбрать аватар" accept="image/jpeg,image/png,image/webp,image/gif" file={avatar} onChange={setAvatar} icon={<Icon name="add_photo_alternate" size={18} />} />
         <div className="form-actions">
           <button type="button" className="btn btn-text" onClick={onClose}>
             Отмена
@@ -132,7 +132,7 @@ export function ProfilePage() {
           <div className="row-gap">
             {p.isMe ? (
               <button className="btn btn-outlined" onClick={() => setEditing(true)}>
-                <Pencil size={15} /> Редактировать
+                <Icon name="edit" size={18} /> Редактировать
               </button>
             ) : me ? (
               <button className={`btn ${p.isFollowing ? 'btn-outlined' : 'btn-filled'}`} onClick={toggleFollow} disabled={busy}>
@@ -154,7 +154,7 @@ export function ProfilePage() {
                   <Empty title={p.isMe ? 'Вы ещё ничего не загрузили' : 'Треков пока нет'}>
                     {p.isMe && (
                       <Link to="/upload" className="btn btn-filled">
-                        <Upload size={16} /> Загрузить первый трек
+                        <Icon name="upload" size={18} /> Загрузить первый трек
                       </Link>
                     )}
                   </Empty>

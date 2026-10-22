@@ -1,6 +1,6 @@
-import { LoaderCircle, Pause, Play } from 'lucide-react';
 import type { Track } from '../api/types';
 import { usePlayer } from '../store/player';
+import { Icon } from './Icon';
 
 /** Round orange play/pause button for a track; `queue` is what plays after it. */
 export function PlayButton({ track, queue, size = 44 }: { track: Track; queue?: Track[]; size?: number }) {
@@ -23,11 +23,11 @@ export function PlayButton({ track, queue, size = 44 }: { track: Track; queue?: 
       title={playing ? 'Пауза' : 'Слушать'}
     >
       {loading && isCurrent ? (
-        <LoaderCircle size={icon} className="spin" />
+        <Icon name="progress_activity" size={icon} className="spin" />
       ) : playing ? (
-        <Pause size={icon} fill="currentColor" />
+        <Icon name="pause" size={icon} filled />
       ) : (
-        <Play size={icon} fill="currentColor" className="play-icon" />
+        <Icon name="play_arrow" size={icon} filled className="play-icon" />
       )}
     </button>
   );

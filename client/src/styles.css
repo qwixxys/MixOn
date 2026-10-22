@@ -720,9 +720,6 @@ code {
 .play-btn.is-playing {
   border-radius: 30%;
 }
-.play-icon {
-  margin-left: 2px;
-}
 
 /* Small toggle actions on track cards (like, add to playlist…), styled as MD3 assist/filter chips. */
 .action-btn {
@@ -2922,4 +2919,19 @@ textarea.tf-input {
 .file-button-text {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ---------- Material Symbols ---------- */
+
+.icon {
+  display: inline-block;
+  flex: none;
+  line-height: 0;
+  vertical-align: middle;
+}
+.icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
 }

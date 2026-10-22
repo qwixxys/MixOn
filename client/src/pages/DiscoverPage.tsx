@@ -1,4 +1,3 @@
-import { Check, Music, Upload } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
 import type { DiscoverData, Track } from '../api/types';
 import { PlaylistGrid } from '../components/PlaylistTile';
@@ -9,6 +8,7 @@ import { TrackGrid } from '../components/TrackTile';
 import { Tabs } from '../components/Tabs';
 import { useFetch } from '../lib/useFetch';
 import { usePaged } from '../lib/usePaged';
+import { Icon } from '../components/Icon';
 
 function Section({ title, link, children }: { title: string; link?: { to: string; label: string }; children: React.ReactNode }) {
   return (
@@ -33,11 +33,11 @@ export function DiscoverSections() {
   const empty = !data.trending.length && !data.newReleases.length && !data.freshUploads.length;
   if (empty) {
     return (
-      <Empty icon={<Music size={32} />} title="Здесь пока тихо">
+      <Empty icon={<Icon name="music_note" size={32} />} title="Здесь пока тихо">
         <p>Загрузите первый трек или подпишитесь на артистов — и музыка появится.</p>
         <div className="row-gap">
           <Link to="/upload" className="btn btn-filled">
-            <Upload size={16} /> Загрузить трек
+            <Icon name="upload" size={18} /> Загрузить трек
           </Link>
           <Link to="/sync" className="btn btn-outlined">
             Подписаться на артистов
@@ -83,14 +83,14 @@ function Genres({ active }: { active: string | null }) {
   return (
     <div className="chips">
       <Link to="/discover" className={`chip ${!active ? 'chip-selected' : ''}`}>
-        {!active && <Check size={18} />}
+        {!active && <Icon name="check" size={18} />}
         Все жанры
       </Link>
       {data.map((g) => {
         const selected = active?.toLowerCase() === g.name.toLowerCase();
         return (
           <Link key={g.name} to={`/discover?genre=${encodeURIComponent(g.name)}`} className={`chip ${selected ? 'chip-selected' : ''}`}>
-            {selected && <Check size={18} />}
+            {selected && <Icon name="check" size={18} />}
             {g.name}
           </Link>
         );

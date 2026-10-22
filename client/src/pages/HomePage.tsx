@@ -1,4 +1,3 @@
-import { Compass, Radio } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { Track } from '../api/types';
@@ -12,6 +11,7 @@ import { useFetch } from '../lib/useFetch';
 import { usePaged } from '../lib/usePaged';
 import { useAuth } from '../store/auth';
 import { DiscoverSections } from './DiscoverPage';
+import { Icon } from '../components/Icon';
 
 type FeedType = 'all' | 'releases' | 'uploads';
 
@@ -90,17 +90,17 @@ function Stream() {
         </div>
         {feed.error && <ErrorState message={feed.error} onRetry={feed.reload} />}
         {!feed.loading && !feed.error && !feed.items.length && (
-          <Empty icon={<Radio size={32} />} title="Лента пока пуста">
+          <Empty icon={<Icon name="hub" size={32} />} title="Лента пока пуста">
             <p>
               Подпишитесь на любимых артистов в разделе <Link to="/sync">«Сервисы»</Link> — их новые треки из SoundCloud, ВК Музыки,
               Deezer и других сервисов будут появляться здесь. Или подпишитесь на авторов в <Link to="/discover">«Обзоре»</Link>.
             </p>
             <div className="row-gap">
               <Link to="/sync" className="btn btn-filled">
-                <Radio size={16} /> Найти артистов
+                <Icon name="hub" size={18} /> Найти артистов
               </Link>
               <Link to="/discover" className="btn btn-outlined">
-                <Compass size={16} /> Обзор
+                <Icon name="explore" size={18} /> Обзор
               </Link>
             </div>
           </Empty>

@@ -1,4 +1,3 @@
-import { ExternalLink, Link2, ListEnd, ListPlus } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import type { Track } from '../api/types';
 import { serviceInfo } from '../lib/services';
@@ -7,6 +6,7 @@ import { usePlayer } from '../store/player';
 import { usePlaylistPicker } from '../store/playlistPicker';
 import { toast } from '../store/toasts';
 import { LikeButton } from './LikeButton';
+import { Icon } from './Icon';
 
 export async function shareTrack(track: Track) {
   const url = `${location.origin}/tracks/${track.id}`;
@@ -32,7 +32,7 @@ export function TrackActions({ track, labels = false }: { track: Track; labels?:
         title="Добавить в плейлист"
         onClick={() => (user ? openPicker(track) : navigate('/login'))}
       >
-        <ListPlus size={18} />
+        <Icon name="playlist_add" size={18} />
         {labels && <span>В плейлист</span>}
       </button>
       <button
@@ -43,16 +43,16 @@ export function TrackActions({ track, labels = false }: { track: Track; labels?:
           toast.info('Добавлено в очередь');
         }}
       >
-        <ListEnd size={18} />
+        <Icon name="playlist_play" size={18} />
         {labels && <span>В очередь</span>}
       </button>
       <button className="action-btn" title="Скопировать ссылку" onClick={() => shareTrack(track)}>
-        <Link2 size={18} />
+        <Icon name="link" size={18} />
         {labels && <span>Поделиться</span>}
       </button>
       {track.externalUrl && (
         <a className="action-btn" href={track.externalUrl} target="_blank" rel="noreferrer" title={`Открыть в ${serviceInfo(track.source).label}`}>
-          <ExternalLink size={18} />
+          <Icon name="open_in_new" size={18} />
           {labels && <span>{serviceInfo(track.source).label}</span>}
         </a>
       )}

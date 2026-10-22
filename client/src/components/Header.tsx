@@ -1,4 +1,3 @@
-import { Compass, House, Library, LogOut, Palette, Radio, Search, Upload, User } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useDismiss } from '../lib/useDismiss';
@@ -7,12 +6,13 @@ import { useLikes } from '../store/likes';
 import { AppearanceDialog } from './AppearanceDialog';
 import { Avatar } from './Cover';
 import { NotificationsMenu } from './NotificationsMenu';
+import { Icon, type IconName } from './Icon';
 
-const DESTINATIONS = [
-  { to: '/', label: 'Главная', icon: House, end: true },
-  { to: '/discover', label: 'Обзор', icon: Compass, end: false },
-  { to: '/library', label: 'Медиатека', icon: Library, end: false },
-  { to: '/sync', label: 'Сервисы', icon: Radio, end: false },
+const DESTINATIONS: { to: string; label: string; icon: IconName; end: boolean }[] = [
+  { to: '/', label: 'Главная', icon: 'home', end: true },
+  { to: '/discover', label: 'Обзор', icon: 'explore', end: false },
+  { to: '/library', label: 'Медиатека', icon: 'library_music', end: false },
+  { to: '/sync', label: 'Сервисы', icon: 'hub', end: false },
 ];
 
 export function LogoMark({ size = 40 }: { size?: number }) {
@@ -41,12 +41,16 @@ export function Logo() {
 function Destinations() {
   return (
     <>
-      {DESTINATIONS.map(({ to, label, icon: Icon, end }) => (
+      {DESTINATIONS.map(({ to, label, icon, end }) => (
         <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-          <span className="nav-indicator">
-            <Icon size={22} />
-          </span>
-          <span>{label}</span>
+          {({ isActive }) => (
+            <>
+              <span className="nav-indicator">
+                <Icon name={icon} filled={isActive} />
+              </span>
+              <span>{label}</span>
+            </>
+          )}
         </NavLink>
       ))}
     </>
@@ -62,7 +66,7 @@ export function NavRail() {
         <LogoMark size={44} />
       </Link>
       <Link to={user ? '/upload' : '/login?next=/upload'} className="fab" title="Загрузить трек" aria-label="Загрузить трек">
-        <Upload size={24} />
+        <Icon name="upload" size={24} />
       </Link>
       <div className="rail-destinations">
         <Destinations />
@@ -98,7 +102,7 @@ function SearchBox() {
         if (q.trim()) navigate(`/search?q=${encodeURIComponent(q.trim())}`);
       }}
     >
-      <Search size={22} />
+      <Icon name="search" size={24} />
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск треков, артистов, людей" aria-label="Поиск" />
     </form>
   );
@@ -123,16 +127,16 @@ function UserMenu({ onAppearance }: { onAppearance(): void }) {
         <div className="menu-panel menu-panel-narrow" onClick={close} role="menu">
           <div className="menu-title">{user.displayName}</div>
           <Link to={`/users/${user.username}`} className="menu-item" role="menuitem">
-            <User size={20} /> Профиль
+            <Icon name="person" size={24} /> Профиль
           </Link>
           <Link to="/library" className="menu-item" role="menuitem">
-            <Library size={20} /> Медиатека
+            <Icon name="library_music" size={24} /> Медиатека
           </Link>
           <Link to="/sync" className="menu-item" role="menuitem">
-            <Radio size={20} /> Сервисы и артисты
+            <Icon name="hub" size={24} /> Сервисы и артисты
           </Link>
           <button className="menu-item" role="menuitem" onClick={onAppearance}>
-            <Palette size={20} /> Оформление
+            <Icon name="palette" size={24} /> Оформление
           </button>
           <button
             className="menu-item"
@@ -143,7 +147,7 @@ function UserMenu({ onAppearance }: { onAppearance(): void }) {
               navigate('/');
             }}
           >
-            <LogOut size={20} /> Выйти
+            <Icon name="logout" size={24} /> Выйти
           </button>
         </div>
       )}
@@ -174,12 +178,12 @@ export function TopAppBar() {
         <div className="topbar-actions">
           {/* On phones signed-in users reach this from the account menu, which saves room for search. */}
           <button className={`icon-btn ${user ? 'topbar-hide-compact' : ''}`} onClick={() => setAppearance(true)} aria-label="Оформление" title="Оформление">
-            <Palette size={22} />
+            <Icon name="palette" size={24} />
           </button>
           {user ? (
             <>
               <Link to="/upload" className="icon-btn topbar-compact-only" aria-label="Загрузить трек" title="Загрузить трек">
-                <Upload size={22} />
+                <Icon name="upload" size={24} />
               </Link>
               <NotificationsMenu />
               <UserMenu onAppearance={() => setAppearance(true)} />

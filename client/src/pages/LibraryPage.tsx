@@ -1,4 +1,3 @@
-import { Plus, Radio } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api } from '../api/client';
@@ -16,6 +15,7 @@ import { useFetch } from '../lib/useFetch';
 import { usePaged } from '../lib/usePaged';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
+import { Icon } from '../components/Icon';
 
 type Tab = 'likes' | 'playlists' | 'history' | 'artists';
 
@@ -72,7 +72,7 @@ function Playlists() {
       <div className="section-header">
         <span />
         <button className="btn btn-outlined btn-small" onClick={() => setCreating(true)}>
-          <Plus size={14} /> Новый плейлист
+          <Icon name="add" size={18} /> Новый плейлист
         </button>
       </div>
       {loading && <Loading />}
@@ -88,7 +88,7 @@ function Artists() {
   if (loading) return <Loading />;
   if (!data?.length) {
     return (
-      <Empty icon={<Radio size={32} />} title="Вы ещё не подписаны на артистов">
+      <Empty icon={<Icon name="hub" size={32} />} title="Вы ещё не подписаны на артистов">
         <Link to="/sync" className="btn btn-filled">
           Найти артистов в сервисах
         </Link>

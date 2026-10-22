@@ -1,4 +1,3 @@
-import { Globe, Lock, Pencil, Play, Shuffle, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api } from '../api/client';
@@ -13,6 +12,7 @@ import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { usePlayer } from '../store/player';
 import { toast } from '../store/toasts';
+import { Icon } from '../components/Icon';
 
 function EditPlaylistModal({ playlist, onClose, onSaved }: { playlist: Playlist; onClose(): void; onSaved(p: Playlist): void }) {
   const [title, setTitle] = useState(playlist.title);
@@ -86,7 +86,7 @@ export function PlaylistPage() {
         <Cover url={data.coverUrl} seed={`p${data.id}`} className="playlist-cover" />
         <div className="playlist-meta">
           <span className="muted small">
-            {data.isPublic ? <Globe size={12} /> : <Lock size={12} />} {data.isPublic ? 'Публичный плейлист' : 'Приватный плейлист'}
+            {data.isPublic ? <Icon name="public" size={18} /> : <Icon name="lock" size={18} />} {data.isPublic ? 'Публичный плейлист' : 'Приватный плейлист'}
           </span>
           <h1>{data.title}</h1>
           <Link to={`/users/${data.owner.username}`} className="byline">
@@ -99,18 +99,18 @@ export function PlaylistPage() {
           {data.description && <p className="description">{data.description}</p>}
           <div className="row-gap">
             <button className="btn btn-filled" onClick={() => playAll()} disabled={!data.tracks.length}>
-              <Play size={16} fill="currentColor" /> Слушать
+              <Icon name="play_arrow" size={18} filled /> Слушать
             </button>
             <button className="btn btn-outlined" onClick={() => playAll(true)} disabled={!data.tracks.length}>
-              <Shuffle size={16} /> Перемешать
+              <Icon name="shuffle" size={18} /> Перемешать
             </button>
             {isOwner && (
               <>
                 <button className="btn btn-text" onClick={() => setEditing(true)}>
-                  <Pencil size={15} /> Изменить
+                  <Icon name="edit" size={18} /> Изменить
                 </button>
                 <button className="btn btn-text btn-danger" onClick={remove}>
-                  <Trash2 size={15} /> Удалить
+                  <Icon name="delete" size={18} /> Удалить
                 </button>
               </>
             )}

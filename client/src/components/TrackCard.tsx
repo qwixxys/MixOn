@@ -1,4 +1,3 @@
-import { MessageCircle, Play } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Track } from '../api/types';
 import { formatCount, formatTime, timeAgo } from '../lib/format';
@@ -8,6 +7,7 @@ import { PlayButton } from './PlayButton';
 import { ServiceBadge } from './ServiceBadge';
 import { TrackActions } from './TrackActions';
 import { Waveform } from './Waveform';
+import { Icon } from './Icon';
 
 /** Approximate playable length used before the player knows the real duration. */
 export function playableDuration(track: Track) {
@@ -83,10 +83,10 @@ export function TrackCard({ track, queue, reason }: { track: Track; queue?: Trac
           <TrackActions track={track} />
           <div className="track-stats">
             <span title="Прослушивания">
-              <Play size={12} fill="currentColor" /> {formatCount(track.playCount)}
+              <Icon name="play_arrow" size={18} filled /> {formatCount(track.playCount)}
             </span>
             <Link to={`/tracks/${track.id}#comments`} title="Комментарии">
-              <MessageCircle size={12} /> {formatCount(track.commentCount)}
+              <Icon name="chat_bubble" size={18} /> {formatCount(track.commentCount)}
             </Link>
             <span className="muted">{formatTime(track.duration)}</span>
           </div>

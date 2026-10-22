@@ -1,10 +1,10 @@
-import { Heart } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import type { Track } from '../api/types';
 import { formatCount } from '../lib/format';
 import { useAuth } from '../store/auth';
 import { useLikes, useLikeState } from '../store/likes';
 import { toast } from '../store/toasts';
+import { Icon } from './Icon';
 
 export function LikeButton({ track, showCount = true, small = false }: { track: Track; showCount?: boolean; small?: boolean }) {
   const { liked, likeCount } = useLikeState(track);
@@ -23,7 +23,7 @@ export function LikeButton({ track, showCount = true, small = false }: { track: 
       title={liked ? 'Убрать из понравившихся' : 'Нравится'}
       aria-pressed={liked}
     >
-      <Heart size={small ? 20 : 18} fill={liked ? 'currentColor' : 'none'} />
+      <Icon name="favorite" size={small ? 20 : 18} filled={liked} />
       {showCount && <span>{likeCount ? formatCount(likeCount) : small ? '' : 'Нравится'}</span>}
     </button>
   );

@@ -1,4 +1,3 @@
-import { ExternalLink, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api } from '../api/client';
@@ -12,6 +11,7 @@ import { serviceInfo } from '../lib/services';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
+import { Icon } from '../components/Icon';
 
 export function ArtistPage() {
   const { id } = useParams();
@@ -86,12 +86,12 @@ export function ArtistPage() {
           <div className="row-gap">
             {data.url && (
               <a className="btn btn-text" href={data.url} target="_blank" rel="noreferrer">
-                <ExternalLink size={15} /> {service.label}
+                <Icon name="open_in_new" size={18} /> {service.label}
               </a>
             )}
             {user && (
               <button className="btn btn-outlined" onClick={sync} disabled={busy}>
-                <RefreshCw size={15} className={busy ? 'spin' : ''} /> Обновить
+                <Icon name="refresh" size={18} className={busy ? 'spin' : ''} /> Обновить
               </button>
             )}
             {user ? (
