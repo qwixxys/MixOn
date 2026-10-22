@@ -128,10 +128,6 @@ export interface Artist {
   isSubscribed: boolean;
 }
 
-export interface ArtistDetail extends Artist {
-  tracks: Track[];
-}
-
 export interface SyncResult {
   artistId: number;
   name: string;
@@ -164,4 +160,57 @@ export interface SearchResults {
   users: SuggestedUser[];
   playlists: Playlist[];
   artists: { id: number; provider: string; name: string; imageUrl: string | null; trackCount: number }[];
+}
+
+export type TrackSort = 'new' | 'popular' | 'trending' | 'genre' | 'title';
+
+export interface GenreFacet {
+  name: string;
+  count: number;
+  coverUrl: string | null;
+}
+
+export interface GenreFacets {
+  genres: GenreFacet[];
+  untagged: number;
+  total: number;
+}
+
+export interface GeniusPerson {
+  id: number;
+  name: string;
+  url: string | null;
+  imageUrl: string | null;
+}
+
+export interface GeniusSongRef {
+  id: number;
+  title: string;
+  artist: string;
+  url: string;
+  imageUrl: string | null;
+  releaseDate: string | null;
+}
+
+export interface GeniusSong extends GeniusSongRef {
+  fullTitle: string;
+  primaryArtist: GeniusPerson;
+  featured: GeniusPerson[];
+  writers: GeniusPerson[];
+  producers: GeniusPerson[];
+  credits: { label: string; people: GeniusPerson[] }[];
+  album: { name: string; url: string | null; coverUrl: string | null } | null;
+  description: string | null;
+  relationships: { type: string; label: string; songs: GeniusSongRef[] }[];
+  media: { provider: string; url: string }[];
+  recordingLocation: string | null;
+  pageviews: number | null;
+  embedContent: string | null;
+}
+
+export interface TrackGenius {
+  configured: boolean;
+  song: GeniusSong | null;
+  manual: boolean;
+  canEdit: boolean;
 }

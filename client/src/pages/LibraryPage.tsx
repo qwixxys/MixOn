@@ -1,40 +1,22 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api } from '../api/client';
-import type { Artist, Playlist, Track } from '../api/types';
+import type { Artist, Playlist } from '../api/types';
 import { Avatar } from '../components/Cover';
 import { Switch, TextArea, TextField } from '../components/Material';
 import { Modal } from '../components/Modal';
 import { PlaylistGrid } from '../components/PlaylistTile';
 import { ServiceBadge } from '../components/ServiceBadge';
-import { Empty, ErrorState, Loading } from '../components/States';
+import { Empty, Loading } from '../components/States';
+import { FilteredTrackList } from '../components/FilteredTrackList';
 import { Tabs } from '../components/Tabs';
-import { TrackList } from '../components/TrackCard';
 import { plural } from '../lib/format';
 import { useFetch } from '../lib/useFetch';
-import { usePaged } from '../lib/usePaged';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
 import { Icon } from '../components/Icon';
 
 type Tab = 'likes' | 'playlists' | 'history' | 'artists';
-
-function PagedTracks({ path, empty }: { path: string; empty: string }) {
-  const list = usePaged<Track>(path);
-  if (list.error) return <ErrorState message={list.error} onRetry={list.reload} />;
-  return (
-    <>
-      {!list.loading && !list.items.length && <Empty title={empty} />}
-      <TrackList tracks={list.items} />
-      {list.loading && <Loading />}
-      {list.hasMore && !list.loading && (
-        <button className="btn btn-outlined btn-block" onClick={list.loadMore}>
-          Показать ещё
-        </button>
-      )}
-    </>
-  );
-}
 
 function NewPlaylistModal({ onClose, onCreated }: { onClose(): void; onCreated(): void }) {
   const [title, setTitle] = useState('');
@@ -131,8 +113,24 @@ export function LibraryPage() {
           onChange={(id) => setParams({ tab: id })}
         />
       </div>
-      {tab === 'likes' && <PagedTracks path={`/users/${user.username}/likes`} empty="Понравившихся треков пока нет" />}
-      {tab === 'history' && <PagedTracks path="/me/history" empty="Вы ещё ничего не слушали" />}
+      {tab === 'likes' && (
+        <FilteredTrackList
+          key="likes"
+          path={`/users/${user.username}/likes`}
+          scope={`likes:${user.username}`}
+          empty={<Empty title="Понравившихся треков пока нет" />}
+          sortLabels={{ new: 'Недавно понравившиеся' }}
+        />
+      )}
+      {tab === 'history' && (
+        <FilteredTrackList
+          key="history"
+          path="/me/history"
+          scope="history"
+          empty={<Empty title="Вы ещё ничего не слушали" />}
+          sortLabels={{ new: 'Недавно прослушанные' }}
+        />
+      )}
       {tab === 'playlists' && <Playlists />}
       {tab === 'artists' && <Artists />}
     </div>

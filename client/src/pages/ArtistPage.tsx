@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api } from '../api/client';
-import type { ArtistDetail, SyncResult } from '../api/types';
+import type { Artist, SyncResult } from '../api/types';
 import { Avatar } from '../components/Cover';
 import { ServiceBadge } from '../components/ServiceBadge';
 import { Empty, ErrorState, Loading } from '../components/States';
-import { TrackList } from '../components/TrackCard';
+import { FilteredTrackList } from '../components/FilteredTrackList';
 import { formatCount, plural, timeAgo } from '../lib/format';
 import { serviceInfo } from '../lib/services';
 import { useFetch } from '../lib/useFetch';
@@ -16,7 +16,9 @@ import { Icon } from '../components/Icon';
 export function ArtistPage() {
   const { id } = useParams();
   const user = useAuth((s) => s.user);
-  const { data, loading, error, reload, setData } = useFetch<ArtistDetail>(`/artists/${id}`);
+  const { data, loading, error, reload, setData } = useFetch<Artist>(`/artists/${id}`);
+  // Bumped after a sync so the track list reloads too.
+  const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
 
   if (loading && !data) return <Loading />;
@@ -35,6 +37,7 @@ export function ArtistPage() {
         });
         toast.success(`Вы подписаны на ${data.name}`);
         reload();
+        setVersion((v) => v + 1);
       }
     } catch (err) {
       toast.error(err);
@@ -53,6 +56,7 @@ export function ArtistPage() {
           : 'Новых треков нет',
       );
       reload();
+      setVersion((v) => v + 1);
     } catch (err) {
       toast.error(err);
     } finally {
@@ -106,11 +110,13 @@ export function ArtistPage() {
           </div>
         </div>
         {data.lastError && <div className="notice notice-error">Последняя синхронизация не удалась: {data.lastError}</div>}
-        {data.tracks.length ? (
-          <TrackList tracks={data.tracks} />
-        ) : (
-          <Empty title="Треков пока нет">Нажмите «Обновить», чтобы загрузить треки из {service.label}.</Empty>
-        )}
+        <FilteredTrackList
+          key={version}
+          path={`/artists/${data.id}/tracks`}
+          scope={`artist:${data.id}`}
+          pageSize={50}
+          empty={<Empty title="Треков пока нет">Нажмите «Обновить», чтобы загрузить треки из {service.label}.</Empty>}
+        />
       </div>
     </>
   );

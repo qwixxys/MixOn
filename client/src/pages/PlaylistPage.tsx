@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api } from '../api/client';
-import type { Playlist, PlaylistDetail } from '../api/types';
+import type { Playlist, PlaylistDetail, Track, TrackSort } from '../api/types';
+import { GenreBar, localFacets, NO_GENRE } from '../components/GenreBar';
+import { useListQuery } from '../lib/useListQuery';
 import { Avatar, Cover } from '../components/Cover';
 import { Switch, TextArea, TextField } from '../components/Material';
 import { Modal } from '../components/Modal';
@@ -41,17 +43,36 @@ function EditPlaylistModal({ playlist, onClose, onSaved }: { playlist: Playlist;
   );
 }
 
+/** Filters and sorts a fully loaded list the way the server does for paged ones. */
+function arrangeTracks(tracks: Track[], genre: string | null, sort: TrackSort): Track[] {
+  const filtered = genre ? tracks.filter((t) => (genre === NO_GENRE ? !t.genre : t.genre?.toLocaleLowerCase() === genre.toLocaleLowerCase())) : tracks;
+  const byTitle = (a: Track, b: Track) => a.title.localeCompare(b.title, 'ru');
+  switch (sort) {
+    case 'popular':
+      return [...filtered].sort((a, b) => b.playCount - a.playCount);
+    case 'title':
+      return [...filtered].sort(byTitle);
+    case 'genre':
+      // Untagged last; inside a genre the playlist order is kept (Array.prototype.sort is stable).
+      return [...filtered].sort((a, b) => (a.genre === null ? 1 : 0) - (b.genre === null ? 1 : 0) || (a.genre ?? '').localeCompare(b.genre ?? '', 'ru'));
+    default:
+      return filtered;
+  }
+}
+
 export function PlaylistPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const user = useAuth((s) => s.user);
   const { data, loading, error, setData } = useFetch<PlaylistDetail>(`/playlists/${id}`);
+  const list = useListQuery();
   const play = usePlayer((s) => s.play);
   const [editing, setEditing] = useState(false);
 
   if (loading) return <Loading />;
   if (error || !data) return <ErrorState message={error ?? 'Плейлист не найден'} />;
   const isOwner = user?.id === data.owner.id;
+  const visible = arrangeTracks(data.tracks, list.genre, list.sort);
 
   const playAll = (shuffle = false) => {
     if (!data.tracks.length) return;
@@ -120,11 +141,29 @@ export function PlaylistPage() {
       {!data.tracks.length ? (
         <Empty title="В плейлисте пока нет треков">Добавляйте треки кнопкой «В плейлист» на их карточках.</Empty>
       ) : (
-        <div className="chart">
-          {data.tracks.map((t, i) => (
-            <TrackRow key={t.id} track={t} queue={data.tracks} index={i} onRemove={isOwner ? () => removeTrack(t.id) : undefined} />
-          ))}
-        </div>
+        <>
+          <GenreBar
+            facets={localFacets(data.tracks)}
+            genre={list.genre}
+            sort={list.sort}
+            onChange={list.update}
+            sortLabels={{ new: 'Порядок плейлиста' }}
+          />
+          <div className="chart">
+            {visible.map((t, i) => (
+              <Fragment key={t.id}>
+                {list.sort === 'genre' && (i === 0 || visible[i - 1].genre !== t.genre) && (
+                  <h3 className="list-subheader">
+                    <Icon name="category" size={20} />
+                    {t.genre ?? 'Без жанра'}
+                  </h3>
+                )}
+                <TrackRow track={t} queue={visible} index={i} onRemove={isOwner ? () => removeTrack(t.id) : undefined} />
+              </Fragment>
+            ))}
+            {!visible.length && <Empty title="В этом жанре треков нет" />}
+          </div>
+        </>
       )}
       {editing && <EditPlaylistModal playlist={data} onClose={() => setEditing(false)} onSaved={(p) => setData((d) => d && { ...d, ...p })} />}
     </div>

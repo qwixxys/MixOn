@@ -3,11 +3,13 @@ import { Link } from 'react-router';
 import type { Track } from '../api/types';
 import { SuggestedUsers } from '../components/SuggestedUsers';
 import { SyncWidget } from '../components/SyncWidget';
+import { GenreBar } from '../components/GenreBar';
 import { SegmentedButtons } from '../components/Material';
 import { TrackList } from '../components/TrackCard';
 import { TrackRow } from '../components/TrackRow';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { useFetch } from '../lib/useFetch';
+import { useListQuery, withQuery } from '../lib/useListQuery';
 import { usePaged } from '../lib/usePaged';
 import { useAuth } from '../store/auth';
 import { DiscoverSections } from './DiscoverPage';
@@ -64,7 +66,8 @@ function HistoryWidget() {
 
 function Stream() {
   const [type, setType] = useState<FeedType>('all');
-  const feed = usePaged<Track>(`/feed?type=${type}`);
+  const list = useListQuery();
+  const feed = usePaged<Track>(withQuery(`/feed?type=${type}`, list.qs));
 
   useEffect(() => {
     const onSync = () => feed.reload();
@@ -88,6 +91,7 @@ function Stream() {
             onChange={setType}
           />
         </div>
+        <GenreBar scope={`feed:${type}`} genre={list.genre} sort={list.sort} onChange={list.update} />
         {feed.error && <ErrorState message={feed.error} onRetry={feed.reload} />}
         {!feed.loading && !feed.error && !feed.items.length && (
           <Empty icon={<Icon name="hub" size={32} />} title="Лента пока пуста">
@@ -105,7 +109,11 @@ function Stream() {
             </div>
           </Empty>
         )}
-        <TrackList tracks={feed.items} reason={(t) => (isFreshRelease(t) ? 'новый релиз' : undefined)} />
+        <TrackList
+          tracks={feed.items}
+          groupByGenre={list.sort === 'genre'}
+          reason={(t) => (isFreshRelease(t) ? 'новый релиз' : undefined)}
+        />
         {feed.loading && <Loading />}
         {feed.hasMore && !feed.loading && (
           <button className="btn btn-outlined btn-block" onClick={feed.loadMore}>

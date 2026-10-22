@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api } from '../api/client';
-import type { Me, Playlist, Profile, Track } from '../api/types';
+import type { Me, Playlist, Profile } from '../api/types';
 import { Avatar } from '../components/Cover';
 import { FileButton, TextArea, TextField } from '../components/Material';
 import { Modal } from '../components/Modal';
 import { PlaylistGrid } from '../components/PlaylistTile';
 import { Empty, ErrorState, Loading } from '../components/States';
+import { FilteredTrackList } from '../components/FilteredTrackList';
 import { Tabs } from '../components/Tabs';
-import { TrackList } from '../components/TrackCard';
 import { formatCount, formatDate, plural } from '../lib/format';
 import { useFetch } from '../lib/useFetch';
-import { usePaged } from '../lib/usePaged';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
 import { Icon } from '../components/Icon';
@@ -63,23 +62,6 @@ function EditProfileModal({ onClose, onSaved }: { onClose(): void; onSaved(): vo
 }
 
 type Tab = 'tracks' | 'playlists' | 'likes';
-
-function TrackTab({ path, empty }: { path: string; empty: React.ReactNode }) {
-  const list = usePaged<Track>(path);
-  if (list.error) return <ErrorState message={list.error} onRetry={list.reload} />;
-  return (
-    <>
-      {!list.loading && !list.items.length && empty}
-      <TrackList tracks={list.items} />
-      {list.loading && <Loading />}
-      {list.hasMore && !list.loading && (
-        <button className="btn btn-outlined btn-block" onClick={list.loadMore}>
-          Показать ещё
-        </button>
-      )}
-    </>
-  );
-}
 
 export function ProfilePage() {
   const { username = '' } = useParams();
@@ -148,8 +130,10 @@ export function ProfilePage() {
         <div className="with-sidebar">
           <div className="content">
             {tab === 'tracks' && (
-              <TrackTab
+              <FilteredTrackList
+                key="tracks"
                 path={`/users/${encodeURIComponent(p.username)}/tracks`}
+                scope={`uploads:${p.username}`}
                 empty={
                   <Empty title={p.isMe ? 'Вы ещё ничего не загрузили' : 'Треков пока нет'}>
                     {p.isMe && (
@@ -162,7 +146,13 @@ export function ProfilePage() {
               />
             )}
             {tab === 'likes' && (
-              <TrackTab path={`/users/${encodeURIComponent(p.username)}/likes`} empty={<Empty title="Понравившихся треков пока нет" />} />
+              <FilteredTrackList
+                key="likes"
+                path={`/users/${encodeURIComponent(p.username)}/likes`}
+                scope={`likes:${p.username}`}
+                empty={<Empty title="Понравившихся треков пока нет" />}
+                sortLabels={{ new: 'Недавно понравившиеся' }}
+              />
             )}
             {tab === 'playlists' &&
               (playlists.data?.length ? (

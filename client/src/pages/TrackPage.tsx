@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api } from '../api/client';
-import type { Comment, Track } from '../api/types';
+import type { Comment, Track, TrackGenius } from '../api/types';
 import { Avatar, Cover } from '../components/Cover';
 import { FileButton, TextArea, TextField } from '../components/Material';
 import { Modal } from '../components/Modal';
 import { PlayButton } from '../components/PlayButton';
 import { ServiceBadge } from '../components/ServiceBadge';
-import { ErrorState, Loading } from '../components/States';
+import { GeniusAbout, GeniusFacts, GeniusLinkDialog, GeniusLyrics } from '../components/Genius';
+import { Empty, ErrorState, Loading } from '../components/States';
+import { Tabs } from '../components/Tabs';
 import { playableDuration, TrackByline } from '../components/TrackCard';
 import { TrackActions } from '../components/TrackActions';
 import { TrackRow } from '../components/TrackRow';
@@ -171,6 +173,10 @@ export function TrackPage() {
   const comments = useFetch<Comment[]>(`/tracks/${id}/comments`);
   const related = useFetch<Track[]>(`/tracks/${id}/related`);
   const [editing, setEditing] = useState(false);
+  const genius = useFetch<TrackGenius>(`/tracks/${id}/genius`);
+  const song = genius.data?.song ?? null;
+  const [tab, setTab] = useState<'comments' | 'lyrics' | 'about'>('comments');
+  const [linking, setLinking] = useState(false);
   const progress = useTrackProgress(Number(id));
   const isCurrent = usePlayer((s) => s.current?.id === Number(id));
   const playerDuration = usePlayer((s) => (s.current?.id === Number(id) ? s.duration : 0));
@@ -304,12 +310,47 @@ export function TrackPage() {
                   <dd>{formatTime(t.duration)}</dd>
                   <dt>Источник</dt>
                   <dd>{t.source === 'local' ? 'Загружен на soundFy' : <ServiceBadge source={t.source} preview={t.isPreview} />}</dd>
+                  {song && <GeniusFacts song={song} track={t} />}
                 </dl>
               </div>
             </div>
 
-            {comments.data && (
+            {genius.data?.configured && (
+              <Tabs
+                tabs={[
+                  { id: 'comments', label: 'Комментарии', count: comments.data?.length ?? t.commentCount },
+                  { id: 'lyrics', label: 'Текст' },
+                  { id: 'about', label: 'О песне' },
+                ]}
+                value={tab}
+                onChange={setTab}
+              />
+            )}
+            {tab === 'comments' && comments.data && (
               <Comments track={t} comments={comments.data} setComments={(c) => comments.setData(() => c)} />
+            )}
+            {tab !== 'comments' && genius.loading && <Loading label="Ищем песню на Genius…" />}
+            {tab !== 'comments' && genius.error && <ErrorState message={genius.error} onRetry={genius.reload} />}
+            {tab !== 'comments' && genius.data && !song && (
+              <Empty icon={<Icon name="lyrics" size={32} />} title="Песня не найдена на Genius">
+                {genius.data.manual ? 'Для этого трека отмечено, что песни на Genius нет.' : 'Автоматически подобрать песню не получилось.'}
+                {genius.data.canEdit && (
+                  <div className="row-gap">
+                    <button className="btn btn-filled" onClick={() => setLinking(true)}>
+                      <Icon name="travel_explore" size={18} /> Найти вручную
+                    </button>
+                  </div>
+                )}
+              </Empty>
+            )}
+            {tab === 'lyrics' && song && <GeniusLyrics key={song.id} song={song} />}
+            {tab === 'about' && song && <GeniusAbout song={song} />}
+            {tab !== 'comments' && song && genius.data?.canEdit && (
+              <div className="genius-relink">
+                <button className="btn btn-text btn-small" onClick={() => setLinking(true)}>
+                  <Icon name="edit" size={18} /> Не та песня? Выбрать другую
+                </button>
+              </div>
             )}
           </div>
 
@@ -327,6 +368,7 @@ export function TrackPage() {
           </aside>
         </div>
       </div>
+      {linking && <GeniusLinkDialog track={t} onClose={() => setLinking(false)} onLinked={(g) => genius.setData(() => g)} />}
       {editing && <EditTrackModal track={t} onClose={() => setEditing(false)} onSaved={(nt) => track.setData(() => nt)} />}
     </>
   );

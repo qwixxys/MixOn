@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Link } from 'react-router';
 import type { Track } from '../api/types';
 import { formatCount, formatTime, timeAgo } from '../lib/format';
@@ -96,11 +97,28 @@ export function TrackCard({ track, queue, reason }: { track: Track; queue?: Trac
   );
 }
 
-export function TrackList({ tracks, reason }: { tracks: Track[]; reason?: (t: Track) => string | undefined }) {
+export function TrackList({
+  tracks,
+  reason,
+  groupByGenre = false,
+}: {
+  tracks: Track[];
+  reason?: (t: Track) => string | undefined;
+  /** Insert a subheader whenever the genre changes (for lists sorted by genre). */
+  groupByGenre?: boolean;
+}) {
   return (
     <div className="track-list">
-      {tracks.map((t) => (
-        <TrackCard key={t.id} track={t} queue={tracks} reason={reason?.(t)} />
+      {tracks.map((t, i) => (
+        <Fragment key={t.id}>
+          {groupByGenre && (i === 0 || tracks[i - 1].genre !== t.genre) && (
+            <h3 className="list-subheader">
+              <Icon name="category" size={20} />
+              {t.genre ?? 'Без жанра'}
+            </h3>
+          )}
+          <TrackCard track={t} queue={tracks} reason={reason?.(t)} />
+        </Fragment>
       ))}
     </div>
   );

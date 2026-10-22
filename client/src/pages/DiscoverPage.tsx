@@ -1,13 +1,14 @@
 import { Link, useSearchParams } from 'react-router';
-import type { DiscoverData, Track } from '../api/types';
+import type { DiscoverData, GenreFacets } from '../api/types';
 import { PlaylistGrid } from '../components/PlaylistTile';
 import { Empty, ErrorState, Loading } from '../components/States';
-import { TrackList } from '../components/TrackCard';
 import { TrackRow } from '../components/TrackRow';
 import { TrackGrid } from '../components/TrackTile';
-import { Tabs } from '../components/Tabs';
+import { FilteredTrackList } from '../components/FilteredTrackList';
+import { NO_GENRE } from '../components/GenreBar';
 import { useFetch } from '../lib/useFetch';
-import { usePaged } from '../lib/usePaged';
+import { plural } from '../lib/format';
+import { gradientFor } from '../lib/gradient';
 import { Icon } from '../components/Icon';
 
 function Section({ title, link, children }: { title: string; link?: { to: string; label: string }; children: React.ReactNode }) {
@@ -77,64 +78,24 @@ export function DiscoverSections() {
   );
 }
 
-function Genres({ active }: { active: string | null }) {
-  const { data } = useFetch<{ name: string; count: number }[]>('/tracks/genres');
-  if (!data?.length) return null;
+/** Genre cards: a tonal colour per genre, with the artwork of its most played track. */
+function GenreCards() {
+  const { data } = useFetch<GenreFacets>('/genres?scope=all');
+  if (!data?.genres.length) return null;
   return (
-    <div className="chips">
-      <Link to="/discover" className={`chip ${!active ? 'chip-selected' : ''}`}>
-        {!active && <Icon name="check" size={18} />}
-        Все жанры
-      </Link>
-      {data.map((g) => {
-        const selected = active?.toLowerCase() === g.name.toLowerCase();
-        return (
-          <Link key={g.name} to={`/discover?genre=${encodeURIComponent(g.name)}`} className={`chip ${selected ? 'chip-selected' : ''}`}>
-            {selected && <Icon name="check" size={18} />}
-            {g.name}
+    <Section title="Жанры">
+      <div className="genre-cards">
+        {data.genres.slice(0, 18).map((g) => (
+          <Link key={g.name} to={`/discover?genre=${encodeURIComponent(g.name)}`} className="genre-card" style={{ background: gradientFor(g.name) }}>
+            {g.coverUrl && <img src={g.coverUrl} alt="" loading="lazy" />}
+            <span className="genre-card-name">{g.name}</span>
+            <span className="genre-card-count">
+              {g.count} {plural(g.count, ['трек', 'трека', 'треков'])}
+            </span>
           </Link>
-        );
-      })}
-    </div>
-  );
-}
-
-const SORTS = [
-  { id: 'new', label: 'Новые' },
-  { id: 'trending', label: 'В тренде' },
-  { id: 'popular', label: 'Популярные' },
-] as const;
-type Sort = (typeof SORTS)[number]['id'];
-
-function FilteredTracks({ genre, source, sort }: { genre: string | null; source: string | null; sort: Sort }) {
-  const [, setParams] = useSearchParams();
-  const qs = new URLSearchParams({ sort });
-  if (genre) qs.set('genre', genre);
-  if (source) qs.set('source', source);
-  const list = usePaged<Track>(`/tracks?${qs}`);
-
-  return (
-    <>
-      <Tabs
-        tabs={SORTS.map((s) => ({ id: s.id, label: s.label }))}
-        value={sort}
-        onChange={(id) =>
-          setParams((p) => {
-            p.set('sort', id);
-            return p;
-          })
-        }
-      />
-      {list.error && <ErrorState message={list.error} onRetry={list.reload} />}
-      {!list.loading && !list.items.length && <Empty title="Ничего не найдено" />}
-      <TrackList tracks={list.items} />
-      {list.loading && <Loading />}
-      {list.hasMore && !list.loading && (
-        <button className="btn btn-outlined btn-block" onClick={list.loadMore}>
-          Показать ещё
-        </button>
-      )}
-    </>
+        ))}
+      </div>
+    </Section>
   );
 }
 
@@ -142,9 +103,13 @@ export function DiscoverPage() {
   const [params] = useSearchParams();
   const genre = params.get('genre');
   const source = params.get('source');
-  const sort = (SORTS.find((s) => s.id === params.get('sort'))?.id ?? (genre || source ? 'new' : null)) as Sort | null;
+  const sort = params.get('sort');
+  const filtered = Boolean(genre || source || sort);
+  const scope = source === 'local' || source === 'external' ? `source:${source}` : 'all';
   const title = genre
-    ? `#${genre}`
+    ? genre === NO_GENRE
+      ? 'Без жанра'
+      : genre
     : source === 'external'
       ? 'Релизы с сервисов'
       : source === 'local'
@@ -157,9 +122,25 @@ export function DiscoverPage() {
     <div className="page">
       <div className="page-header">
         <h1>{title}</h1>
+        {filtered && (
+          <Link to="/discover" className="btn btn-text">
+            <Icon name="explore" size={18} /> Весь обзор
+          </Link>
+        )}
       </div>
-      <Genres active={genre} />
-      {sort ? <FilteredTracks genre={genre} source={source} sort={sort} /> : <DiscoverSections />}
+      {filtered ? (
+        <FilteredTrackList
+          path={`/tracks${source ? `?source=${encodeURIComponent(source)}` : ''}`}
+          scope={scope}
+          sorts={['new', 'trending', 'popular', 'genre', 'title']}
+          empty={<Empty title="Ничего не найдено" />}
+        />
+      ) : (
+        <>
+          <GenreCards />
+          <DiscoverSections />
+        </>
+      )}
     </div>
   );
 }
