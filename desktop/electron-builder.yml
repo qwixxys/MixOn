@@ -1,0 +1,35 @@
+# Two-package layout: build/app (made by scripts/stage.mjs) is what ships; this folder only holds the tooling.
+appId: com.soundfy.desktop
+productName: soundFy
+copyright: soundFy
+directories:
+  app: build/app
+  output: dist
+  buildResources: resources
+# Plain files instead of an asar archive: the server serves the client from disk and SQLite loads a native module.
+asar: false
+# better-sqlite3 ships Node-API binaries for every platform, which Electron loads as they are.
+npmRebuild: false
+files:
+  - "**/*"
+win:
+  target: nsis
+  icon: resources/icon.png
+  artifactName: soundFy-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: soundFy
+  # Music, playlists and accounts stay in %APPDATA%\soundFy when the app is removed.
+  deleteAppDataOnUninstall: false
+linux:
+  target: AppImage
+  icon: resources/icon.png
+  category: AudioVideo
+  executableName: soundfy
+  syncDesktopName: true
+  synopsis: Музыкальная платформа с синхронизацией новых релизов
+  artifactName: soundFy-${version}-${arch}.AppImage

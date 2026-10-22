@@ -65,9 +65,49 @@
 | **Genius** | Авторы, продюсеры, описание, связи песен, виджет с текстом | Client access token `GENIUS_ACCESS_TOKEN` с [genius.com/api-clients](https://genius.com/api-clients) |
 | **Jamendo** | Полные треки независимых артистов под лицензией CC | Бесплатный `JAMENDO_CLIENT_ID` с [devportal.jamendo.com](https://devportal.jamendo.com/) |
 
+## Готовые приложения
+
+Сборки делает GitHub Actions (`.github/workflows/apps.yml`) при каждом изменении кода: их можно скачать на вкладке **Actions** репозитория, в разделе Artifacts нужного запуска. Если отправить тег вида `v0.1.0`, те же файлы появятся в **Releases**.
+
+| Файл | Что это |
+|---|---|
+| `soundFy-Setup-<версия>.exe` | Установщик для Windows 10/11 (x64) |
+| `soundFy-<версия>-x86_64.AppImage` | Linux: `chmod +x` и запустить |
+| `soundFy-<версия>.apk` (или `-debug.apk`) | Android 7.0+ |
+
+**Windows и Linux.** Приложение — это весь soundFy в одном окне: сервер работает внутри него, ничего настраивать не нужно. При первом запуске зарегистрируйте аккаунт.
+- Данные (база, загруженные треки) хранятся в `%APPDATA%\soundFy` на Windows и `~/.config/soundFy` на Linux и не удаляются вместе с приложением.
+- Ключи сервисов (Genius, SoundCloud, Jamendo) задаются в меню **soundFy → Ключи сервисов**: откроется файл в формате `.env`, после правки перезапустите приложение. Для входа через SoundCloud укажите в его настройках redirect URI `http://127.0.0.1:4777/api/services/soundcloud/oauth/callback`.
+- Установщик не подписан сертификатом, поэтому Windows SmartScreen покажет предупреждение: «Подробнее» → «Выполнить в любом случае».
+
+**Android.** Приложение подключается к вашему серверу soundFy и показывает его интерфейс, поэтому сначала нужен сервер:
+- **soundFy на компьютере:** в меню **soundFy → Подключить телефон** включите доступ из локальной сети. Приложение покажет адрес вида `http://192.168.1.10:4777`; введите его на телефоне, подключённом к той же Wi-Fi сети. Пока доступ выключен, сервер принимает подключения только с этого компьютера.
+- **soundFy на сервере** (Docker, VPS): введите адрес сайта.
+
+Приложение запоминает последние адреса, сменить сервер можно в меню аккаунта. Ссылки на другие сайты открываются в браузере. Установка: разрешите установку из неизвестных источников. Ограничения: музыка играет в фоне, пока Android не выгрузит приложение из памяти, а кнопок управления в шторке уведомлений пока нет.
+
+**Подпись APK.** Без настройки собирается APK с отладочной подписью: он устанавливается, но обновление поверх может потребовать удалить старую версию. Чтобы подписывать своим ключом, создайте его и добавьте в Settings → Secrets → Actions четыре секрета:
+
+```bash
+keytool -genkeypair -v -keystore soundfy.jks -alias soundfy -keyalg RSA -keysize 4096 -validity 10000
+base64 -w0 soundfy.jks   # → ANDROID_KEYSTORE_BASE64
+```
+
+`ANDROID_KEYSTORE_PASSWORD` и `ANDROID_KEY_PASSWORD` — пароли из `keytool`, `ANDROID_KEY_ALIAS` — `soundfy`. Храните `soundfy.jks` в надёжном месте: без него нельзя выпустить обновление, которое встанет поверх.
+
+**Собрать самому.**
+
+```bash
+npm ci && npm run build                      # сервер и клиент
+cd desktop && npm ci && npm run dist:win     # или dist:linux; результат в desktop/dist
+cd mobile && npm ci && npm run apk           # нужен Android SDK и JDK 21; APK в android/app/build/outputs/apk
+```
+
+Установщик для Windows собирается на Windows (NSIS), AppImage — на Linux. `npm start` в `desktop/` запускает приложение без упаковки.
+
 ## Быстрый старт
 
-Нужен Node.js 20.19+ (рекомендуется 22).
+Нужен Node.js 22 или новее.
 
 ```bash
 npm install
@@ -172,6 +212,13 @@ client/                     React 19 + Vite + React Router + Zustand
     store/player.ts         плеер на одном <audio>, очередь, Media Session, HLS
     components/             волна, карточки треков, плеер, шапка, уведомления
     pages/                  лента, обзор, поиск, трек, профиль, плейлист, артист, сервисы, загрузка
+desktop/                    приложение для Windows и Linux на Electron: сервер и интерфейс в одном окне
+  src/main.mjs              запуск сервера в профиле пользователя, окно, меню, доступ из локальной сети
+  scripts/stage.mjs         сборка папки приложения из server/dist и client/dist
+mobile/                     приложение для Android на Capacitor: подключается к серверу soundFy
+  www/index.html            экран выбора сервера
+  android/                  проект Android Studio; MainActivity решает, какие ссылки открывать в приложении
+  scripts/icons.mjs         иконки и заставки приложений из логотипа
 ```
 
 ### Основные эндпоинты API

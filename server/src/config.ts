@@ -19,6 +19,8 @@ function num(value: string | undefined, fallback: number): number {
 
 export interface AppConfig {
   port: number;
+  /** Interface to listen on; unset means all of them. The desktop app uses 127.0.0.1 unless LAN access is on. */
+  host: string | undefined;
   dataDir: string;
   jwtSecret: string;
   syncIntervalMinutes: number;
@@ -60,6 +62,7 @@ export function loadConfig(): AppConfig {
   const dataDir = path.resolve(rootDir, process.env.DATA_DIR || 'data');
   return {
     port: num(process.env.PORT, 4000),
+    host: process.env.HOST || undefined,
     dataDir,
     jwtSecret: resolveJwtSecret(dataDir),
     syncIntervalMinutes: num(process.env.SYNC_INTERVAL_MINUTES, 60),

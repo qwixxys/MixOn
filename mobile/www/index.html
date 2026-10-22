@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>soundFy</title>
+    <style>
+      :root {
+        --bg: #fff8f6;
+        --surface: #fceae5;
+        --text: #231917;
+        --muted: #53433f;
+        --outline: #85736e;
+        --primary: #a33a00;
+        --on-primary: #ffffff;
+        --error: #ba1a1a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1a110e;
+          --surface: #2a201c;
+          --text: #f1dfda;
+          --muted: #d8c2bb;
+          --outline: #a08d87;
+          --primary: #ffb59a;
+          --on-primary: #5b1a00;
+          --error: #ffb4ab;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.5 Roboto, system-ui, sans-serif;
+      }
+      main {
+        max-width: 440px;
+        margin: 0 auto;
+        padding: max(48px, env(safe-area-inset-top)) 24px 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .logo {
+        width: 72px;
+        height: 72px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 400;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      input {
+        height: 56px;
+        padding: 0 16px;
+        border: 1px solid var(--outline);
+        border-radius: 4px;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+      }
+      input:focus {
+        outline: 2px solid var(--primary);
+        outline-offset: -1px;
+        border-color: transparent;
+      }
+      button {
+        height: 48px;
+        border: 0;
+        border-radius: 24px;
+        padding: 0 24px;
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .primary {
+        background: var(--primary);
+        color: var(--on-primary);
+      }
+      .primary:disabled {
+        opacity: 0.6;
+      }
+      .status {
+        min-height: 24px;
+        font-size: 14px;
+      }
+      .status.error {
+        color: var(--error);
+      }
+      .recent {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .recent button {
+        background: var(--surface);
+        color: var(--text);
+        border-radius: 12px;
+        text-align: left;
+        font-weight: 400;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .hint {
+        font-size: 14px;
+        padding: 16px;
+        border-radius: 12px;
+        background: var(--surface);
+      }
+      .hint b {
+        color: var(--text);
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="14" fill="#ff5500" />
+        <g fill="#fff">
+          <rect x="12" y="28" width="5" height="12" rx="2.5" />
+          <rect x="20" y="20" width="5" height="28" rx="2.5" />
+          <rect x="28" y="14" width="5" height="40" rx="2.5" />
+          <rect x="36" y="22" width="5" height="24" rx="2.5" />
+          <rect x="44" y="26" width="5" height="16" rx="2.5" />
+        </g>
+      </svg>
+      <h1>soundFy</h1>
+      <p>Подключитесь к своему серверу soundFy, чтобы слушать музыку, плейлисты и новые релизы артистов.</p>
+
+      <form id="form">
+        <label>
+          Адрес сервера
+          <input id="address" type="url" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="http://192.168.1.10:4777" required />
+        </label>
+      </form>
+      <button id="connect" class="primary" type="submit" form="form">Подключиться</button>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+
+      <div id="recent" class="recent" hidden></div>
+
+      <div class="hint">
+        <b>soundFy на компьютере:</b> включите в меню «soundFy → Подключить телефон», подключите телефон к той же Wi-Fi сети
+        и введите показанный адрес.<br /><br />
+        <b>soundFy на сервере:</b> введите адрес сайта, например https://music.example.com.
+      </div>
+    </main>
+
+    <script>
+      const SERVER_KEY = 'soundfy.server';
+      const RECENT_KEY = 'soundfy.servers';
+      const form = document.getElementById('form');
+      const input = document.getElementById('address');
+      const button = document.getElementById('connect');
+      const status = document.getElementById('status');
+      const recentBox = document.getElementById('recent');
+
+      const read = (key, fallback) => {
+        try {
+          return JSON.parse(localStorage.getItem(key)) ?? fallback;
+        } catch {
+          return fallback;
+        }
+      };
+      const store = (key, value) => {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch {
+          // storage unavailable: the address is asked again next time
+        }
+      };
+
+      /** "192.168.1.10:4777" → "http://192.168.1.10:4777"; paths are kept for servers behind a proxy. */
+      function normalize(text) {
+        let value = text.trim();
+        if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) value = `http://${value}`;
+        const url = new URL(value);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('Нужен адрес http:// или https://');
+        return url.origin + url.pathname.replace(/\/+$/, '');
+      }
+
+      function setStatus(text, error = false) {
+        status.textContent = text;
+        status.className = error ? 'status error' : 'status';
+      }
+
+      /** Checks that a soundFy server answers at the address. */
+      async function probe(base) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        try {
+          const res = await fetch(`${base}/api/health`, { signal: controller.signal, cache: 'no-store' });
+          const body = await res.json().catch(() => null);
+          return Boolean(res.ok && body && (body.app === 'soundfy' || body.ok === true));
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      function showRecent() {
+        const recent = read(RECENT_KEY, []);
+        recentBox.replaceChildren(
+          ...recent.map((base) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.textContent = base;
+            item.addEventListener('click', () => {
+              input.value = base;
+              connect(base);
+            });
+            return item;
+          }),
+        );
+        recentBox.hidden = recent.length === 0;
+      }
+
+      async function connect(text) {
+        let base;
+        try {
+          base = normalize(text);
+        } catch (err) {
+          setStatus(err.message || 'Это не похоже на адрес', true);
+          return;
+        }
+        button.disabled = true;
+        setStatus(`Подключаемся к ${base}…`);
+        try {
+          if (!(await probe(base))) {
+            setStatus('По этому адресу отвечает не soundFy', true);
+            return;
+          }
+        } catch {
+          setStatus(`Не удалось подключиться к ${base}. Проверьте, что soundFy запущен, доступ из сети включён и телефон в той же сети.`, true);
+          return;
+        } finally {
+          button.disabled = false;
+        }
+        store(SERVER_KEY, base);
+        store(RECENT_KEY, [base, ...read(RECENT_KEY, []).filter((b) => b !== base)].slice(0, 5));
+        // Replace this page in history so "back" on the server's start page leaves the app instead of coming here.
+        location.replace(`${base}/`);
+      }
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        connect(input.value);
+      });
+
+      const saved = read(SERVER_KEY, null);
+      const changing = new URLSearchParams(location.search).has('change');
+      showRecent();
+      if (saved) input.value = saved;
+      if (saved && !changing) connect(saved);
+    </script>
+  </body>
+</html>

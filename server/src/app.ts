@@ -36,7 +36,9 @@ export function createApp(ctx: AppContext) {
   const api = express.Router();
   api.use(authenticate(ctx));
   api.get('/health', (_req, res) => {
-    res.json({ ok: true });
+    // Readable from any origin so the Android app can check that an address really is a soundFy server.
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.json({ ok: true, app: 'soundfy' });
   });
   api.use('/auth', authRoutes(ctx));
   api.use('/me', meRoutes(ctx));

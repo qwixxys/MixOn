@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { changeServer, inAndroidApp } from '../lib/androidApp';
 import { useDismiss } from '../lib/useDismiss';
 import { useAuth } from '../store/auth';
 import { useLikes } from '../store/likes';
@@ -138,6 +139,11 @@ function UserMenu({ onAppearance }: { onAppearance(): void }) {
           <button className="menu-item" role="menuitem" onClick={onAppearance}>
             <Icon name="palette" size={24} /> Оформление
           </button>
+          {inAndroidApp && (
+            <button className="menu-item" role="menuitem" onClick={changeServer}>
+              <Icon name="link" size={24} /> Сменить сервер
+            </button>
+          )}
           <button
             className="menu-item"
             role="menuitem"

@@ -1,37 +1,15 @@
-import path from 'node:path';
-import { createApp } from './app.js';
-import { loadConfig } from './config.js';
-import { dbStore, openDatabase } from './db/index.js';
-import { GeniusClient } from './genius/client.js';
-import { GeniusService } from './genius/service.js';
-import { LrclibClient } from './lyrics/lrclib.js';
-import { LyricsService } from './lyrics/service.js';
-import { createProviders } from './providers/index.js';
-import { SyncService } from './sync/syncService.js';
+import { startServer } from './start.js';
 
-const config = loadConfig();
-const db = openDatabase(path.join(config.dataDir, 'soundfy.db'));
-const providers = createProviders(config, dbStore(db));
-const sync = new SyncService(db, providers);
-const genius = new GeniusService(db, new GeniusClient(config.genius.accessToken));
-const lyrics = new LyricsService(db, new LrclibClient(config.lrclib.baseUrl, config.lrclib.userAgent));
-const app = createApp({ db, config, providers, sync, genius, lyrics, fetchImpl: fetch });
-
-const server = app.listen(config.port, () => {
-  console.info(`soundFy server: http://localhost:${config.port}`);
-  console.info(`Данные: ${config.dataDir}`);
-  if (config.syncIntervalMinutes > 0) {
-    console.info(`Синхронизация артистов каждые ${config.syncIntervalMinutes} мин.`);
-  }
-});
-sync.start(config.syncIntervalMinutes);
+const running = await startServer();
+const { config, port } = running;
+console.info(`soundFy server: http://localhost:${port}`);
+console.info(`Данные: ${config.dataDir}`);
+if (config.syncIntervalMinutes > 0) {
+  console.info(`Синхронизация артистов каждые ${config.syncIntervalMinutes} мин.`);
+}
 
 function shutdown() {
-  sync.stop();
-  server.close(() => {
-    db.close();
-    process.exit(0);
-  });
+  running.close().then(() => process.exit(0));
   setTimeout(() => process.exit(0), 5000).unref();
 }
 process.on('SIGINT', shutdown);

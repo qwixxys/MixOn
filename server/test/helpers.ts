@@ -86,6 +86,7 @@ export function testConfig(): AppConfig {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soundfy-test-'));
   return {
     port: 0,
+    host: undefined,
     dataDir,
     jwtSecret: 'test-secret',
     syncIntervalMinutes: 0,

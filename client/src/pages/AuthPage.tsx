@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { LogoMark } from '../components/Header';
 import { TextField } from '../components/Material';
+import { changeServer, inAndroidApp } from '../lib/androidApp';
 import { useAuth } from '../store/auth';
 import { useLikes } from '../store/likes';
 
@@ -98,6 +99,11 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             </>
           )}
         </p>
+        {inAndroidApp && (
+          <button type="button" className="btn btn-text" onClick={changeServer}>
+            Сменить сервер
+          </button>
+        )}
       </form>
     </div>
   );

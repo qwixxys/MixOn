@@ -1,0 +1,13 @@
+{
+  "appId": "com.soundfy.app",
+  "appName": "soundFy",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "appendUserAgent": "soundFyApp/0.1"
+  }
+}
