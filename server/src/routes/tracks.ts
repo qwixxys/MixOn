@@ -12,7 +12,7 @@ import { z } from 'zod';
 import type { AppContext } from '../context.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
 import { getTrack, getTrackRow, parsePaging, queryTracks, avatarUrl, type TrackRow } from '../lib/tracks.js';
-import { createUploader, removeUpload, uploadDir, withUploads } from '../lib/uploads.js';
+import { AUDIO_TYPES, createUploader, removeUpload, uploadDir, withUploads } from '../lib/uploads.js';
 import { idParam, parse } from '../lib/validate.js';
 import { normalizeWaveform } from '../lib/waveform.js';
 import { requireUser } from '../middleware/auth.js';
@@ -427,7 +427,10 @@ export function trackRoutes(ctx: AppContext) {
     if (row.source === 'local') {
       if (!row.audio_path) throw notFound('Аудиофайл не найден');
       const file = path.join(uploadDir(config, 'audio'), row.audio_path);
-      return res.sendFile(file, { acceptRanges: true, maxAge: '1d', headers: row.audio_mime ? { 'content-type': row.audio_mime } : {} }, (err) => {
+      const type =
+        AUDIO_TYPES[path.extname(row.audio_path)] ??
+        (row.audio_mime?.startsWith('audio/') ? row.audio_mime : 'application/octet-stream');
+      return res.sendFile(file, { acceptRanges: true, maxAge: '1d', headers: { 'content-type': type } }, (err) => {
         if (err && !res.headersSent) next((err as NodeJS.ErrnoException).code === 'ENOENT' ? notFound('Аудиофайл не найден') : err);
       });
     }

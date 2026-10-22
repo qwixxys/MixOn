@@ -68,6 +68,19 @@ describe('tracks', () => {
     await t.request.post('/api/tracks').attach('audio', sineWav(), { filename: 'a.wav', contentType: 'audio/wav' }).expect(401);
   });
 
+  it('never serves an upload with a type taken from an untrusted extension', async () => {
+    const res = await t.request
+      .post('/api/tracks')
+      .set(alice.auth)
+      .field('title', 'evil')
+      .attach('audio', Buffer.from('<script>alert(1)</script>'), { filename: 'evil.html', contentType: 'audio/mpeg' })
+      .expect(201);
+    const stream = await t.request.get(`/api/tracks/${res.body.id}/stream`).expect(200);
+    assert.equal(stream.headers['content-type'], 'audio/mpeg');
+    assert.equal(stream.headers['x-content-type-options'], 'nosniff');
+    await t.request.delete(`/api/tracks/${res.body.id}`).set(alice.auth).expect(200);
+  });
+
   it('streams local audio with range support', async () => {
     const source = await t.request.get(`/api/tracks/${trackId}/source`).expect(200);
     assert.deepEqual(source.body, { kind: 'direct', url: `/api/tracks/${trackId}/stream` });
@@ -196,6 +209,15 @@ describe('services and subscriptions', () => {
 
     const releases = await t.request.get('/api/feed').query({ type: 'releases' }).set(alice.auth).expect(200);
     assert.equal(releases.body.length, 2);
+  });
+
+  it('rejects non-http artist links', async () => {
+    const res = await t.request
+      .post('/api/subscriptions')
+      .set(alice.auth)
+      .send({ provider: 'deezer', externalId: 'x', name: 'X', url: 'javascript:alert(1)' })
+      .expect(400);
+    assert.match(res.body.error, /http/);
   });
 
   it('reports new releases on manual sync', async () => {

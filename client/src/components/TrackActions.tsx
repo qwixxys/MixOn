@@ -1,0 +1,61 @@
+import { ExternalLink, Link2, ListEnd, ListPlus } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import type { Track } from '../api/types';
+import { serviceInfo } from '../lib/services';
+import { useAuth } from '../store/auth';
+import { usePlayer } from '../store/player';
+import { usePlaylistPicker } from '../store/playlistPicker';
+import { toast } from '../store/toasts';
+import { LikeButton } from './LikeButton';
+
+export async function shareTrack(track: Track) {
+  const url = `${location.origin}/tracks/${track.id}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success('Ссылка скопирована');
+  } catch {
+    toast.info(url);
+  }
+}
+
+export function TrackActions({ track, labels = false }: { track: Track; labels?: boolean }) {
+  const user = useAuth((s) => s.user);
+  const openPicker = usePlaylistPicker((s) => s.open);
+  const enqueue = usePlayer((s) => s.enqueue);
+  const navigate = useNavigate();
+
+  return (
+    <div className="track-actions">
+      <LikeButton track={track} />
+      <button
+        className="action-btn"
+        title="Добавить в плейлист"
+        onClick={() => (user ? openPicker(track) : navigate('/login'))}
+      >
+        <ListPlus size={15} />
+        {labels && <span>В плейлист</span>}
+      </button>
+      <button
+        className="action-btn"
+        title="Добавить в очередь"
+        onClick={() => {
+          enqueue(track);
+          toast.info('Добавлено в очередь');
+        }}
+      >
+        <ListEnd size={15} />
+        {labels && <span>В очередь</span>}
+      </button>
+      <button className="action-btn" title="Скопировать ссылку" onClick={() => shareTrack(track)}>
+        <Link2 size={15} />
+        {labels && <span>Поделиться</span>}
+      </button>
+      {track.externalUrl && (
+        <a className="action-btn" href={track.externalUrl} target="_blank" rel="noreferrer" title={`Открыть в ${serviceInfo(track.source).label}`}>
+          <ExternalLink size={15} />
+          {labels && <span>{serviceInfo(track.source).label}</span>}
+        </a>
+      )}
+    </div>
+  );
+}

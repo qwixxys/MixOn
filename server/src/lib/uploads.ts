@@ -8,7 +8,18 @@ import { badRequest } from './errors.js';
 
 export type UploadKind = 'audio' | 'covers' | 'avatars';
 
-const AUDIO_EXT = new Set(['.mp3', '.m4a', '.aac', '.ogg', '.oga', '.opus', '.wav', '.flac', '.webm']);
+export const AUDIO_TYPES: Record<string, string> = {
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.ogg': 'audio/ogg',
+  '.oga': 'audio/ogg',
+  '.opus': 'audio/ogg',
+  '.wav': 'audio/wav',
+  '.flac': 'audio/flac',
+  '.webm': 'audio/webm',
+};
+const AUDIO_EXT = new Set(Object.keys(AUDIO_TYPES));
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 
 export function uploadDir(config: AppConfig, kind: UploadKind): string {
@@ -41,8 +52,10 @@ export function createUploader(config: AppConfig) {
       cb(null, uploadDir(config, kind));
     },
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase().replace(/[^a-z0-9.]/g, '');
-      cb(null, `${crypto.randomBytes(12).toString('hex')}${ext}`);
+      // Only whitelisted extensions are kept, since files are later served with a type derived from them.
+      const ext = path.extname(file.originalname).toLowerCase();
+      const allowed = file.fieldname === 'audio' ? AUDIO_EXT : IMAGE_EXT;
+      cb(null, `${crypto.randomBytes(12).toString('hex')}${allowed.has(ext) ? ext : ''}`);
     },
   });
   return multer({

@@ -22,6 +22,10 @@ export function createApp(ctx: AppContext) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 'loopback');
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    next();
+  });
   app.use(express.json({ limit: '1mb' }));
 
   // Covers and avatars are public; audio is only served through /api/tracks/:id/stream.

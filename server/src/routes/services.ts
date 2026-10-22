@@ -9,12 +9,16 @@ import { requireUser } from '../middleware/auth.js';
 import type { MusicProvider } from '../providers/index.js';
 
 const connectSchema = z.object({ accessToken: z.string().trim().min(10, 'вставьте токен').max(2000) });
+const httpUrl = z
+  .string()
+  .max(2000)
+  .refine((u) => /^https?:\/\/[^\s]+$/i.test(u), 'нужна ссылка http(s)');
 const subscribeSchema = z.object({
   provider: z.string().min(1),
   externalId: z.string().trim().min(1).max(200),
   name: z.string().trim().min(1).max(200),
-  imageUrl: z.string().url().max(2000).nullish(),
-  url: z.string().url().max(2000).nullish(),
+  imageUrl: httpUrl.nullish(),
+  url: httpUrl.nullish(),
 });
 
 /** Accepts either a bare token or the whole OAuth redirect URL (…#access_token=…&expires_in=…). */
