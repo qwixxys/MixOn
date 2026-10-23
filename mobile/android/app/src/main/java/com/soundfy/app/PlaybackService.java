@@ -188,9 +188,16 @@ public class PlaybackService extends Service {
         notifications().notify(NOTIFICATION_ID, notification);
     }
 
+    /** Posts the notification again as it is, for when notifications have just been allowed. */
+    void repost() {
+        if (track != null) notifications().notify(NOTIFICATION_ID, buildNotification(track));
+    }
+
     /** Removes the notification and stops; the next track played starts it again. */
     void finish() {
         main.removeCallbacks(stopWhenPaused);
+        // Nothing to post again while the service stops.
+        track = null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE);
         notifications().cancel(NOTIFICATION_ID);
         foreground = false;

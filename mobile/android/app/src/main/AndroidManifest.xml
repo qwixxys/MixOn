@@ -47,4 +47,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- The playing track in the shade on phones that ask for it (see MediaNotificationPlugin). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

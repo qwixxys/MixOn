@@ -1,6 +1,6 @@
 {
   "name": "soundfy-desktop",
-  "version": "0.6.11",
+  "version": "0.6.12",
   "private": true,
   "description": "MixOn для Windows и Linux: сервер и интерфейс в одном приложении",
   "type": "module",
