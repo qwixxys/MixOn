@@ -34,9 +34,11 @@ interface PlayerState {
   muted: boolean;
   shuffle: boolean;
   repeat: RepeatMode;
+  /** Where the queue came from: «Моя волна» (store/wave.ts) keeps adding to it; null for any other list. */
+  queueOrigin: 'wave' | null;
 
-  /** Plays `track` (toggling if it is already current). `queue` becomes the play queue. */
-  play(track: Track, queue?: Track[], startAt?: number): void;
+  /** Plays `track` (toggling if it is already current). `queue` becomes the play queue, from `origin`. */
+  play(track: Track, queue?: Track[], startAt?: number, origin?: 'wave'): void;
   toggle(): void;
   next(auto?: boolean): void;
   prev(): void;
@@ -46,6 +48,8 @@ interface PlayerState {
   toggleShuffle(): void;
   cycleRepeat(): void;
   enqueue(track: Track): void;
+  /** Adds tracks to the end of the queue (the next part of «Моя волна»). */
+  appendToQueue(tracks: Track[]): void;
   playNext(track: Track): void;
   removeFromQueue(index: number): void;
   /** Puts another version of the current song (the same song from another service) in its place, from `startAt`. */
@@ -62,21 +66,37 @@ export function sameTrack(current: Track | null, id: number): boolean {
 /** Songs already reported missing on the chosen service, so a queue does not repeat it at every play. */
 const missingOnChosen = new Set<string>();
 
+/** Where to look for another version of `track`, if anywhere. */
+function versionPath(track: Track, upgradePreview: boolean): string | null {
+  const via = usePlayVia.getState().via;
+  if (track.source === 'local') return null;
+  if (via) return track.source === via ? null : `/tracks/${track.id}/version?on=${encodeURIComponent(via)}`;
+  // «Моя волна» plays whole songs: a 30-second preview is swapped for the full song from any service that has it.
+  return upgradePreview && track.isPreview ? `/tracks/${track.id}/audio-version` : null;
+}
+
+/** Looks the next track's version up ahead of time, so it starts without the wait (the server remembers it). */
+export function warmVersion(track: Track, upgradePreview: boolean) {
+  const path = versionPath(track, upgradePreview);
+  if (path) api(path).catch(() => {});
+}
+
 /**
  * `track` from the service chosen for listening (store/playVia.ts), when it was found elsewhere and that service has
- * the same song; null to play it where it was found.
+ * the same song, or the full song for a preview in «Моя волна»; null to play it where it was found.
  */
-async function preferredVersion(track: Track): Promise<Track | null> {
+async function preferredVersion(track: Track, upgradePreview: boolean): Promise<Track | null> {
   const via = usePlayVia.getState().via;
-  if (!via || track.source === via || track.source === 'local') return null;
+  const path = versionPath(track, upgradePreview);
+  if (!path) return null;
   try {
-    const version = await api<Track>(`/tracks/${track.id}/version?on=${encodeURIComponent(via)}`);
+    const version = await api<Track>(path);
     if (version.id === track.id) return null;
     // Keep the cover the listener saw if this service has none.
     return { ...version, coverUrl: version.coverUrl ?? track.coverUrl, standsFor: track.standsFor ?? track.id };
   } catch {
     const key = `${via}:${track.id}`;
-    if (track.isPreview && !missingOnChosen.has(key)) {
+    if (via && track.isPreview && !missingOnChosen.has(key)) {
       missingOnChosen.add(key);
       toast.info(`${serviceInfo(via).label}: этой песни нет — играет 30-секундный отрывок из ${serviceInfo(track.source).label}`);
     }
@@ -170,7 +190,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const saved = (t: Track) => (useDownloads.getState().saved[t.id] ? savedAudioUrl(t.id) : Promise.resolve(null));
       let offline = await saved(track);
       if (!offline && !exact) {
-        const preferred = await preferredVersion(track);
+        const preferred = await preferredVersion(track, get().queueOrigin === 'wave');
         if (seq !== loadSeq) return;
         if (preferred) {
           const original = track;
@@ -238,8 +258,9 @@ export const usePlayer = create<PlayerState>((set, get) => {
     muted: audio.muted,
     shuffle: prefs.shuffle ?? false,
     repeat: prefs.repeat ?? 'off',
+    queueOrigin: null,
 
-    play(track, queue, startAt) {
+    play(track, queue, startAt, origin) {
       const { current } = get();
       if (sameTrack(current, track.id) && startAt === undefined) return get().toggle();
       if (sameTrack(current, track.id) && startAt !== undefined) {
@@ -253,7 +274,9 @@ export const usePlayer = create<PlayerState>((set, get) => {
         nextQueue = queue ? [track, ...queue] : [track];
         index = 0;
       }
-      set({ queue: nextQueue, index });
+      // A new list ends «Моя волна»; moving within its queue (or picking from it) does not.
+      const queueOrigin = nextQueue === get().queue ? get().queueOrigin : (origin ?? null);
+      set({ queue: nextQueue, index, queueOrigin });
       void load(track, startAt ?? 0);
     },
 
@@ -338,6 +361,12 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const { queue, current } = get();
       if (!current) return get().play(track, [track]);
       if (!queue.some((t) => t.id === track.id)) set({ queue: [...queue, track] });
+    },
+
+    appendToQueue(tracks) {
+      const { queue } = get();
+      const known = new Set(queue.flatMap((t) => [t.id, t.standsFor]));
+      set({ queue: [...queue, ...tracks.filter((t) => !known.has(t.id))] });
     },
 
     playNext(track) {

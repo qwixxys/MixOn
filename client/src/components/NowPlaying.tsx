@@ -14,6 +14,7 @@ import { DownloadButton } from './DownloadButton';
 import { Icon } from './Icon';
 import { LikeButton } from './LikeButton';
 import { ListenOn } from './PlayVia';
+import { DislikeButton } from './Wave';
 import { SyncedLyrics } from './Lyrics';
 import { clearQueue, PlayerControls, Progress, QueueList, Volume } from './PlayerBar';
 import { shareTrack } from './TrackActions';
@@ -80,16 +81,8 @@ function NowPlayingLyrics({ track }: { track: Track }) {
   } else {
     body = <p className="np-lyrics-note muted">Текста для этой песни не нашлось.</p>;
   }
-  return (
-    <div className="np-lyrics">
-      {body}
-      {found && !found.instrumental && (
-        <span className="np-lyrics-source muted small">
-          {found.synced?.length ? 'Синхронизированный текст' : 'Текст'} из LRCLIB
-        </span>
-      )}
-    </div>
-  );
+  // The source (LRCLIB) is named on the track page's «Текст» tab; here the lyrics stand alone.
+  return <div className="np-lyrics">{body}</div>;
 }
 
 type Panel = 'cover' | 'queue' | 'lyrics';
@@ -194,6 +187,7 @@ function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) 
                 <span className="np-artist">{track.artist}</span>
               )}
             </div>
+            <DislikeButton track={track} />
             <LikeButton track={track} showCount={false} />
           </div>
 

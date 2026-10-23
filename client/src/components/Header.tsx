@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, NavLink, useLocation, useNavigate, useNavigationType, useSearchParams } from 'react-router';
 import { changeServer, inAndroidApp } from '../lib/androidApp';
 import { STANDALONE } from '../lib/standalone';
 import { useDismiss } from '../lib/useDismiss';
@@ -167,6 +167,52 @@ function UserMenu({ onAppearance }: { onAppearance(): void }) {
   );
 }
 
+const FURTHEST_KEY = 'soundfy.historyFurthest';
+
+/** The position of the current page in this tab's history, as React Router numbers it. */
+const historyIndex = () => (window.history.state as { idx?: number } | null)?.idx ?? 0;
+
+/**
+ * Back and forward through the pages, like a browser's buttons, which the desktop app does not have. Forward is there
+ * while the pages gone back from are still ahead (opening another page drops them, as in a browser).
+ */
+function HistoryArrows() {
+  const location = useLocation();
+  const type = useNavigationType();
+  const navigate = useNavigate();
+  const index = historyIndex();
+  const [furthest, setFurthest] = useState(() => {
+    try {
+      return Number(sessionStorage.getItem(FURTHEST_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  });
+  useEffect(() => {
+    setFurthest((known) => {
+      const next = type === 'PUSH' ? index : Math.max(known, index);
+      try {
+        sessionStorage.setItem(FURTHEST_KEY, String(next));
+      } catch {
+        // storage unavailable: forward is offered until a reload
+      }
+      return next;
+    });
+    // Every move through the history has its own key.
+  }, [location.key, type, index]);
+
+  return (
+    <div className="history-arrows topbar-hide-compact">
+      <button className="icon-btn" onClick={() => navigate(-1)} disabled={index <= 0} aria-label="Назад" title="Назад">
+        <Icon name="chevron_left" size={28} />
+      </button>
+      <button className="icon-btn" onClick={() => navigate(1)} disabled={index >= furthest} aria-label="Вперёд" title="Вперёд">
+        <Icon name="chevron_right" size={28} />
+      </button>
+    </div>
+  );
+}
+
 /** MD3 top app bar: search, appearance, notifications and account. Changes colour once content scrolls under it. */
 export function TopAppBar() {
   const user = useAuth((s) => s.user);
@@ -186,6 +232,7 @@ export function TopAppBar() {
         <span className="topbar-logo">
           <Logo />
         </span>
+        <HistoryArrows />
         <SearchBox />
         <div className="topbar-actions">
           {/* On phones signed-in users reach this from the account menu, which saves room for search. */}

@@ -206,6 +206,15 @@ const migrations: (string | ((db: DB) => void))[] = [
     fetched_at TEXT NOT NULL
   );
   `,
+  `
+  -- Songs a listener turned down in My Wave (server/src/wave): they and, after a second one, their artist stay out of it.
+  CREATE TABLE wave_dislikes (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    track_id   INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT ${NOW},
+    PRIMARY KEY (user_id, track_id)
+  );
+  `,
 ];
 
 export interface KeyValueStore {

@@ -26,6 +26,12 @@ import msFilterList from '@material-symbols/svg-400/rounded/filter_list.svg?raw'
 import msGroup from '@material-symbols/svg-400/rounded/group.svg?raw';
 import msGraphicEq from '@material-symbols/svg-400/rounded/graphic_eq.svg?raw';
 import msHeadphones from '@material-symbols/svg-400/rounded/headphones.svg?raw';
+import msChevronLeft from '@material-symbols/svg-400/rounded/chevron_left.svg?raw';
+import msChevronRight from '@material-symbols/svg-400/rounded/chevron_right.svg?raw';
+import msThumbDown from '@material-symbols/svg-400/rounded/thumb_down.svg?raw';
+import msWaves from '@material-symbols/svg-400/rounded/waves.svg?raw';
+import msTune from '@material-symbols/svg-400/rounded/tune.svg?raw';
+import msThumbDownFill from '@material-symbols/svg-400/rounded/thumb_down-fill.svg?raw';
 import msHome from '@material-symbols/svg-400/rounded/home.svg?raw';
 import msHub from '@material-symbols/svg-400/rounded/hub.svg?raw';
 import msInfo from '@material-symbols/svg-400/rounded/info.svg?raw';
@@ -87,6 +93,11 @@ import msSkipNextFill from '@material-symbols/svg-400/rounded/skip_next-fill.svg
 import msSkipPreviousFill from '@material-symbols/svg-400/rounded/skip_previous-fill.svg?raw';
 
 const ICONS = {
+  tune: msTune,
+  waves: msWaves,
+  thumb_down: msThumbDown,
+  chevron_right: msChevronRight,
+  chevron_left: msChevronLeft,
   add: msAdd,
   add_photo_alternate: msAddPhotoAlternate,
   album: msAlbum,
@@ -161,6 +172,7 @@ const ICONS = {
 };
 
 const FILLED: Partial<Record<IconName, string>> = {
+  thumb_down: msThumbDownFill,
   chat_bubble: msChatBubbleFill,
   error: msErrorFill,
   explore: msExploreFill,

@@ -5,6 +5,7 @@ import { useDismiss } from '../lib/useDismiss';
 import { usePlayer } from '../store/player';
 import { Cover } from './Cover';
 import { LikeButton } from './LikeButton';
+import { DislikeButton } from './Wave';
 import { ServiceBadge } from './ServiceBadge';
 import { TrackRow } from './TrackRow';
 import { Icon } from './Icon';
@@ -159,7 +160,8 @@ export function QueueList({ className = '' }: { className?: string }) {
 
 export function clearQueue() {
   const { current } = usePlayer.getState();
-  usePlayer.setState({ queue: current ? [current] : [], index: current ? 0 : -1 });
+  // Clearing also stops «Моя волна» from adding to it.
+  usePlayer.setState({ queue: current ? [current] : [], index: current ? 0 : -1, queueOrigin: null });
 }
 
 function QueuePanel({ onClose }: { onClose(): void }) {
@@ -275,6 +277,7 @@ export function PlayerBar() {
         <Volume />
 
         <div className="player-extra">
+          <DislikeButton track={current} />
           <LikeButton track={current} showCount={false} small />
           <button
             className={`icon-btn ${queueOpen ? 'icon-btn-selected' : ''}`}

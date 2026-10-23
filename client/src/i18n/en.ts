@@ -209,7 +209,6 @@ export const EN: Record<string, string> = {
   'Текст не загрузился:': 'The lyrics did not load:',
   'Инструментальный трек — в нём нет слов.': 'An instrumental track: it has no words.',
   'Текста для этой песни не нашлось.': 'No lyrics were found for this song.',
-  'из LRCLIB': 'from LRCLIB',
   'Сейчас играет': 'Now playing',
   'Свернуть плеер': 'Minimize the player',
   'Текст песни': 'Lyrics',
@@ -243,6 +242,27 @@ export const EN: Record<string, string> = {
   'Плеер': 'Player',
   'Развернуть плеер': 'Expand the player',
   '· отрывок 30 с': '· 30 s preview',
+
+  // components/Header.tsx: back and forward
+  'Назад': 'Back',
+  'Вперёд': 'Forward',
+
+  // components/Wave.tsx, store/wave.ts: «Моя волна» and the feed's recommendations
+  'Моя волна': 'My Wave',
+  'Слушать Мою волну': 'Play My Wave',
+  'Бесконечный поток музыки под ваш вкус: похожее на то, что вы слушаете, лайкаете и на кого подписаны.':
+    'Endless music to your taste: like what you play, like and follow.',
+  'Характер волны': 'Wave character',
+  'Не нравится': 'Dislike',
+  'Не нравится: убрать из волны': 'Dislike: keep it out of the wave',
+  'Рекомендации для вас': 'Recommended for you',
+  'Микс': 'Mix',
+  'Любимое': 'Favorites',
+  'Незнакомое': 'Unfamiliar',
+  'Популярное': 'Popular',
+  'Волне пока не из чего выбирать: найдите и послушайте что-нибудь — она подстроится':
+    'The wave has nothing to pick from yet: find and play something, and it will adapt',
+  'Больше не будем включать этот трек в волну': 'This track will not come up in the wave again',
 
   // components/PlayVia.tsx: the service music plays through
   'Слушать через': 'Listen through',

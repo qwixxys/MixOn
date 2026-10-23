@@ -9,6 +9,7 @@ import { SegmentedButtons } from '../components/Material';
 import { TrackList } from '../components/TrackCard';
 import { TrackRow } from '../components/TrackRow';
 import { Empty, ErrorState, Loading } from '../components/States';
+import { Recommendations, WaveCard } from '../components/Wave';
 import { STANDALONE } from '../lib/standalone';
 import { useFetch } from '../lib/useFetch';
 import { useListQuery, withQuery } from '../lib/useListQuery';
@@ -102,6 +103,8 @@ function Stream() {
   return (
     <div className="with-sidebar">
       <div className="content">
+        <WaveCard />
+        <Recommendations />
         <ImportCard services={services} />
         <div className="page-header">
           <h1>Лента</h1>

@@ -52,6 +52,13 @@ export interface ProviderContext {
   token?: string | null;
 }
 
+/** A song «Моя волна» starts from: its performer, and its id when it comes from the same service. */
+export interface SimilarSeed {
+  artist: string;
+  title: string;
+  externalId: string | null;
+}
+
 export interface OAuthTokens {
   accessToken: string;
   refreshToken: string | null;
@@ -142,6 +149,11 @@ export interface MusicProvider {
   getUserLibrary?(ctx: ProviderContext): Promise<ExternalTrack[]>;
   /** Artists the user follows on the service. */
   getUserFollowings?(ctx: ProviderContext): Promise<ExternalArtist[]>;
+
+  /** Songs like the seed, for «Моя волна» (Deezer's artist radio, SoundCloud's related tracks). */
+  similarTracks?(seed: SimilarSeed, ctx: ProviderContext): Promise<ExternalTrack[]>;
+  /** What is popular on the service now, for listeners the app knows nothing about yet. */
+  popularTracks?(ctx: ProviderContext): Promise<ExternalTrack[]>;
 
   /** Whether `importPlaylist` understands this (already expanded) link. */
   canImport?(url: URL): boolean;

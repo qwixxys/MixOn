@@ -502,6 +502,20 @@ code {
 .topbar-logo {
   display: none;
 }
+.history-arrows {
+  display: flex;
+  gap: 4px;
+  margin-right: 8px;
+}
+.history-arrows .icon-btn {
+  width: 40px;
+  height: 40px;
+  background: var(--md-sys-color-surface-container);
+}
+.history-arrows .icon-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
 .topbar-actions {
   margin-left: auto;
   display: flex;
@@ -3214,6 +3228,115 @@ button.np-source[aria-expanded='true'] {
   padding: 4px 16px 12px;
 }
 
+/* «Моя волна» on the home page (components/Wave.tsx). */
+.wave-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 24px;
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+/* Soft colour fields drifting behind the card while the wave plays. */
+.wave-card-glow {
+  position: absolute;
+  inset: -40%;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 25% 35%, color-mix(in srgb, var(--md-sys-color-tertiary) 55%, transparent), transparent 45%),
+    radial-gradient(circle at 75% 65%, color-mix(in srgb, var(--md-sys-color-primary) 45%, transparent), transparent 50%);
+  opacity: 0.55;
+}
+.wave-card-playing .wave-card-glow {
+  animation: wave-drift 9s ease-in-out infinite alternate;
+  opacity: 0.85;
+}
+@keyframes wave-drift {
+  to {
+    transform: rotate(40deg) scale(1.15);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wave-card-playing .wave-card-glow {
+    animation: none;
+  }
+}
+.wave-play {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  box-shadow: var(--md-sys-elevation-2);
+  cursor: pointer;
+  transition: transform var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+.wave-play:hover {
+  transform: scale(1.04);
+}
+.wave-play:disabled {
+  cursor: default;
+}
+.wave-card-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wave-card-text h2 {
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 500;
+}
+.wave-card-text p {
+  font-size: 14px;
+  line-height: 20px;
+  opacity: 0.85;
+}
+.wave-modes {
+  margin: 6px 0 0;
+}
+.wave-modes .chip {
+  color: inherit;
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+}
+.wave-modes .chip-selected {
+  background: color-mix(in srgb, var(--md-sys-color-surface) 55%, transparent);
+}
+@media (max-width: 720px) {
+  .wave-card {
+    padding: 20px 16px;
+    gap: 16px;
+  }
+  .wave-play {
+    width: 64px;
+    height: 64px;
+  }
+  .wave-card-text h2 {
+    font-size: 22px;
+    line-height: 28px;
+  }
+}
+
+/* «Рекомендации для вас» in the feed. */
+.recommendations-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 4px 16px;
+}
+.recommendations .section-header {
+  margin-bottom: 8px;
+}
+
 /* «Слушать через» on «Сервисы» (components/PlayVia.tsx). */
 .play-via {
   display: flex;
@@ -3268,6 +3391,15 @@ button.np-source[aria-expanded='true'] {
   background: transparent;
   padding: 8px 0;
 }
+/* No scrollbar beside the lyrics: they scroll with the wheel or a finger, and follow the song by themselves. */
+.np-lyrics .synced-lyrics,
+.np-lyrics .plain-lyrics {
+  scrollbar-width: none;
+}
+.np-lyrics .synced-lyrics::-webkit-scrollbar,
+.np-lyrics .plain-lyrics::-webkit-scrollbar {
+  display: none;
+}
 .np-lyrics-note {
   display: flex;
   align-items: center;
@@ -3275,9 +3407,6 @@ button.np-source[aria-expanded='true'] {
   gap: 8px;
   margin: auto 0;
   text-align: center;
-}
-.np-lyrics-source {
-  flex: none;
 }
 
 /* Wide windows: the cover on the left, the controls on the right. */

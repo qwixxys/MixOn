@@ -22,6 +22,7 @@ import { idParam, parse } from '../lib/validate.js';
 import { normalizeWaveform } from '../lib/waveform.js';
 import { requireUser } from '../middleware/auth.js';
 import { signedUrlExpiry, type StreamSource } from '../providers/index.js';
+import type { MusicProvider } from '../providers/types.js';
 
 const STREAM_CACHE_TTL_MS = 10 * 60_000;
 /** How long a found (or missing) version of a song on another service is remembered. */
@@ -407,6 +408,37 @@ export function trackRoutes(ctx: AppContext) {
   };
 
   /**
+   * The same song as `row` on one of `services` (full tracks only). Answers are remembered for a while, so a queue
+   * played again does not search the services again; per listener, as the services answer each account with what it
+   * may play.
+   */
+  const versions = new Map<string, { id: number | null; until: number }>();
+  /** Lookups under way, so the app asking twice at once (ahead of time, then to play) searches once. */
+  const searching = new Map<string, Promise<number | null>>();
+  async function rememberedVersion(me: number, row: TrackRow, on: string, services: MusicProvider[]) {
+    const key = `${me}:${row.id}:${on}`;
+    const known = versions.get(key);
+    let id = known && known.until > Date.now() ? known.id : undefined;
+    if (id === undefined) {
+      let search = searching.get(key);
+      if (!search) {
+        search = findSong(row, services, (p) => sync.userToken(p, me))
+          .then((found) => {
+            const stored = found ? sync.storeTracks([found.track], found.provider, null).ids[0] : null;
+            versions.delete(key);
+            versions.set(key, { id: stored, until: Date.now() + (stored ? VERSION_TTL_MS : VERSION_MISS_TTL_MS) });
+            if (versions.size > VERSION_CACHE_SIZE) versions.delete(versions.keys().next().value!);
+            return stored;
+          })
+          .finally(() => searching.delete(key));
+        searching.set(key, search);
+      }
+      id = await search;
+    }
+    return id ? getTrack(db, id, me) : null;
+  }
+
+  /**
    * The same song on a service that plays plain audio. YouTube's terms allow its videos only in a visible player, so
    * when the listener closes it the app carries on with this version: a full track (no previews) whose title and
    * performer match and whose length is within 20 seconds.
@@ -415,35 +447,21 @@ export function trackRoutes(ctx: AppContext) {
     const me = requireUser(req);
     const row = requireTrack(idParam(req.params.id));
     const services = providers.list().filter((p) => p.id !== row.source && p.id !== 'youtube');
-    const found = await findSong(row, services, (provider) => sync.userToken(provider, me));
-    if (!found) throw notFound('Этой песни нет в сервисах, где она играет без видео');
-    const { ids } = sync.storeTracks([found.track], found.provider, null);
-    res.json(getTrack(db, ids[0], me));
+    const track = await rememberedVersion(me, row, 'audio', services);
+    if (!track) throw notFound('Этой песни нет в сервисах, где она играет без видео');
+    res.json(track);
   });
 
   /**
    * The same song on `?on=<service>`, the one the listener chose to play music through (client/src/store/player.ts):
-   * a full track whose title and performer match and whose length is within 20 seconds. Answers are remembered for a
-   * while, so a queue played again does not search the service again.
+   * a full track whose title and performer match and whose length is within 20 seconds.
    */
-  const versions = new Map<string, { id: number | null; until: number }>();
   r.get('/:id/version', async (req, res) => {
     const me = requireUser(req);
     const row = requireTrack(idParam(req.params.id));
     const provider = providers.get(typeof req.query.on === 'string' ? req.query.on : '');
     if (row.source === provider.id) return res.json(getTrack(db, row.id, me));
-    // Per listener: the services answer each account with what it may play.
-    const key = `${me}:${row.id}:${provider.id}`;
-    const known = versions.get(key);
-    let id = known && known.until > Date.now() ? known.id : undefined;
-    if (id === undefined) {
-      const found = await findSong(row, [provider], (p) => sync.userToken(p, me));
-      id = found ? sync.storeTracks([found.track], found.provider, null).ids[0] : null;
-      versions.delete(key);
-      versions.set(key, { id, until: Date.now() + (id ? VERSION_TTL_MS : VERSION_MISS_TTL_MS) });
-      if (versions.size > VERSION_CACHE_SIZE) versions.delete(versions.keys().next().value!);
-    }
-    const track = id ? getTrack(db, id, me) : null;
+    const track = await rememberedVersion(me, row, provider.id, [provider]);
     if (!track) throw notFound(`${provider.name}: этой песни нет`);
     res.json(track);
   });

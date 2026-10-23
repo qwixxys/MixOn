@@ -13,6 +13,7 @@ import {
   type OAuthTokens,
   type ProviderContext,
   type SearchHits,
+  type SimilarSeed,
   type StoredExternalTrack,
   type StreamSource,
 } from './types.js';
@@ -295,6 +296,15 @@ export class SoundCloudProvider implements MusicProvider {
       `/tracks?${new URLSearchParams({ q: query, limit: String(SEARCH_TRACK_LIMIT), linked_partitioning: 'true', access: 'playable,preview' })}`,
     );
     return this.mapTracks(page.collection);
+  }
+
+  /** SoundCloud's own «related tracks» for a SoundCloud track. */
+  async similarTracks(seed: SimilarSeed): Promise<ExternalTrack[]> {
+    if (!seed.externalId) return [];
+    const page = await this.get<ScPage<ScTrack>>(
+      `/tracks/${encodeURIComponent(seed.externalId)}/related?${new URLSearchParams({ limit: '30', linked_partitioning: 'true', access: 'playable,preview' })}`,
+    );
+    return this.mapTracks(page.collection ?? []);
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {

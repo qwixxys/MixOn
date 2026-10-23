@@ -1,4 +1,5 @@
 import { fetchJson, ProviderError, type FetchLike } from '../lib/http.js';
+import { closeness, normalizeText, primaryArtist } from '../lib/matching.js';
 import {
   SEARCH_TRACK_LIMIT,
   type ArtistRef,
@@ -7,6 +8,7 @@ import {
   type ImportedPlaylist,
   type MusicProvider,
   type SearchHits,
+  type SimilarSeed,
   type StoredExternalTrack,
   type StreamSource,
 } from './types.js';
@@ -138,6 +140,9 @@ export class DeezerProvider implements MusicProvider {
   readonly proxyStreams = false;
   readonly shortLinkHosts = ['link.deezer.com', 'deezer.page.link', 'dzr.page.link'];
 
+  /** Deezer artist ids by normalised name, for the artist radio; null when Deezer does not know the artist. */
+  private artistIds = new Map<string, string | null>();
+
   constructor(private fetchImpl: FetchLike = fetch) {}
 
   isConfigured() {
@@ -226,6 +231,37 @@ export class DeezerProvider implements MusicProvider {
       if (!page.data?.length || page.data.length < PAGE) break;
     }
     return items.slice(0, MAX_IMPORT);
+  }
+
+  /** The performer's Deezer radio: their songs mixed with those of similar artists. */
+  async similarTracks(seed: SimilarSeed): Promise<ExternalTrack[]> {
+    const id = seed.externalId ? await this.artistOfTrack(seed.externalId) : await this.artistId(seed.artist);
+    if (!id) return [];
+    const radio = await this.get<DeezerList<DzTrack>>(`/artist/${encodeURIComponent(id)}/radio?limit=40`);
+    return (radio.data ?? []).map((t) => mapTrack(t, t.album)).filter((t): t is ExternalTrack => t !== null);
+  }
+
+  async popularTracks(): Promise<ExternalTrack[]> {
+    const chart = await this.get<DeezerList<DzTrack>>('/chart/0/tracks?limit=50');
+    return (chart.data ?? []).map((t) => mapTrack(t, t.album)).filter((t): t is ExternalTrack => t !== null);
+  }
+
+  private async artistOfTrack(trackId: string): Promise<string | null> {
+    const t = await this.get<DzTrack>(`/track/${encodeURIComponent(trackId)}`);
+    return t.artist?.id ? String(t.artist.id) : null;
+  }
+
+  /** The Deezer artist named so, if the best search hit has that name. */
+  private async artistId(name: string): Promise<string | null> {
+    const key = normalizeText(primaryArtist(name));
+    if (!key) return null;
+    if (this.artistIds.has(key)) return this.artistIds.get(key)!;
+    const found = await this.get<DeezerList<DzArtist>>(`/search/artist?q=${encodeURIComponent(primaryArtist(name))}&limit=5`);
+    const match = (found.data ?? []).find((a) => closeness(normalizeText(a.name), key) === 2) ?? null;
+    const id = match ? String(match.id) : null;
+    if (this.artistIds.size > 500) this.artistIds.clear();
+    this.artistIds.set(key, id);
+    return id;
   }
 
   async resolveStream(track: StoredExternalTrack): Promise<StreamSource | null> {

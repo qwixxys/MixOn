@@ -15,12 +15,15 @@ export function TrackRow({
   index,
   onRemove,
   compact = false,
+  origin,
 }: {
   track: Track;
   queue?: Track[];
   index?: number;
   onRemove?: () => void;
   compact?: boolean;
+  /** «wave»: the list goes on as «Моя волна» once it has been played through. */
+  origin?: 'wave';
 }) {
   const isCurrent = usePlayer((s) => sameTrack(s.current, track.id));
   const playing = usePlayer((s) => sameTrack(s.current, track.id) && s.playing);
@@ -29,7 +32,7 @@ export function TrackRow({
 
   return (
     <div className={`track-row ${isCurrent ? 'is-current' : ''} ${compact ? 'track-row-compact' : ''}`}>
-      <button className="track-row-cover" onClick={() => play(track, queue)} aria-label={playing ? 'Пауза' : 'Слушать'}>
+      <button className="track-row-cover" onClick={() => play(track, queue, undefined, origin)} aria-label={playing ? 'Пауза' : 'Слушать'}>
         <Cover url={track.coverUrl} seed={track.id} />
         <span className="track-row-overlay">{playing ? <Icon name="pause" size={18} filled /> : <Icon name="play_arrow" size={18} filled />}</span>
       </button>
