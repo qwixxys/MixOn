@@ -3230,19 +3230,40 @@ a.np-artist:hover {
     width: 400px;
   }
 }
-/* Wider still: the lyrics follow the song in a third column, the way desktop music apps show them. */
+/*
+ * Wider still: the cover and the lyrics side by side, meeting in the middle, and the controls centred under them,
+ * the way desktop music apps show lyrics.
+ */
 @media (min-width: 1200px) {
   .np-body.np-body-lyrics {
-    max-width: 1680px;
-    gap: 56px;
+    max-width: 1440px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'stage lyrics'
+      'lower lower';
+    align-items: stretch;
+    column-gap: 64px;
+    row-gap: 16px;
+    padding: 0 48px 24px;
   }
   .np-body-lyrics .np-stage {
-    flex: 1;
+    grid-area: stage;
+    min-height: 0;
+  }
+  /* The cover keeps to the lyrics' side of its column. */
+  .np-body-lyrics .np-stage:not(.np-stage-queue) {
+    justify-content: flex-end;
   }
   .np-body-lyrics .np-lyrics {
-    flex: 1.15;
-    align-self: stretch;
-    padding-top: 24px;
+    grid-area: lyrics;
+    max-width: 680px;
+  }
+  .np-body-lyrics .np-lower {
+    grid-area: lower;
+    justify-self: center;
+    width: min(100%, 640px);
   }
   .np-body-lyrics .np-lyrics .lyric-line {
     font-size: 26px;
