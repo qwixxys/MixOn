@@ -2276,6 +2276,12 @@ textarea.tf-input {
 .service-card .stack {
   gap: 12px;
 }
+.vk-captcha {
+  align-self: flex-start;
+  max-width: 100%;
+  border-radius: var(--md-sys-shape-corner-small);
+  background: #fff;
+}
 .instructions {
   font-size: 13px;
   line-height: 18px;

@@ -104,6 +104,8 @@ export interface Service {
   description: string;
   requiresToken: boolean;
   connectMode: 'token' | 'oauth' | null;
+  /** Signs in with a login and password (VK). */
+  canLogin?: boolean;
   fullTracks: boolean;
   configured: boolean;
   connected: boolean;
@@ -118,6 +120,12 @@ export interface Service {
   /** Public playlists from this service can be imported by link. */
   importsLinks: boolean;
 }
+
+/** A step of signing in with a login and password (VK): the account connected, or what VK wants next. */
+export type LoginStep =
+  | { status: 'ok'; service: Service }
+  | { status: 'code'; via: 'sms' | 'app' | 'call' | 'other'; phoneMask: string | null; wrongCode: boolean }
+  | { status: 'captcha'; image: string | null; sid: string | null; page: string | null };
 
 export interface ImportResult {
   playlistId: number;

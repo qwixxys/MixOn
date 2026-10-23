@@ -20,6 +20,14 @@ const OAUTH_TTL_MS = 10 * 60_000;
 const MAX_PENDING_LOGINS = 1000;
 
 const connectSchema = z.object({ accessToken: z.string().trim().min(10, 'вставьте токен').max(2000) });
+const loginSchema = z.object({
+  username: z.string().trim().min(1, 'введите телефон или почту').max(200),
+  password: z.string().min(1, 'введите пароль').max(200),
+  code: z.string().trim().max(20).optional(),
+  captchaSid: z.string().max(200).optional(),
+  captchaKey: z.string().trim().max(100).optional(),
+  captchaToken: z.string().max(8000).optional(),
+});
 const httpUrl = z
   .string()
   .max(2000)
@@ -97,6 +105,7 @@ export function serviceRoutes(ctx: AppContext) {
       description: p.description,
       requiresToken: p.requiresToken,
       connectMode: p.connectMode,
+      canLogin: Boolean(p.loginWithPassword),
       fullTracks: p.fullTracks,
       unofficial: Boolean(p.unofficial),
       configured: p.isConfigured(),
@@ -125,6 +134,19 @@ export function serviceRoutes(ctx: AppContext) {
     const account = await provider.verifyToken(token);
     sync.saveConnection(me, provider.id, { accessToken: token, refreshToken: null, expiresAt: null }, account);
     res.json(describe(provider, me));
+  });
+
+  // Signing in with a login and password (VK). Each step either connects the account or says what the service asks
+  // for next (a code or a captcha); the client repeats the request with it. The password is never stored.
+  r.post('/services/:id/login', async (req, res) => {
+    const me = requireUser(req);
+    const provider = providers.get(req.params.id);
+    if (!provider.loginWithPassword || !provider.verifyToken) throw badRequest(`В ${provider.name} нельзя войти по паролю`);
+    const step = await provider.loginWithPassword(parse(loginSchema, req.body));
+    if (step.status !== 'ok') return res.json(step);
+    const account = await provider.verifyToken(step.token);
+    sync.saveConnection(me, provider.id, { accessToken: step.token, refreshToken: null, expiresAt: null }, account);
+    res.json({ status: 'ok', service: describe(provider, me) });
   });
 
   r.delete('/services/:id/connect', (req, res) => {

@@ -85,6 +85,24 @@ export interface StoredExternalTrack {
   extra: Record<string, unknown> | null;
 }
 
+export interface PasswordLoginInput {
+  username: string;
+  password: string;
+  /** Confirmation code from an SMS, a call or an authenticator app. */
+  code?: string;
+  /** A picture captcha: its id and the text read from it. */
+  captchaSid?: string;
+  captchaKey?: string;
+  /** Proof from the service's "not a robot" page. */
+  captchaToken?: string;
+}
+
+/** The token, or what the service wants before it gives one. */
+export type PasswordLoginStep =
+  | { status: 'ok'; token: string }
+  | { status: 'code'; via: 'sms' | 'app' | 'call' | 'other'; phoneMask: string | null; wrongCode: boolean }
+  | { status: 'captcha'; image: string | null; sid: string | null; page: string | null };
+
 export interface MusicProvider {
   readonly id: ProviderId;
   readonly name: string;
@@ -118,6 +136,8 @@ export interface MusicProvider {
 
   /** Validates a user token, returning the account it belongs to. */
   verifyToken?(token: string): Promise<{ externalUserId: string; displayName: string }>;
+  /** Signs in with the account's login and password (VK), which may first ask for a confirmation code or a captcha. */
+  loginWithPassword?(input: PasswordLoginInput): Promise<PasswordLoginStep>;
   /** The user's own saved tracks on the service. */
   getUserLibrary?(ctx: ProviderContext): Promise<ExternalTrack[]>;
   /** Artists the user follows on the service. */

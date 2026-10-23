@@ -1,3 +1,4 @@
+import { badRequest } from '../lib/errors.js';
 import { fetchJson, ProviderError, RateLimiter, type FetchLike } from '../lib/http.js';
 import {
   SEARCH_TRACK_LIMIT,
@@ -6,6 +7,8 @@ import {
   type ExternalArtist,
   type ExternalTrack,
   type MusicProvider,
+  type PasswordLoginInput,
+  type PasswordLoginStep,
   type ProviderContext,
   type SearchHits,
   type StoredExternalTrack,
@@ -21,11 +24,31 @@ const UNAVAILABLE_MARKER = 'audio_api_unavailable';
 const AUTH_ERRORS = new Set([5]);
 
 /**
- * VK answers audio methods only to its official apps, so requests introduce themselves as Kate Mobile. The Android
- * app fetches VK audio with the same string (VK_USER_AGENT in mobile/android/…/VkAudioRelay.java).
+ * VK answers audio methods only to its own apps; in September 2026 it shut out Kate Mobile too, which third-party
+ * players used to introduce themselves as. So soundFy signs in and asks as the official VK app for Android, with its
+ * User-Agent. The Android app fetches VK audio with the same string (VK_USER_AGENT in mobile/android/…/VkAudioRelay.java).
  */
-export const VK_USER_AGENT =
-  'KateMobileAndroid/56 lite-460 (Android 4.4.2; SDK 19; x86; unknown Android SDK built for x86; en)';
+export const VK_USER_AGENT = 'VKAndroidApp/4.13.1-1206 (Android 4.4.3; SDK 19; armeabi; ; ru)';
+/** The official VK app for Android, as it signs in with a login and password ("direct authorization"). */
+const VK_ANDROID_APP = { clientId: '2274003', clientSecret: 'hHbZxrka2uZ6jB1inYsH' };
+const OAUTH_TOKEN = 'https://oauth.vk.com/token';
+
+/** What oauth.vk.com answers: a token, or an error that may ask for a code or a captcha first. */
+interface OAuthReply {
+  access_token?: string;
+  error?: string;
+  error_type?: string;
+  error_description?: string;
+  validation_type?: string;
+  validation_sid?: string;
+  phone_mask?: string;
+  redirect_uri?: string;
+  captcha_sid?: string | number;
+  captcha_img?: string;
+  ban_info?: unknown;
+}
+
+const CODE_CHANNELS: Record<string, 'sms' | 'app' | 'call'> = { '2fa_sms': 'sms', '2fa_app': 'app', '2fa_callreset': 'call' };
 
 const GENRES: Record<number, string> = {
   1: 'Rock',
@@ -121,7 +144,7 @@ export class VkProvider implements MusicProvider {
   readonly id = 'vk' as const;
   readonly name = 'VK Музыка';
   readonly description =
-    'Новые треки артистов из ВКонтакте и импорт ваших аудиозаписей. Полные треки, нужен токен с доступом к аудио.';
+    'Новые треки артистов из ВКонтакте и импорт ваших аудиозаписей. Полные треки, нужен вход в аккаунт ВКонтакте.';
   readonly requiresToken = true;
   readonly connectMode = 'token' as const;
   readonly libraryLabel = 'мои аудиозаписи';
@@ -280,6 +303,101 @@ export class VkProvider implements MusicProvider {
       throw new ProviderError(this.id, 'ВКонтакте не отдаёт аудио для этого токена — нужен токен с доступом к аудио');
     }
     return { url: audio.url, kind: streamKind(audio.url) };
+  }
+
+  /**
+   * Signs in as the official VK app. The password goes only to oauth.vk.com and is not kept; VK may first ask for a
+   * code (SMS, a call or an authenticator app) or a captcha, and the caller then repeats the request with it.
+   */
+  async loginWithPassword(input: PasswordLoginInput): Promise<PasswordLoginStep> {
+    const params = new URLSearchParams({
+      grant_type: 'password',
+      client_id: VK_ANDROID_APP.clientId,
+      client_secret: VK_ANDROID_APP.clientSecret,
+      username: input.username,
+      password: input.password,
+      scope: 'audio,offline',
+      '2fa_supported': '1',
+      force_sms: '1',
+      v: this.options.apiVersion,
+    });
+    if (input.code) params.set('code', input.code);
+    if (input.captchaToken) params.set('success_token', input.captchaToken);
+    if (input.captchaSid && input.captchaKey) {
+      params.set('captcha_sid', input.captchaSid);
+      params.set('captcha_key', input.captchaKey);
+    }
+    const reply = await this.requestToken(params);
+    if (reply.access_token) return { status: 'ok', token: reply.access_token };
+
+    const error = reply.error ?? '';
+    const type = reply.error_type ?? '';
+    const description = reply.error_description ?? '';
+    if (error === 'need_captcha') {
+      return {
+        status: 'captcha',
+        image: reply.captcha_img ?? null,
+        sid: reply.captcha_sid === undefined ? null : String(reply.captcha_sid),
+        page: reply.redirect_uri ?? null,
+      };
+    }
+    if (error === 'need_validation' && reply.validation_sid) {
+      // Asks VK to send the SMS; an authenticator app's code works without it.
+      if (!input.code) await this.requestCode(reply.validation_sid);
+      return {
+        status: 'code',
+        via: CODE_CHANNELS[reply.validation_type ?? ''] ?? 'other',
+        phoneMask: reply.phone_mask ?? null,
+        wrongCode: false,
+      };
+    }
+    if (error === 'need_validation') {
+      throw badRequest(
+        reply.ban_info
+          ? 'ВКонтакте: аккаунт заблокирован или заморожен'
+          : 'ВКонтакте просит подтвердить вход: войдите на vk.com в браузере на этом устройстве и попробуйте ещё раз',
+      );
+    }
+    if (error === 'invalid_request' && (type === 'wrong_otp' || type === 'otp_format_is_incorrect' || input.code)) {
+      return { status: 'code', via: 'other', phoneMask: null, wrongCode: true };
+    }
+    if (type === 'password_bruteforce_attempt' || /flood/i.test(error)) {
+      throw badRequest('ВКонтакте: слишком много попыток входа — подождите несколько минут');
+    }
+    if (error === 'invalid_client' && (type === 'username_or_password_is_incorrect' || /password/i.test(description))) {
+      throw badRequest('Неверный логин или пароль ВКонтакте');
+    }
+    throw new ProviderError(this.id, `ВКонтакте не дал войти: ${description || error || 'неизвестная ошибка'}`, error || undefined);
+  }
+
+  private async requestToken(params: URLSearchParams): Promise<OAuthReply> {
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${OAUTH_TOKEN}?${params}`, {
+        headers: { 'user-agent': this.options.userAgent },
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch (err) {
+      throw new ProviderError(this.id, `ВКонтакте недоступен: ${(err as Error).message}`);
+    }
+    // Errors come with HTTP 401 and the same JSON shape.
+    try {
+      return (await res.json()) as OAuthReply;
+    } catch {
+      throw new ProviderError(this.id, `ВКонтакте ответил ошибкой HTTP ${res.status}`, res.status);
+    }
+  }
+
+  private async requestCode(sid: string) {
+    const query = new URLSearchParams({ sid, v: this.options.apiVersion });
+    try {
+      await this.fetchImpl(`${API}/auth.validatePhone?${query}`, {
+        headers: { 'user-agent': this.options.userAgent },
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      // The code may still arrive (or come from an authenticator app); the listener can sign in again otherwise.
+    }
   }
 
   async verifyToken(token: string): Promise<{ externalUserId: string; displayName: string }> {

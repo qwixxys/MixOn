@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../api/client';
-import type { Service, ServiceKeyInfo } from '../api/types';
+import type { LoginStep, Service, ServiceKeyInfo } from '../api/types';
 import { TextField } from '../components/Material';
 import { ServiceIcon } from '../components/ServiceBadge';
 import { KeyFlag, KeyForm, keyGuides } from '../components/ServiceKeys';
 import { ErrorState, Loading } from '../components/States';
 import { plural } from '../lib/format';
 import { serviceInfo } from '../lib/services';
+import { canSolveVkCaptcha, solveVkCaptcha } from '../lib/vkCaptcha';
 import { STANDALONE } from '../lib/standalone';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
@@ -17,24 +18,128 @@ import { Icon } from '../components/Icon';
 function VkInstructions() {
   return (
     <details className="instructions">
-      <summary>Как получить токен ВКонтакте</summary>
+      <summary>Как soundFy подключает ВКонтакте</summary>
       <ol>
         <li>
-          Аудио-методы VK API закрыты для сторонних приложений: они отвечают только на токены официальных клиентов ВКонтакте
-          (например, Kate Mobile) с правами <code>audio</code> и <code>offline</code>.
+          Аудио-методы VK API закрыты для сторонних приложений. В сентябре 2026 ВКонтакте закрыл доступ и Kate Mobile, которым
+          раньше представлялись плееры, поэтому soundFy входит в аккаунт как официальное приложение «ВКонтакте для Android».
         </li>
-        <li>Получите access_token такого клиента для своего аккаунта.</li>
         <li>
-          Вставьте в поле ниже сам токен или всю ссылку из адресной строки вида{' '}
-          <code>https://oauth.vk.com/blank.html#access_token=…</code> — токен извлечётся автоматически.
+          Введите телефон или почту и пароль от ВКонтакте. Если включено подтверждение входа, ВКонтакте пришлёт код — введите его.
+        </li>
+        <li>
+          Иногда ВКонтакте просит пройти проверку «я не робот». В приложении soundFy для Android она откроется сама; в браузере
+          этот способ входа её пройти не может.
         </li>
       </ol>
       <p className="muted small">
-        Токен хранится {STANDALONE ? 'на телефоне' : 'на сервере soundFy'} и используется только для запросов к ВКонтакте от вашего
-        имени: поиска артистов, проверки новых релизов и воспроизведения. Это неофициальный способ доступа, ВКонтакте может его
-        ограничить. Никому не передавайте токен.
+        Это неофициальный способ доступа, ВКонтакте может его ограничить.
       </p>
     </details>
+  );
+}
+
+/**
+ * Signs in to VK with a login and password: VK closed the audio API to third-party clients, so soundFy asks as the
+ * official VK app for Android. VK may first want a confirmation code or a "not a robot" check; the form walks through
+ * those. The password goes only to VK (through the server or, in the app, the phone) and is not stored.
+ */
+function VkLogin({ service, onChange }: { service: Service; onChange(s: Service): void }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [captchaKey, setCaptchaKey] = useState('');
+  const [step, setStep] = useState<Extract<LoginStep, { status: 'code' | 'captcha' }> | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const send = async (extra: Record<string, string> = {}) => {
+    setBusy(true);
+    try {
+      let result = await api<LoginStep>(`/services/${service.id}/login`, { body: { username, password, ...extra } });
+      // A "not a robot" page: the app shows it and sends back the proof, then VK is asked once more.
+      if (result.status === 'captcha' && result.page && canSolveVkCaptcha()) {
+        const captchaToken = await solveVkCaptcha(result.page);
+        if (!captchaToken) throw new Error('Проверка «я не робот» не пройдена — попробуйте ещё раз');
+        result = await api<LoginStep>(`/services/${service.id}/login`, { body: { username, password, ...extra, captchaToken } });
+      }
+      if (result.status === 'ok') {
+        onChange(result.service);
+        toast.success(`${service.name}: аккаунт ${result.service.account?.displayName ?? ''} подключён`);
+        return;
+      }
+      if (result.status === 'code') {
+        if (result.wrongCode) toast.error('Неверный код, попробуйте ещё раз');
+        setCode('');
+        setStep(result);
+        return;
+      }
+      // A picture captcha with no page to open, or no way to open one here.
+      setCaptchaKey('');
+      setStep(result);
+      if (!result.image && !result.page) {
+        toast.info('ВКонтакте просит пройти проверку «я не робот». Откройте вход через приложение soundFy на телефоне.');
+      }
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (step?.status === 'code') return void send({ code: code.trim() });
+    if (step?.status === 'captcha' && step.sid) return void send({ captchaSid: step.sid, captchaKey: captchaKey.trim() });
+    void send();
+  };
+
+  const codeLabel =
+    step?.status === 'code'
+      ? step.via === 'app'
+        ? 'Код из приложения-аутентификатора'
+        : step.via === 'call'
+          ? 'Последние цифры входящего звонка'
+          : `Код из SMS${step.phoneMask ? ` на ${step.phoneMask}` : ''}`
+      : '';
+
+  return (
+    <form className="stack" onSubmit={submit}>
+      <VkInstructions />
+      <TextField
+        label="Телефон или почта ВКонтакте"
+        type="text"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        autoComplete="username"
+        disabled={busy || step !== null}
+      />
+      <TextField
+        label="Пароль"
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        autoComplete="current-password"
+        disabled={busy || step !== null}
+      />
+      {step?.status === 'code' && (
+        <TextField label={codeLabel} type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} autoFocus />
+      )}
+      {step?.status === 'captcha' && step.image && (
+        <>
+          <img className="vk-captcha" src={step.image} alt="Капча ВКонтакте" />
+          <TextField label="Введите код с картинки" type="text" value={captchaKey} onChange={(e) => setCaptchaKey(e.target.value)} autoFocus />
+        </>
+      )}
+      {step !== null && (
+        <button type="button" className="btn btn-text btn-small" onClick={() => setStep(null)} disabled={busy}>
+          Начать заново
+        </button>
+      )}
+      <button className="btn btn-filled btn-small" disabled={busy || username.trim().length < 3 || password.length < 1}>
+        {busy ? 'Проверяем…' : step?.status === 'code' ? 'Подтвердить код' : step?.status === 'captcha' ? 'Продолжить' : 'Войти'}
+      </button>
+      <span className="muted small">Пароль не сохраняется: он уходит только во ВКонтакте для получения токена доступа к аудио.</span>
+    </form>
   );
 }
 
@@ -186,6 +291,8 @@ function ServiceCard({ service, keys, onChange }: { service: Service; keys: Card
             <button className="btn btn-filled" onClick={connectOAuth} disabled={busy !== null}>
               <Icon name="login" size={18} /> Войти через {service.name}
             </button>
+          ) : service.canLogin ? (
+            <VkLogin service={service} onChange={onChange} />
           ) : (
             <form className="stack" onSubmit={connectToken}>
               {service.serverToken && <span className="small muted">Сейчас используется общий токен сервера — можно подключить свой.</span>}

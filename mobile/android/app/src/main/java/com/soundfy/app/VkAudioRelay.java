@@ -21,9 +21,8 @@ import java.util.Map;
  */
 final class VkAudioRelay {
 
-    /** Must match VK_USER_AGENT in server/src/providers/vk.ts. */
-    static final String VK_USER_AGENT =
-        "KateMobileAndroid/56 lite-460 (Android 4.4.2; SDK 19; x86; unknown Android SDK built for x86; en)";
+    /** Must match VK_USER_AGENT in server/src/providers/vk.ts (the official VK app for Android). */
+    static final String VK_USER_AGENT = "VKAndroidApp/4.13.1-1206 (Android 4.4.3; SDK 19; armeabi; ; ru)";
 
     private static final String[] AUDIO_HOSTS = { ".vkuseraudio.net", ".vkuseraudio.com" };
     private static final String[] FORWARDED_HEADERS = { "Range", "If-Range", "Accept" };
