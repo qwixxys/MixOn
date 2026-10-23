@@ -40,6 +40,15 @@ export function geniusRoutes(ctx: AppContext) {
     res.json(await ctx.lyrics.forTrack(requireTrack(idParam(req.params.id))));
   });
 
+  /** Artist info from Genius for an artist page (bio, photo, links, popular songs), matched by name on first request. */
+  r.get('/artists/:id/genius', async (req, res) => {
+    const artist = db
+      .prepare('SELECT id, name, genius_id, genius_checked_at FROM external_artists WHERE id = ?')
+      .get(idParam(req.params.id)) as { id: number; name: string; genius_id: number | null; genius_checked_at: string | null } | undefined;
+    if (!artist) throw notFound('Артист не найден');
+    res.json(await genius.forArtist(artist));
+  });
+
   r.get('/genius/search', async (req, res) => {
     requireUser(req);
     if (!genius.isConfigured()) throw badRequest('Genius не настроен на сервере');

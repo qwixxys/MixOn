@@ -35,6 +35,17 @@ export interface GeniusSongRaw extends GeniusHitRaw {
   header_image_thumbnail_url?: string;
 }
 
+export interface GeniusArtistFullRaw extends GeniusArtistRaw {
+  header_image_url?: string;
+  is_verified?: boolean;
+  followers_count?: number;
+  alternate_names?: string[];
+  description?: { plain?: string };
+  instagram_name?: string | null;
+  twitter_name?: string | null;
+  facebook_name?: string | null;
+}
+
 interface Envelope<T> {
   meta: { status: number; message?: string };
   response: T;
@@ -83,5 +94,16 @@ export class GeniusClient {
   async song(id: number): Promise<GeniusSongRaw> {
     const res = await this.get<{ song: GeniusSongRaw }>(`/songs/${id}?text_format=plain`);
     return res.song;
+  }
+
+  async artist(id: number): Promise<GeniusArtistFullRaw> {
+    const res = await this.get<{ artist: GeniusArtistFullRaw }>(`/artists/${id}?text_format=plain`);
+    return res.artist;
+  }
+
+  /** The artist's most popular songs as their primary artist. */
+  async artistSongs(id: number, count = 8): Promise<GeniusHitRaw[]> {
+    const res = await this.get<{ songs: GeniusHitRaw[] }>(`/artists/${id}/songs?sort=popularity&per_page=${count}`);
+    return res.songs;
   }
 }

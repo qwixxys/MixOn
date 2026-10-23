@@ -1,13 +1,13 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client';
-import type { GeniusPerson, GeniusSong, GeniusSongRef, Track, TrackGenius } from '../api/types';
+import type { ArtistGenius, GeniusPerson, GeniusSong, GeniusSongRef, Track, TrackGenius } from '../api/types';
 import { formatCount } from '../lib/format';
 import { toast } from '../store/toasts';
 import { Avatar, Cover } from './Cover';
 import { Icon } from './Icon';
 import { TextField } from './Material';
 import { Modal } from './Modal';
-import { Empty, Loading } from './States';
+import { Empty, ErrorState, Loading } from './States';
 
 export function GeniusBadge() {
   return <span className="genius-badge">Genius</span>;
@@ -314,5 +314,124 @@ export function GeniusLinkDialog({ track, onClose, onLinked }: { track: Track; o
         </button>
       </div>
     </Modal>
+  );
+}
+
+const SUMMARY_PREVIEW = 280;
+
+/**
+ * What Genius knows about the song, shown on the track page as soon as it opens: the song's page, the start of its
+ * description and a way to the full "О песне" tab.
+ */
+export function GeniusSongSummary({ genius, loading, onMore }: { genius: TrackGenius | null; loading: boolean; onMore(): void }) {
+  if (loading && !genius) {
+    return (
+      <p className="genius-status muted small">
+        <Icon name="progress_activity" size={16} className="spin" /> Ищем песню на Genius…
+      </p>
+    );
+  }
+  const song = genius?.song;
+  if (!song) return null;
+  const preview =
+    song.description && (song.description.length > SUMMARY_PREVIEW ? `${song.description.slice(0, SUMMARY_PREVIEW)}…` : song.description);
+  return (
+    <section className="genius-summary">
+      <Cover url={song.album?.coverUrl ?? song.imageUrl} seed={`g${song.id}`} size={56} />
+      <div className="genius-summary-main">
+        <div className="genius-summary-head">
+          <a className="strong link-plain" href={song.url} target="_blank" rel="noreferrer">
+            {song.fullTitle}
+          </a>
+          <GeniusBadge />
+        </div>
+        {preview ? (
+          <p className="genius-summary-text">{preview}</p>
+        ) : (
+          <span className="muted small">{[song.album?.name, song.releaseDate].filter(Boolean).join(' · ') || 'Описания пока нет'}</span>
+        )}
+        <button className="btn btn-text btn-small" onClick={onMore}>
+          <Icon name="info" size={18} /> О песне, авторы и сэмплы
+        </button>
+      </div>
+    </section>
+  );
+}
+
+const BIO_PREVIEW = 500;
+
+/** The artist's Genius page on their artist page: photo, bio, other names, links and popular songs. */
+export function GeniusArtistCard({ genius, loading, error, onRetry }: { genius: ArtistGenius | null; loading: boolean; error: string | null; onRetry(): void }) {
+  const [expanded, setExpanded] = useState(false);
+  if (loading && !genius) {
+    return (
+      <p className="genius-status muted small">
+        <Icon name="progress_activity" size={16} className="spin" /> Ищем артиста на Genius…
+      </p>
+    );
+  }
+  if (error) return <ErrorState message={error} onRetry={onRetry} />;
+  if (!genius?.configured) return null;
+  const artist = genius.artist;
+  if (!artist) return <p className="genius-status muted small">На Genius этого артиста не нашлось.</p>;
+
+  const long = (artist.description?.length ?? 0) > BIO_PREVIEW;
+  const bio = artist.description && (expanded || !long ? artist.description : `${artist.description.slice(0, BIO_PREVIEW)}…`);
+  return (
+    <section className="genius-about genius-artist">
+      <div className="genius-header">
+        <Avatar url={artist.imageUrl} name={artist.name} size={72} />
+        <div className="genius-header-main">
+          <a className="title-medium link-plain" href={artist.url ?? undefined} target="_blank" rel="noreferrer">
+            {artist.name}
+            {artist.verified && <Icon name="check" size={18} className="genius-verified" label="Подтверждён на Genius" />}
+          </a>
+          <span className="muted small">
+            {artist.followers ? `${formatCount(artist.followers)} подписчиков на Genius` : 'Страница на Genius'}
+            {artist.alternateNames.length > 0 && ` · также: ${artist.alternateNames.join(', ')}`}
+          </span>
+        </div>
+        <GeniusBadge />
+      </div>
+
+      {bio && (
+        <div className="genius-block">
+          <h3>Об артисте</h3>
+          <p className="description">{bio}</p>
+          {long && (
+            <button className="btn btn-text btn-small" onClick={() => setExpanded(!expanded)}>
+              <Icon name={expanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down'} size={18} />
+              {expanded ? 'Свернуть' : 'Читать полностью'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {artist.popularSongs.length > 0 && (
+        <div className="genius-block">
+          <h3>Популярное на Genius</h3>
+          {artist.popularSongs.slice(0, 5).map((s) => (
+            <SongRow key={s.id} song={s} />
+          ))}
+        </div>
+      )}
+
+      {(artist.links.length > 0 || artist.url) && (
+        <div className="genius-block">
+          <div className="row-gap">
+            {artist.url && (
+              <a className="btn btn-tonal btn-small" href={artist.url} target="_blank" rel="noreferrer">
+                <Icon name="open_in_new" size={18} /> Genius
+              </a>
+            )}
+            {artist.links.map((l) => (
+              <a key={l.url} className="btn btn-tonal btn-small" href={l.url} target="_blank" rel="noreferrer">
+                <Icon name="open_in_new" size={18} /> {l.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

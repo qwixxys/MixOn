@@ -194,6 +194,18 @@ const migrations: (string | ((db: DB) => void))[] = [
     fetched_at   TEXT NOT NULL
   );
   `,
+  `
+  -- Genius artist an artist page is linked to (NULL with a check time means "searched, nothing found").
+  ALTER TABLE external_artists ADD COLUMN genius_id INTEGER;
+  ALTER TABLE external_artists ADD COLUMN genius_checked_at TEXT;
+
+  -- Cached artist details from the Genius API.
+  CREATE TABLE genius_artists (
+    id         INTEGER PRIMARY KEY,
+    data       TEXT NOT NULL,
+    fetched_at TEXT NOT NULL
+  );
+  `,
 ];
 
 export interface KeyValueStore {

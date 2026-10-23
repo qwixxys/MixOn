@@ -1,6 +1,6 @@
 {
   "name": "soundfy-mobile",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "private": true,
   "description": "soundFy для Android: работает на телефоне сам или подключается к вашему серверу soundFy",
   "type": "module",

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api } from '../api/client';
-import type { Artist, SyncResult } from '../api/types';
+import type { Artist, ArtistGenius, SyncResult } from '../api/types';
 import { Avatar } from '../components/Cover';
+import { GeniusArtistCard } from '../components/Genius';
 import { ServiceBadge } from '../components/ServiceBadge';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { FilteredTrackList } from '../components/FilteredTrackList';
@@ -17,6 +18,8 @@ export function ArtistPage() {
   const { id } = useParams();
   const user = useAuth((s) => s.user);
   const { data, loading, error, reload, setData } = useFetch<Artist>(`/artists/${id}`);
+  // Genius is asked as soon as the page opens, alongside the artist's tracks.
+  const genius = useFetch<ArtistGenius>(`/artists/${id}/genius`);
   // Bumped after a sync so the track list reloads too.
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -68,7 +71,7 @@ export function ArtistPage() {
     <>
       <section className="profile-hero">
         <div className="profile-hero-inner">
-          <Avatar url={data.imageUrl} name={data.name} size={180} />
+          <Avatar url={data.imageUrl ?? genius.data?.artist?.imageUrl ?? null} name={data.name} size={180} />
           <div className="profile-hero-text">
             <span className="label-large">Артист · {service.label}</span>
             <h1 className="hero-title">{data.name}</h1>
@@ -110,6 +113,7 @@ export function ArtistPage() {
           </div>
         </div>
         {data.lastError && <div className="notice notice-error">Последняя синхронизация не удалась: {data.lastError}</div>}
+        <GeniusArtistCard genius={genius.data} loading={genius.loading} error={genius.error} onRetry={genius.reload} />
         <FilteredTrackList
           key={version}
           path={`/artists/${data.id}/tracks`}

@@ -3796,6 +3796,52 @@ button.lyric-line:focus-visible {
   flex-direction: column;
   color: var(--md-sys-color-on-surface);
 }
+.genius-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+/* A short Genius card on the track page, above the tabs. */
+.genius-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+.genius-summary-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.genius-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.genius-summary-text {
+  margin: 0;
+  color: var(--md-sys-color-on-surface-variant);
+  white-space: pre-line;
+}
+.genius-summary .btn {
+  margin-left: -12px;
+}
+.genius-artist {
+  margin: 16px 0 24px;
+}
+.genius-header-main .genius-verified {
+  margin-left: 6px;
+  vertical-align: -3px;
+  color: var(--md-sys-color-primary);
+}
 
 /* ---------- import by link ---------- */
 

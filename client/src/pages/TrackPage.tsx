@@ -7,7 +7,7 @@ import { FileButton, TextArea, TextField } from '../components/Material';
 import { Modal } from '../components/Modal';
 import { PlayButton } from '../components/PlayButton';
 import { ServiceBadge } from '../components/ServiceBadge';
-import { GeniusAbout, GeniusFacts, GeniusLinkDialog } from '../components/Genius';
+import { GeniusAbout, GeniusFacts, GeniusLinkDialog, GeniusSongSummary } from '../components/Genius';
 import { LyricsTab } from '../components/Lyrics';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { Tabs } from '../components/Tabs';
@@ -323,6 +323,9 @@ export function TrackPage() {
               </div>
             </div>
 
+            {activeTab !== 'about' && (
+              <GeniusSongSummary genius={genius.data} loading={genius.loading} onMore={() => setTab('about')} />
+            )}
             {showTabs && (
               <Tabs
                 tabs={[

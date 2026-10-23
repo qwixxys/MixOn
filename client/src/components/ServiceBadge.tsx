@@ -1,4 +1,5 @@
 import type { Track } from '../api/types';
+import { SERVICE_LOGOS } from '../lib/serviceLogos';
 import { serviceInfo } from '../lib/services';
 import { Icon } from './Icon';
 
@@ -14,11 +15,23 @@ export function ServiceBadge({ source, preview }: { source: string; preview?: bo
   );
 }
 
+/** The service's logo on its brand colour (initials for services without one, such as Jamendo). */
 export function ServiceIcon({ id, size = 40 }: { id: string; size?: number }) {
   const info = serviceInfo(id);
+  const logo = SERVICE_LOGOS[id];
   return (
-    <div className="service-icon" style={{ background: info.color, width: size, height: size, fontSize: size * 0.36 }}>
-      {info.short || info.label.slice(0, 1)}
+    <div
+      className="service-icon"
+      style={{ background: info.color, color: info.ink ?? '#fff', width: size, height: size, fontSize: size * 0.36 }}
+      title={info.label}
+    >
+      {logo ? (
+        <svg viewBox="0 0 24 24" width={Math.round(size * 0.58)} height={Math.round(size * 0.58)} fill="currentColor" aria-hidden>
+          <path d={logo} />
+        </svg>
+      ) : (
+        info.short || info.label.slice(0, 1)
+      )}
     </div>
   );
 }

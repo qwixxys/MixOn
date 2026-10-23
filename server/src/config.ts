@@ -90,7 +90,7 @@ export function loadConfig(): AppConfig {
     youtube: { apiKey: process.env.YOUTUBE_API_KEY || null },
     lrclib: {
       baseUrl: lrclibUrl(process.env.LRCLIB_URL),
-      userAgent: 'MixOn v0.6.3 (https://github.com/qwixxys/soundFy)',
+      userAgent: 'MixOn v0.6.4 (https://github.com/qwixxys/soundFy)',
     },
   };
 }

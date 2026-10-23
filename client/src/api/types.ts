@@ -255,6 +255,25 @@ export interface TrackGenius {
   canEdit: boolean;
 }
 
+export interface GeniusArtist {
+  id: number;
+  name: string;
+  url: string | null;
+  imageUrl: string | null;
+  headerImageUrl: string | null;
+  description: string | null;
+  alternateNames: string[];
+  verified: boolean;
+  followers: number | null;
+  links: { label: string; url: string }[];
+  popularSongs: GeniusSongRef[];
+}
+
+export interface ArtistGenius {
+  configured: boolean;
+  artist: GeniusArtist | null;
+}
+
 export interface LyricLine {
   /** Seconds from the start of the full track. */
   time: number;

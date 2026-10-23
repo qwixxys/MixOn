@@ -1,12 +1,12 @@
 import type { DB } from '../db/index.js';
 import { cleanTitle, closeness, normalizeText, primaryArtist, songQuery } from '../lib/matching.js';
 import type { TrackRow } from '../lib/tracks.js';
-import type { GeniusArtistRaw, GeniusClient, GeniusHitRaw, GeniusSongRaw } from './client.js';
+import type { GeniusArtistFullRaw, GeniusArtistRaw, GeniusClient, GeniusHitRaw, GeniusSongRaw } from './client.js';
 
 /** Song details are refreshed after this long. */
 const SONG_TTL_MS = 7 * 86400_000;
-/** Tracks with no match are searched again after this long (new songs appear on Genius). */
-const NO_MATCH_RETRY_MS = 14 * 86400_000;
+/** Tracks and artists with no match are searched again after this long (new pages appear on Genius). */
+const NO_MATCH_RETRY_MS = 3 * 86400_000;
 const DESCRIPTION_LIMIT = 2000;
 
 export interface GeniusPerson {
@@ -94,7 +94,79 @@ export function toGeniusSong(s: GeniusSongRaw): GeniusSong {
   };
 }
 
-// ---------- matching soundFy tracks to Genius songs ----------
+export interface GeniusArtist {
+  id: number;
+  name: string;
+  url: string | null;
+  imageUrl: string | null;
+  headerImageUrl: string | null;
+  description: string | null;
+  alternateNames: string[];
+  verified: boolean;
+  followers: number | null;
+  /** Instagram, X (Twitter), Facebook pages named on Genius. */
+  links: { label: string; url: string }[];
+  popularSongs: GeniusSongRef[];
+}
+
+export interface ArtistGenius {
+  configured: boolean;
+  artist: GeniusArtist | null;
+}
+
+const handle = (value: string | null | undefined) => value?.trim().replace(/^@/, '') || null;
+
+export function toGeniusArtist(a: GeniusArtistFullRaw, songs: GeniusHitRaw[]): GeniusArtist {
+  const plain = a.description?.plain?.trim();
+  const links: { label: string; url: string }[] = [];
+  const instagram = handle(a.instagram_name);
+  const twitter = handle(a.twitter_name);
+  const facebook = handle(a.facebook_name);
+  if (instagram) links.push({ label: 'Instagram', url: `https://www.instagram.com/${encodeURIComponent(instagram)}` });
+  if (twitter) links.push({ label: 'X (Twitter)', url: `https://x.com/${encodeURIComponent(twitter)}` });
+  if (facebook) links.push({ label: 'Facebook', url: `https://www.facebook.com/${encodeURIComponent(facebook)}` });
+  return {
+    id: a.id,
+    name: a.name,
+    url: a.url ?? null,
+    imageUrl: a.image_url ?? null,
+    headerImageUrl: a.header_image_url ?? null,
+    // Genius uses "?" for artists nobody has described yet.
+    description: plain && plain !== '?' ? plain.slice(0, DESCRIPTION_LIMIT) : null,
+    alternateNames: (a.alternate_names ?? []).filter(Boolean).slice(0, 8),
+    verified: Boolean(a.is_verified),
+    followers: a.followers_count ?? null,
+    links,
+    popularSongs: songs.filter((s) => s.primary_artist?.id === a.id).slice(0, 8).map(songRef),
+  };
+}
+
+/** Name forms of a Genius artist: "Кино (Kino)" also answers to "Кино" and "Kino". */
+function nameForms(name: string): string[] {
+  const forms = [name, name.replace(/\s*\([^)]*\)\s*/g, ' ')];
+  for (const inner of name.matchAll(/\(([^)]+)\)/g)) forms.push(inner[1]);
+  return forms.map(normalizeText).filter(Boolean);
+}
+
+/**
+ * The Genius artist an artist page is about, from song search hits: the primary artist whose name matches exactly
+ * (in any of its forms), the one with the most hits when several do. Null when no name matches.
+ */
+export function pickArtist(hits: GeniusHitRaw[], name: string): GeniusArtistRaw | null {
+  const want = normalizeText(primaryArtist(name));
+  if (!want) return null;
+  const counts = new Map<number, { artist: GeniusArtistRaw; hits: number }>();
+  for (const hit of hits) {
+    const artist = hit.primary_artist;
+    if (!artist || !nameForms(artist.name).includes(want)) continue;
+    const entry = counts.get(artist.id) ?? { artist, hits: 0 };
+    entry.hits++;
+    counts.set(artist.id, entry);
+  }
+  return [...counts.values()].sort((a, b) => b.hits - a.hits)[0]?.artist ?? null;
+}
+
+// ---------- matching MixOn tracks to Genius songs ----------
 
 export { cleanTitle, normalizeText, primaryArtist };
 
@@ -127,8 +199,16 @@ export interface TrackGenius {
   manual: boolean;
 }
 
+interface ArtistRef {
+  id: number;
+  name: string;
+  genius_id: number | null;
+  genius_checked_at: string | null;
+}
+
 export class GeniusService {
   private inflight = new Map<number, Promise<TrackGenius>>();
+  private inflightArtists = new Map<number, Promise<ArtistGenius>>();
 
   constructor(
     private db: DB,
@@ -188,6 +268,51 @@ export class GeniusService {
         )
         .run(id, JSON.stringify(song));
       return song;
+    } catch (err) {
+      if (cached) return JSON.parse(cached.data);
+      throw err;
+    }
+  }
+
+  /** Genius info for an artist page, matched by name on first request and cached. */
+  forArtist(artist: ArtistRef): Promise<ArtistGenius> {
+    const running = this.inflightArtists.get(artist.id);
+    if (running) return running;
+    const job = this.loadArtist(artist).finally(() => this.inflightArtists.delete(artist.id));
+    this.inflightArtists.set(artist.id, job);
+    return job;
+  }
+
+  private async loadArtist(artist: ArtistRef): Promise<ArtistGenius> {
+    if (!this.client.isConfigured()) return { configured: false, artist: null };
+    let geniusId = artist.genius_id;
+    const checkedAt = artist.genius_checked_at ? Date.parse(artist.genius_checked_at) : 0;
+    if (!geniusId && Date.now() - checkedAt > NO_MATCH_RETRY_MS) {
+      geniusId = pickArtist(await this.client.search(primaryArtist(artist.name)), artist.name)?.id ?? null;
+      this.db
+        .prepare(`UPDATE external_artists SET genius_id = ?, genius_checked_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`)
+        .run(geniusId, artist.id);
+    }
+    if (!geniusId) return { configured: true, artist: null };
+    return { configured: true, artist: await this.artistDetails(geniusId) };
+  }
+
+  /** Artist details and popular songs, from cache when fresh; a stale copy is used if Genius is unreachable. */
+  async artistDetails(id: number): Promise<GeniusArtist> {
+    const cached = this.db.prepare('SELECT data, fetched_at FROM genius_artists WHERE id = ?').get(id) as
+      | { data: string; fetched_at: string }
+      | undefined;
+    if (cached && Date.now() - Date.parse(cached.fetched_at) < SONG_TTL_MS) return JSON.parse(cached.data);
+    try {
+      const [raw, songs] = await Promise.all([this.client.artist(id), this.client.artistSongs(id).catch(() => [])]);
+      const artist = toGeniusArtist(raw, songs);
+      this.db
+        .prepare(
+          `INSERT INTO genius_artists (id, data, fetched_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+           ON CONFLICT (id) DO UPDATE SET data = excluded.data, fetched_at = excluded.fetched_at`,
+        )
+        .run(id, JSON.stringify(artist));
+      return artist;
     } catch (err) {
       if (cached) return JSON.parse(cached.data);
       throw err;
