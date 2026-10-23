@@ -14,6 +14,7 @@ import { downloadAudio, type AudioFile } from '../lib/download.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
 import { ProviderError } from '../lib/http.js';
 import { normalizeGenre } from '../lib/genres.js';
+import { cleanTitle, closeness, normalizeText, songQuery } from '../lib/matching.js';
 import { listOptions, listTracks, resolveScope } from '../lib/trackLists.js';
 import { getTrack, getTrackRow, queryTracks, avatarUrl, type TrackRow } from '../lib/tracks.js';
 import { AUDIO_TYPES, createUploader, removeUpload, uploadDir, withUploads } from '../lib/uploads.js';
@@ -400,6 +401,45 @@ export function trackRoutes(ctx: AppContext) {
     await pipeline(Readable.fromWeb(upstream.body as WebReadableStream), res).catch(() => {});
     return upstream.status;
   };
+
+  /**
+   * The same song on a service that plays plain audio. YouTube's terms allow its videos only in a visible player, so
+   * when the listener closes it the app carries on with this version: a full track (no previews) whose title and
+   * performer match and whose length is within 20 seconds.
+   */
+  r.get('/:id/audio-version', async (req, res) => {
+    const me = requireUser(req);
+    const row = requireTrack(idParam(req.params.id));
+    const song = songQuery(row);
+    const want = { title: normalizeText(song.title), artist: normalizeText(song.artist) };
+    const services = providers
+      .list()
+      .filter((p) => p.id !== row.source && p.id !== 'youtube' && p.fullTracks && p.search && p.isConfigured());
+    const found = await Promise.all(
+      services.map(async (p) => {
+        try {
+          const hits = await p.search!(`${song.artist} ${song.title}`, { token: await sync.userToken(p.id, me) });
+          return hits.tracks.map((t) => ({ provider: p.id, t }));
+        } catch {
+          return []; // a service that is down or not connected just has no version
+        }
+      }),
+    );
+    const [best] = found
+      .flat()
+      .filter(({ t }) => !t.isPreview)
+      .map((c) => ({
+        ...c,
+        title: closeness(normalizeText(cleanTitle(c.t.title)), want.title),
+        artist: closeness(normalizeText(c.t.artist), want.artist),
+        off: row.duration && c.t.duration ? Math.abs(row.duration - c.t.duration) : 0,
+      }))
+      .filter((c) => c.title > 0 && c.artist > 0 && c.off <= 20)
+      .sort((a, b) => b.title + b.artist - (a.title + a.artist) || a.off - b.off);
+    if (!best) throw notFound('Этой песни нет в сервисах, где она играет без видео');
+    const { ids } = sync.storeTracks([best.t], best.provider, null);
+    res.json(getTrack(db, ids[0], me));
+  });
 
   /**
    * The track's audio as one file, which the app keeps on the device for listening offline. YouTube's terms forbid

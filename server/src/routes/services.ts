@@ -302,6 +302,22 @@ export function serviceRoutes(ctx: AppContext) {
     return toArtist(row);
   };
 
+  /**
+   * Opens an artist found by a search without subscribing: the artist gets a soundFy page, and its catalogue is
+   * loaded when there is none yet, say the first time or after unused tracks were cleared (a failure is kept on the
+   * artist and shown on the page).
+   */
+  r.post('/artists', async (req, res) => {
+    const me = requireUser(req);
+    const input = parse(subscribeSchema, req.body);
+    const provider = providers.get(input.provider);
+    if (!provider.isConfigured()) throw badRequest(`${provider.name} не настроен на сервере`);
+    const id = sync.upsertArtist(provider.id, input);
+    const stored = db.prepare('SELECT COUNT(*) AS n FROM tracks WHERE external_artist_id = ?').get(id) as { n: number };
+    if (!stored.n) await sync.syncArtist(id, me);
+    res.status(201).json(loadArtist(id, me));
+  });
+
   r.get('/artists/:id', (req, res) => {
     res.json(loadArtist(idParam(req.params.id), req.userId));
   });

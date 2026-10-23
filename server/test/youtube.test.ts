@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 import { ProviderError } from '../src/lib/http.js';
 import { parseArtTrack, parseDuration, videoToTrack, YouTubeProvider, type YtVideo } from '../src/providers/youtube.js';
-import { createTestApp, fakeFetch, register } from './helpers.js';
+import { createTestApp, FakeProvider, fakeFetch, register, track } from './helpers.js';
 
 const video = (id: string, overrides: Partial<YtVideo['snippet']> = {}, duration = 'PT3M30S', extra: Partial<YtVideo> = {}): YtVideo => ({
   id,
@@ -175,5 +175,40 @@ describe('YouTube Music', () => {
     } finally {
       t.cleanup();
     }
+  });
+});
+
+describe('carrying on without the YouTube player', () => {
+  class AudioService extends FakeProvider {
+    async search() {
+      return {
+        artists: [],
+        tracks: [
+          track('other', { title: 'Другая песня', artist: 'Band', duration: 200 }),
+          track('preview', { title: 'Hit', artist: 'Band', duration: 201, isPreview: true }),
+          track('long', { title: 'Hit (Extended Mix)', artist: 'Band', duration: 290 }),
+          track('match', { title: 'Hit', artist: 'Band feat. Guest', duration: 203 }),
+        ],
+      };
+    }
+  }
+  const { impl } = fakeFetch([]);
+  const t = createTestApp([new AudioService(), new YouTubeProvider('key', impl)], impl);
+  after(t.cleanup);
+
+  it('finds the same song as a full audio track', async () => {
+    const user = await register(t.request, 'listener');
+    t.ctx.sync.storeTracks([track('vid', { title: 'Hit', artist: 'Band', duration: 200, streamUrl: null })], 'youtube', null);
+    const { id } = t.ctx.db.prepare(`SELECT id FROM tracks WHERE external_id = 'vid'`).get() as { id: number };
+    await t.request.get(`/api/tracks/${id}/audio-version`).expect(401);
+    const res = await t.request.get(`/api/tracks/${id}/audio-version`).set(user.auth).expect(200);
+    assert.equal(res.body.source, 'deezer');
+    assert.equal(res.body.title, 'Hit');
+    assert.equal(res.body.artist, 'Band feat. Guest');
+    assert.notEqual(res.body.id, id);
+
+    t.ctx.sync.storeTracks([track('nope', { title: 'Нигде нет', artist: 'Никто', streamUrl: null })], 'youtube', null);
+    const missing = t.ctx.db.prepare(`SELECT id FROM tracks WHERE external_id = 'nope'`).get() as { id: number };
+    await t.request.get(`/api/tracks/${missing.id}/audio-version`).set(user.auth).expect(404);
   });
 });

@@ -2,7 +2,9 @@ import type Hls from 'hls.js';
 import { create } from 'zustand';
 import { api } from '../api/client';
 import type { StreamSource, Track } from '../api/types';
+import { serviceInfo } from '../lib/services';
 import { savedAudioUrl, useDownloads } from './downloads';
+import { toast } from './toasts';
 import {
   videoIdOf,
   youtubeIsActive,
@@ -45,6 +47,8 @@ interface PlayerState {
   enqueue(track: Track): void;
   playNext(track: Track): void;
   removeFromQueue(index: number): void;
+  /** Puts another version of the current song (the same song from another service) in its place, from `startAt`. */
+  swapCurrent(track: Track, startAt: number): void;
 }
 
 const PLAY_REPORT_AFTER_SECONDS = 5;
@@ -301,6 +305,13 @@ export const usePlayer = create<PlayerState>((set, get) => {
       set({ queue: rest, index: at === -1 ? index : at });
     },
 
+    swapCurrent(track, startAt) {
+      const { queue, index, current } = get();
+      if (!current) return;
+      set({ queue: queue.map((t, i) => (i === index && t.id === current.id ? track : t)) });
+      void load(track, startAt);
+    },
+
     removeFromQueue(i) {
       const { queue, index } = get();
       if (i === index) return;
@@ -339,6 +350,25 @@ audio.addEventListener('error', () => {
 
 // ---------- wire YouTube's player to the store ----------
 
+/**
+ * The listener closed YouTube's player. YouTube allows its videos only in a visible player, so the song carries on
+ * from the same moment in a version from a service that plays plain audio; without one it stays paused.
+ */
+async function continueWithoutVideo() {
+  const { current, currentTime } = usePlayer.getState();
+  if (!current) return;
+  usePlayer.setState({ loading: true });
+  try {
+    const version = await api<Track>(`/tracks/${current.id}/audio-version`);
+    if (usePlayer.getState().current?.id !== current.id) return; // the listener moved on meanwhile
+    usePlayer.getState().swapCurrent(version, currentTime);
+    toast.info(`Продолжаем без видео: ${serviceInfo(version.source).label}`);
+  } catch {
+    usePlayer.setState({ loading: false });
+    toast.info('YouTube не разрешает слушать со скрытым видео, а в других сервисах этой песни нет. Трек на паузе — ▶ вернёт окно.');
+  }
+}
+
 const youtubeEvents: YouTubeEvents = {
   play: () => usePlayer.setState({ playing: true, loading: false, error: null }),
   pause: () => usePlayer.setState({ playing: false, loading: false }),
@@ -357,6 +387,7 @@ const youtubeEvents: YouTubeEvents = {
     reportProgress(current, duration);
   },
   error: (message) => usePlayer.setState({ error: message, loading: false, playing: false }),
+  closed: () => void continueWithoutVideo(),
 };
 
 // ---------- OS media controls ----------

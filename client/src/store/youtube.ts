@@ -1,7 +1,8 @@
 // YouTube tracks play in YouTube's own embedded player (the IFrame Player API): YouTube's terms allow no other way to
 // play its videos, and they ask for the player to stay visible, at least 200×200 px, with nothing drawn over it. So
 // while a YouTube track plays, the player sits in a small window in a corner and the app drives it like the <audio>
-// element. A strip above the video can move the window or close it, which pauses the track.
+// element. A strip above the video can move the window or close it; closing pauses the video and lets the player
+// carry on with the same song from another service.
 import closeSvg from '@material-symbols/svg-400/rounded/close.svg?raw';
 import swapSvg from '@material-symbols/svg-400/rounded/swap_vert.svg?raw';
 
@@ -51,6 +52,8 @@ export interface YouTubeEvents {
   pause(): void;
   buffering(): void;
   ended(): void;
+  /** The listener closed the window (the video is already paused and hidden). */
+  closed(): void;
   time(current: number, duration: number): void;
   error(message: string): void;
 }
@@ -157,7 +160,10 @@ function createDock() {
       }
       showDock(true);
     }),
-    dockButton(closeSvg, 'Закрыть (трек встанет на паузу)', youtubeClose),
+    dockButton(closeSvg, 'Закрыть видео и слушать дальше без него', () => {
+      youtubeClose();
+      handlers?.closed();
+    }),
   );
   const frame = document.createElement('div');
   frame.className = 'yt-dock-frame';

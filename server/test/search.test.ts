@@ -103,3 +103,46 @@ function trackFrom(id: number, title: string) {
     isPreview: true,
   };
 }
+
+describe('opening an artist found by a search', () => {
+  const { impl, calls } = fakeFetch([
+    ['api.deezer.com/artist/8/albums', { data: [{ id: 80, title: 'Альбом', release_date: '2026-09-01', cover_big: 'https://img.example/a.jpg' }] }],
+    ['api.deezer.com/album/80/tracks', { data: [dzTrack(81, 'Раз'), dzTrack(82, 'Два')] }],
+  ]);
+  const t = createTestApp([new DeezerProvider(impl)], impl);
+  after(t.cleanup);
+  let user: { auth: Record<string, string> };
+  before(async () => {
+    user = await register(t.request, 'listener');
+  });
+  const artist = { provider: 'deezer', externalId: '8', name: 'Новая группа', url: 'https://www.deezer.com/artist/8' };
+
+  it('gives the artist a page with its tracks, without subscribing', async () => {
+    await t.request.post('/api/artists').send(artist).expect(401);
+    const opened = await t.request.post('/api/artists').set(user.auth).send(artist).expect(201);
+    assert.equal(opened.body.name, 'Новая группа');
+    assert.equal(opened.body.isSubscribed, false);
+    const tracks = await t.request.get(`/api/artists/${opened.body.id}/tracks`).set(user.auth).expect(200);
+    assert.deepEqual(tracks.body.map((tr: { title: string }) => tr.title).sort(), ['Два', 'Раз']);
+
+    const albumCalls = calls.filter((c) => c.url.includes('/albums')).length;
+    const again = await t.request.post('/api/artists').set(user.auth).send(artist).expect(201);
+    assert.equal(again.body.id, opened.body.id);
+    assert.equal(calls.filter((c) => c.url.includes('/albums')).length, albumCalls, 'the catalogue is loaded once');
+
+    assert.equal((await t.request.get('/api/feed').set(user.auth).expect(200)).body.length, 0, 'not in the feed');
+    assert.equal((await t.request.get('/api/discover').expect(200)).body.newReleases.length, 0, 'not among new releases');
+    t.ctx.db.prepare(`UPDATE tracks SET created_at = '2020-01-01T00:00:00.000Z'`).run();
+    assert.equal(t.ctx.sync.pruneUnusedTracks(), 2, 'unused tracks of an artist nobody follows are cleared');
+  });
+
+  it('keeps the tracks of an artist someone subscribed to', async () => {
+    // Its cleared catalogue is loaded again when the page is opened.
+    const opened = await t.request.post('/api/artists').set(user.auth).send(artist).expect(201);
+    assert.equal((await t.request.get(`/api/artists/${opened.body.id}/tracks`).set(user.auth).expect(200)).body.length, 2);
+    await t.request.post('/api/subscriptions').set(user.auth).send(artist).expect(201);
+    assert.equal((await t.request.get('/api/discover').expect(200)).body.newReleases.length, 2);
+    t.ctx.db.prepare(`UPDATE tracks SET created_at = '2020-01-01T00:00:00.000Z'`).run();
+    assert.equal(t.ctx.sync.pruneUnusedTracks(), 0);
+  });
+});

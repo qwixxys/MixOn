@@ -42,6 +42,15 @@ const HYDRATE_BATCH = 50;
 const MAX_IMPORT = 1000;
 /** soundcloud.com is read again for a new client_id at most this often, however many requests get rejected. */
 const RESCRAPE_COOLDOWN_MS = 10 * 60_000;
+/**
+ * soundcloud.com and its API serve clients that look like its own web player. Without a browser User-Agent (the
+ * Android app's HTTP client sends none of its own) the site answers with a page that lacks the scripts the client_id is
+ * read from, and the API is quicker to refuse.
+ */
+const BROWSER_HEADERS = {
+  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+  'accept-language': 'en-US,en;q=0.9',
+};
 const BLOCKED_MESSAGE =
   'SoundCloud отклонил запрос (HTTP 403): он ограничивает неофициальных клиентов, и с этого сервера режим без ключей может не работать';
 
@@ -170,7 +179,7 @@ export class SoundCloudWebProvider implements MusicProvider {
     await this.limiter.wait();
     let res: Response;
     try {
-      res = await this.fetchImpl(url, { signal: AbortSignal.timeout(15_000) });
+      res = await this.fetchImpl(url, { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(15_000) });
     } catch (err) {
       throw new ProviderError(this.id, `SoundCloud недоступен: ${(err as Error).message}`);
     }
@@ -211,7 +220,10 @@ export class SoundCloudWebProvider implements MusicProvider {
     await this.limiter.wait();
     let res: Response;
     try {
-      res = await this.fetchImpl(url.toString(), { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15_000) });
+      res = await this.fetchImpl(url.toString(), {
+        headers: { ...BROWSER_HEADERS, accept: 'application/json', origin: 'https://soundcloud.com', referer: 'https://soundcloud.com/' },
+        signal: AbortSignal.timeout(15_000),
+      });
     } catch (err) {
       throw new ProviderError(this.id, `SoundCloud недоступен: ${(err as Error).message}`);
     }

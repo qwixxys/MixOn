@@ -2750,6 +2750,22 @@ textarea.tf-input {
   border-radius: var(--md-sys-shape-corner-large);
   background: var(--md-sys-color-surface-container-low);
 }
+.found-artist-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.found-artist-open:hover .found-artist-name {
+  text-decoration: underline;
+}
 .found-artist-name {
   max-width: 100%;
   overflow: hidden;

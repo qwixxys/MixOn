@@ -11,6 +11,7 @@ import { Empty, ErrorState, Loading } from '../components/States';
 import { runSync } from '../components/SyncWidget';
 import { Tabs } from '../components/Tabs';
 import { plural, timeAgo } from '../lib/format';
+import { openFoundArtist } from '../lib/openArtist';
 import { serviceInfo } from '../lib/services';
 import { STANDALONE } from '../lib/standalone';
 import { useFetch } from '../lib/useFetch';
@@ -209,6 +210,7 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
 
 function ArtistSearch({ services, onSubscribed }: { services: Service[]; onSubscribed(): void }) {
   const user = useAuth((s) => s.user);
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const available = services.filter((s) => s.available);
   const [provider, setProvider] = useState(params.get('provider') ?? available[0]?.id ?? 'deezer');
@@ -245,6 +247,17 @@ function ArtistSearch({ services, onSubscribed }: { services: Service[]; onSubsc
     // Only run for the query the page was opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const [opening, setOpening] = useState<string | null>(null);
+  const open = async (a: FoundArtist) => {
+    setOpening(a.externalId);
+    try {
+      navigate(`/artists/${await openFoundArtist(a)}`);
+    } catch (err) {
+      toast.error(err);
+      setOpening(null);
+    }
+  };
 
   const subscribe = async (a: FoundArtist) => {
     setPending(a.externalId);
@@ -297,7 +310,9 @@ function ArtistSearch({ services, onSubscribed }: { services: Service[]; onSubsc
           <div key={a.externalId} className="artist-result">
             <Avatar url={a.imageUrl} name={a.name} size={56} />
             <div className="artist-result-main">
-              {a.artistId ? <Link to={`/artists/${a.artistId}`}>{a.name}</Link> : <strong>{a.name}</strong>}
+              <button type="button" className="link-btn" disabled={opening !== null} onClick={() => open(a)} title="Открыть страницу артиста">
+                {opening === a.externalId ? 'Загружаем треки…' : a.name}
+              </button>
               {a.subtitle && <span className="muted small">{a.subtitle}</span>}
             </div>
             {a.url && (

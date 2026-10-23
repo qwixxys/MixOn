@@ -47,6 +47,8 @@ export function createNativeFetch(pageFetch: typeof fetch): FetchLike {
     const signal = init.signal ?? undefined;
     if (signal?.aborted) throw abortError(signal);
     const headers = headersObject(init.headers);
+    // Without one, Android's HTTP client sends an empty User-Agent, which some sites refuse; use the WebView's.
+    headers['user-agent'] ??= navigator.userAgent;
     let data: string | undefined;
     if (init.body instanceof URLSearchParams) {
       data = init.body.toString();

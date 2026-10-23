@@ -376,15 +376,17 @@ export class SyncService {
   }
 
   /**
-   * Deletes service tracks nobody uses: found by the search (or left from a deleted playlist), not from a subscribed
-   * artist, and never liked, played, commented on, kept in a playlist or announced. Returns how many went.
+   * Deletes service tracks nobody uses: found by the search, from an artist page opened without subscribing (or left
+   * from a deleted playlist), and never liked, played, commented on, kept in a playlist or announced. Returns how many
+   * went.
    */
   pruneUnusedTracks(olderThanMs = UNUSED_TRACK_TTL_MS): number {
     const cutoff = new Date(Date.now() - olderThanMs).toISOString();
     return this.db
       .prepare(
         `DELETE FROM tracks
-         WHERE source <> 'local' AND user_id IS NULL AND external_artist_id IS NULL AND created_at < ?
+         WHERE source <> 'local' AND user_id IS NULL AND created_at < ?
+           AND (external_artist_id IS NULL OR external_artist_id NOT IN (SELECT external_artist_id FROM subscriptions))
            AND NOT EXISTS (SELECT 1 FROM likes WHERE track_id = tracks.id)
            AND NOT EXISTS (SELECT 1 FROM plays WHERE track_id = tracks.id)
            AND NOT EXISTS (SELECT 1 FROM playlist_tracks WHERE track_id = tracks.id)

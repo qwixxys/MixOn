@@ -37,7 +37,8 @@ export function discoverRoutes(ctx: AppContext) {
       ),
       newReleases: queryTracks(
         db,
-        `WHERE t.source <> 'local' AND t.external_artist_id IS NOT NULL
+        // Artists someone follows, not every artist whose page was opened from a search.
+        `WHERE t.source <> 'local' AND t.external_artist_id IN (SELECT external_artist_id FROM subscriptions)
          ORDER BY t.released_at DESC, t.id DESC LIMIT 12`,
         {},
         viewer,

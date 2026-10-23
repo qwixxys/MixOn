@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import type { Artist, FoundArtist, SearchResults, Service, SyncResult, Track } from '../api/types';
 import { Avatar } from '../components/Cover';
@@ -9,6 +9,7 @@ import { ServiceBadge } from '../components/ServiceBadge';
 import { Empty, ErrorState, Loading } from '../components/States';
 import { TrackRow } from '../components/TrackRow';
 import { formatCount, plural } from '../lib/format';
+import { openFoundArtist } from '../lib/openArtist';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
@@ -52,7 +53,22 @@ function interleave<T>(lists: T[][]): T[] {
 
 function FoundArtistCard({ artist, onSubscribed }: { artist: FoundArtist; onSubscribed(a: FoundArtist): void }) {
   const user = useAuth((s) => s.user);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [busy, setBusy] = useState(false);
+  const [opening, setOpening] = useState(false);
+
+  const open = async () => {
+    if (!user && !artist.artistId) return navigate(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
+    setOpening(true);
+    try {
+      navigate(`/artists/${await openFoundArtist(artist)}`);
+    } catch (err) {
+      toast.error(err);
+      setOpening(false);
+    }
+  };
+
   const subscribe = async () => {
     setBusy(true);
     try {
@@ -70,15 +86,18 @@ function FoundArtistCard({ artist, onSubscribed }: { artist: FoundArtist; onSubs
     }
   };
 
-  const name = artist.artistId ? <Link to={`/artists/${artist.artistId}`}>{artist.name}</Link> : artist.name;
   return (
     <div className="found-artist">
-      <Avatar url={artist.imageUrl} name={artist.name} size={72} />
-      <span className="found-artist-name" title={artist.name}>
-        {name}
-      </span>
+      <button type="button" className="found-artist-open" onClick={open} disabled={opening} title={`Открыть страницу артиста: ${artist.name}`}>
+        <Avatar url={artist.imageUrl} name={artist.name} size={72} />
+        <span className="found-artist-name">{artist.name}</span>
+      </button>
       <ServiceBadge source={artist.provider} />
-      {artist.subtitle && <span className="muted small found-artist-sub">{artist.subtitle}</span>}
+      {opening ? (
+        <span className="muted small found-artist-sub">Загружаем треки…</span>
+      ) : (
+        artist.subtitle && <span className="muted small found-artist-sub">{artist.subtitle}</span>
+      )}
       {user ? (
         <button
           className={`btn btn-small ${artist.isSubscribed ? 'btn-outlined' : 'btn-filled'}`}

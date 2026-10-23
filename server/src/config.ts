@@ -90,7 +90,7 @@ export function loadConfig(): AppConfig {
     youtube: { apiKey: process.env.YOUTUBE_API_KEY || null },
     lrclib: {
       baseUrl: lrclibUrl(process.env.LRCLIB_URL),
-      userAgent: 'soundFy v0.5.0 (https://github.com/qwixxys/soundFy)',
+      userAgent: 'soundFy v0.5.1 (https://github.com/qwixxys/soundFy)',
     },
   };
 }
