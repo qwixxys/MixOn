@@ -15,7 +15,7 @@ const DEFAULT_PORT = 4777;
 const OAUTH_HOSTS = new Set(['secure.soundcloud.com', 'soundcloud.com', 'api.soundcloud.com']);
 /** What the MixOn interface itself may use; everything else (camera, microphone, location, clipboard…) is denied. */
 const ALLOWED_PERMISSIONS = new Set(['fullscreen', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']);
-const REPO_URL = 'https://github.com/qwixxys/soundFy';
+const REPO_URL = 'https://github.com/qwixxys/MixOn';
 
 const userData = app.getPath('userData');
 const dataDir = path.join(userData, 'data');

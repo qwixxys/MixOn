@@ -47,7 +47,7 @@ function standaloneConfig(): AppConfig {
     soundcloud: { clientId: null, clientSecret: null, publicClient: false },
     genius: { accessToken: null },
     youtube: { apiKey: null },
-    lrclib: { baseUrl: 'https://lrclib.net', userAgent: `MixOn v${version} (https://github.com/qwixxys/soundFy)` },
+    lrclib: { baseUrl: 'https://lrclib.net', userAgent: `MixOn v${version} (https://github.com/qwixxys/MixOn)` },
   };
 }
 

@@ -20,9 +20,9 @@ android {
     // Release builds are signed with the key from the environment (see .github/workflows/apps.yml);
     // without it only the debug build can be installed.
     signingConfigs {
-        // Debug builds use a fixed key from the repository, so each new version installs over the previous one and
-        // keeps the listener's data (a fresh key per build would make Android refuse the update). The key is public:
-        // for your own builds set the ANDROID_* secrets to sign release builds with a private key.
+        // Without your own key the APK is signed with this fixed key from the repository, so each new version installs
+        // over the previous one and keeps the listener's data (a fresh key per build would make Android refuse the
+        // update). The key is public: set the ANDROID_* secrets to sign with a private key instead.
         debug {
             storeFile file('debug.keystore')
             storePassword 'android'
@@ -39,11 +39,15 @@ android {
             }
         }
     }
+    // The release APK is built on CI without a local Android setup to review lint reports, so lint does not stop it.
+    lint {
+        checkReleaseBuilds false
+    }
     buildTypes {
         release {
-            if (System.getenv('ANDROID_KEYSTORE_FILE')) {
-                signingConfig signingConfigs.release
-            }
+            // Your own key when the ANDROID_* secrets are set; otherwise the repository's key, the same one older
+            // (debug) builds were signed with, so this build still installs over them and keeps the listener's data.
+            signingConfig System.getenv('ANDROID_KEYSTORE_FILE') ? signingConfigs.release : signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

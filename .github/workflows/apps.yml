@@ -56,8 +56,13 @@ jobs:
         run: |
           npm ci
           npm run build
+      # With a code-signing certificate in the WIN_CSC_LINK (base64 .pfx) and WIN_CSC_KEY_PASSWORD secrets, the
+      # Windows installer is signed, which is what Windows SmartScreen looks for; without them it is built unsigned.
       - name: Package the app
         working-directory: desktop
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: |
           npm ci
           npm run ${{ matrix.script }}
@@ -99,8 +104,9 @@ jobs:
         run: |
           npm ci
           npx cap sync android
-      # With the four ANDROID_* secrets set, the APK is signed with your own key. Without them a debug build is made,
-      # signed with the public key from the repository (mobile/android/app/debug.keystore); it updates in place too.
+      # Always a release build: no debug mode, which phones' app checks (Play Protect) treat with suspicion. With the
+      # four ANDROID_* secrets set it is signed with your own key; without them with the key from the repository
+      # (mobile/android/app/debug.keystore), the one earlier builds used, so it installs over them and keeps the data.
       - name: Signing key
         id: key
         env:
@@ -109,9 +115,6 @@ jobs:
           if [ -n "$KEYSTORE" ]; then
             echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
             echo "file=$RUNNER_TEMP/release.jks" >> "$GITHUB_OUTPUT"
-            echo "task=assembleRelease" >> "$GITHUB_OUTPUT"
-          else
-            echo "task=assembleDebug" >> "$GITHUB_OUTPUT"
           fi
       - name: Build the APK
         working-directory: mobile/android
@@ -123,17 +126,12 @@ jobs:
         run: |
           chmod +x gradlew
           version=$(node -p "require('../package.json').version")
-          ./gradlew ${{ steps.key.outputs.task }} -PversionCode=${{ github.run_number }} -PversionName="$version" --no-daemon
+          ./gradlew assembleRelease -PversionCode=${{ github.run_number }} -PversionName="$version" --no-daemon
       - name: Name the APK
         run: |
           version=$(node -p "require('./mobile/package.json').version")
-          apk=mobile/android/app/build/outputs/apk
           mkdir -p out
-          if [ -f "$apk/release/app-release.apk" ]; then
-            cp "$apk/release/app-release.apk" "out/MixOn-$version.apk"
-          else
-            cp "$apk/debug/app-debug.apk" "out/MixOn-$version-debug.apk"
-          fi
+          cp mobile/android/app/build/outputs/apk/release/app-release.apk "out/MixOn-$version.apk"
       - uses: actions/upload-artifact@v7
         with:
           name: MixOn-Android
@@ -179,7 +177,7 @@ jobs:
           body: |
             **Windows:** `MixOn-Setup-*.exe` — установщик. SmartScreen может предупредить, что издатель неизвестен: «Подробнее» → «Выполнить в любом случае».
             **Linux:** `*.AppImage` — сделайте файл исполняемым (`chmod +x`) и запустите.
-            **Android:** `*.apk` — работает на телефоне сам, без компьютера: поиск сразу по ВК Музыке, YouTube Music, Deezer, Apple Music, SoundCloud и Jamendo, прослушивание, скачивание треков для офлайна, подписки на артистов, лайки, плейлисты и тексты песен хранятся на телефоне. Можно и подключиться к серверу MixOn: меню профиля → «Подключиться к серверу».
+            **Android:** `*.apk` — работает на телефоне сам, без компьютера: поиск сразу по ВК Музыке, YouTube Music, Deezer, Apple Music, SoundCloud и Jamendo, прослушивание, скачивание треков для офлайна, подписки на артистов, лайки, плейлисты и тексты песен хранятся на телефоне. Можно и подключиться к серверу MixOn: меню профиля → «Подключиться к серверу». Новая версия ставится поверх прежней, данные сохраняются. Если Play Protect предупредит о неизвестном разработчике — «Подробнее» → «Всё равно установить».
 
             Подробности — в README, раздел «Готовые приложения».
           generate_release_notes: true

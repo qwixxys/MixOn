@@ -69,9 +69,9 @@ fs.writeFileSync(
       productName: 'MixOn',
       version: rootPkg.version,
       description: 'Музыкальная платформа в духе SoundCloud с синхронизацией новых релизов',
-      author: { name: 'soundFy', url: 'https://github.com/qwixxys/soundFy' },
-      homepage: 'https://github.com/qwixxys/soundFy',
-      repository: 'https://github.com/qwixxys/soundFy',
+      author: { name: 'MixOn', url: 'https://github.com/qwixxys/MixOn' },
+      homepage: 'https://github.com/qwixxys/MixOn',
+      repository: 'https://github.com/qwixxys/MixOn',
       // Lets Linux desktops link the running window to the installed launcher.
       desktopName: 'soundfy.desktop',
       type: 'module',
