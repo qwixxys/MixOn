@@ -4,4 +4,10 @@
     <string name="title_activity_main">MixOn</string>
     <string name="package_name">com.soundfy.app</string>
     <string name="custom_url_scheme">com.soundfy.app</string>
+    <!-- The playback notification (PlaybackService). -->
+    <string name="playback_channel">Playback</string>
+    <string name="playback_play">Play</string>
+    <string name="playback_pause">Pause</string>
+    <string name="playback_next">Next</string>
+    <string name="playback_previous">Previous</string>
 </resources>

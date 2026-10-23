@@ -3179,6 +3179,72 @@ a.np-artist:hover {
   align-items: center;
   gap: 4px;
 }
+/* The service the track plays from; opens «Слушать в» (components/PlayVia.tsx). */
+.np-listen-on {
+  display: flex;
+  justify-content: center;
+}
+button.np-source {
+  height: 28px;
+  padding: 0 4px 0 10px;
+  gap: 6px;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+button.np-source:hover,
+button.np-source[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+.np-listen-menu {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  text-align: left;
+}
+.menu-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 12px;
+}
+
+/* «Слушать через» on «Сервисы» (components/PlayVia.tsx). */
+.play-via {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 16px;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+.play-via-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 500;
+}
+.play-via .chips {
+  margin: 4px 0 0;
+}
+.play-via .chip .service-icon {
+  border-radius: 4px;
+}
+.play-via .notice {
+  margin: 0;
+}
+.chip:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
 /* Lyrics in the full-screen player: in place of the cover, or a column of their own on wide windows. */
 .np-lyrics {
   flex: 1;
@@ -3521,6 +3587,9 @@ a.np-artist:hover {
     right: 8px;
     top: 64px;
     width: auto;
+  }
+  .np-listen-menu {
+    transform: none;
   }
   .modal-backdrop {
     padding: 16px;

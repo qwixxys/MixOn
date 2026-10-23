@@ -24,6 +24,10 @@ import { requireUser } from '../middleware/auth.js';
 import { signedUrlExpiry, type StreamSource } from '../providers/index.js';
 
 const STREAM_CACHE_TTL_MS = 10 * 60_000;
+/** How long a found (or missing) version of a song on another service is remembered. */
+const VERSION_TTL_MS = 24 * 60 * 60_000;
+const VERSION_MISS_TTL_MS = 60 * 60_000;
+const VERSION_CACHE_SIZE = 2000;
 const STREAM_TOKEN_TTL = '6h';
 const PLAY_DEDUPE_SECONDS = 30;
 
@@ -415,6 +419,33 @@ export function trackRoutes(ctx: AppContext) {
     if (!found) throw notFound('Этой песни нет в сервисах, где она играет без видео');
     const { ids } = sync.storeTracks([found.track], found.provider, null);
     res.json(getTrack(db, ids[0], me));
+  });
+
+  /**
+   * The same song on `?on=<service>`, the one the listener chose to play music through (client/src/store/player.ts):
+   * a full track whose title and performer match and whose length is within 20 seconds. Answers are remembered for a
+   * while, so a queue played again does not search the service again.
+   */
+  const versions = new Map<string, { id: number | null; until: number }>();
+  r.get('/:id/version', async (req, res) => {
+    const me = requireUser(req);
+    const row = requireTrack(idParam(req.params.id));
+    const provider = providers.get(typeof req.query.on === 'string' ? req.query.on : '');
+    if (row.source === provider.id) return res.json(getTrack(db, row.id, me));
+    // Per listener: the services answer each account with what it may play.
+    const key = `${me}:${row.id}:${provider.id}`;
+    const known = versions.get(key);
+    let id = known && known.until > Date.now() ? known.id : undefined;
+    if (id === undefined) {
+      const found = await findSong(row, [provider], (p) => sync.userToken(p, me));
+      id = found ? sync.storeTracks([found.track], found.provider, null).ids[0] : null;
+      versions.delete(key);
+      versions.set(key, { id, until: Date.now() + (id ? VERSION_TTL_MS : VERSION_MISS_TTL_MS) });
+      if (versions.size > VERSION_CACHE_SIZE) versions.delete(versions.keys().next().value!);
+    }
+    const track = id ? getTrack(db, id, me) : null;
+    if (!track) throw notFound(`${provider.name}: этой песни нет`);
+    res.json(track);
   });
 
   /**

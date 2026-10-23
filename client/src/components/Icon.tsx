@@ -25,6 +25,7 @@ import msFavorite from '@material-symbols/svg-400/rounded/favorite.svg?raw';
 import msFilterList from '@material-symbols/svg-400/rounded/filter_list.svg?raw';
 import msGroup from '@material-symbols/svg-400/rounded/group.svg?raw';
 import msGraphicEq from '@material-symbols/svg-400/rounded/graphic_eq.svg?raw';
+import msHeadphones from '@material-symbols/svg-400/rounded/headphones.svg?raw';
 import msHome from '@material-symbols/svg-400/rounded/home.svg?raw';
 import msHub from '@material-symbols/svg-400/rounded/hub.svg?raw';
 import msInfo from '@material-symbols/svg-400/rounded/info.svg?raw';
@@ -110,6 +111,7 @@ const ICONS = {
   favorite: msFavorite,
   filter_list: msFilterList,
   graphic_eq: msGraphicEq,
+  headphones: msHeadphones,
   group: msGroup,
   home: msHome,
   hub: msHub,

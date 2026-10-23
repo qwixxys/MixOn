@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="playback_channel">Воспроизведение</string>
+    <string name="playback_play">Слушать</string>
+    <string name="playback_pause">Пауза</string>
+    <string name="playback_next">Следующий</string>
+    <string name="playback_previous">Предыдущий</string>
+</resources>

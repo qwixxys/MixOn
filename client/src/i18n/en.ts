@@ -244,6 +244,19 @@ export const EN: Record<string, string> = {
   'Развернуть плеер': 'Expand the player',
   '· отрывок 30 с': '· 30 s preview',
 
+  // components/PlayVia.tsx: the service music plays through
+  'Слушать через': 'Listen through',
+  'Песни из других сервисов — превью Deezer и Apple Music, релизы в ленте, импортированные плейлисты — MixOn найдёт в выбранном сервисе и включит оттуда. Если песни там нет, она играет там, где нашлась.':
+    'Songs from other services (Deezer and Apple Music previews, releases in the feed, imported playlists) are looked up on the chosen service and played from there. A song it does not have plays where it was found.',
+  'Где нашлась': 'Where found',
+  'Сначала подключите сервис ниже': 'Connect the service below first',
+  'не подключён, поэтому песни пока играют там, где нашлись.': 'is not connected, so songs play where they were found for now.',
+  'Слушать в другом сервисе': 'Listen on another service',
+  'Слушать в': 'Listen on',
+  'Других подключённых сервисов с полными треками нет.': 'No other connected service plays full tracks.',
+  'Сервис по умолчанию…': 'Default service…',
+  '{0}: этой песни нет — играет 30-секундный отрывок из {1}': '{0} does not have this song: playing the 30-second preview from {1}',
+
   // components/PlaylistPicker.tsx
   'Добавлено в «{0}»': 'Added to “{0}”',
   'Плейлист «{0}» создан': 'Playlist “{0}” created',
@@ -806,6 +819,7 @@ export const EN: Record<string, string> = {
   'Этой песни нет в сервисах, где она играет без видео': 'This song is not on the services where it plays without video',
   'Аудиофайл не найден': 'Audio file not found',
   'Сервис {0} не отдал аудио (HTTP {1})': '{0} did not return the audio (HTTP {1})',
+  '{0}: этой песни нет': '{0} does not have this song',
   'Нельзя подписаться на себя': 'You cannot follow yourself',
   'Режим без ключей (неофициальный)': 'Keyless mode (unofficial)',
   'Ключ API': 'API key',

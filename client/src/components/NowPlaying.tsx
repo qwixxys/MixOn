@@ -13,6 +13,7 @@ import { Cover } from './Cover';
 import { DownloadButton } from './DownloadButton';
 import { Icon } from './Icon';
 import { LikeButton } from './LikeButton';
+import { ListenOn } from './PlayVia';
 import { SyncedLyrics } from './Lyrics';
 import { clearQueue, PlayerControls, Progress, QueueList, Volume } from './PlayerBar';
 import { shareTrack } from './TrackActions';
@@ -136,12 +137,7 @@ function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) 
         </button>
         <div className="np-head-title">
           <span className="np-overline">Сейчас играет</span>
-          {track.source !== 'local' && (
-            <span className="np-source">
-              <span className="service-dot" style={{ background: service.color }} />
-              {service.label}
-            </span>
-          )}
+          <ListenOn track={track} />
         </div>
         <div className="np-head-actions">
           {!wide && (

@@ -62,6 +62,11 @@ export interface Track {
   createdAt: string;
   uploader: UserSummary | null;
   externalArtist: { id: number; provider: string; name: string; imageUrl: string | null } | null;
+  /**
+   * Set by the player, not the server: the track this one plays in place of, the same song on another service (the
+   * one chosen for listening, or the audio version of a YouTube video).
+   */
+  standsFor?: number;
 }
 
 export interface Comment {

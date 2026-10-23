@@ -2,7 +2,7 @@ import { Fragment } from 'react';
 import { Link } from 'react-router';
 import type { Track } from '../api/types';
 import { formatCount, formatTime, timeAgo } from '../lib/format';
-import { usePlayer, useTrackProgress } from '../store/player';
+import { usePlayer, useTrackProgress, sameTrack } from '../store/player';
 import { Avatar, Cover } from './Cover';
 import { PlayButton } from './PlayButton';
 import { PreviewNote, ServiceBadge } from './ServiceBadge';
@@ -37,8 +37,8 @@ export function TrackByline({ track }: { track: Track }) {
 
 export function TrackCard({ track, queue, reason }: { track: Track; queue?: Track[]; reason?: string }) {
   const progress = useTrackProgress(track.id);
-  const isCurrent = usePlayer((s) => s.current?.id === track.id);
-  const playerDuration = usePlayer((s) => (s.current?.id === track.id ? s.duration : 0));
+  const isCurrent = usePlayer((s) => sameTrack(s.current, track.id));
+  const playerDuration = usePlayer((s) => (sameTrack(s.current, track.id) ? s.duration : 0));
   const play = usePlayer((s) => s.play);
   const seek = usePlayer((s) => s.seek);
   const duration = isCurrent && playerDuration ? playerDuration : playableDuration(track);

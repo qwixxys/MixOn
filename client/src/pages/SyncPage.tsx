@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import type { LoginStep, Service, ServiceKeyInfo } from '../api/types';
 import { TextField } from '../components/Material';
+import { PlayViaPicker } from '../components/PlayVia';
 import { ServiceIcon } from '../components/ServiceBadge';
 import { KeyFlag, KeyForm, keyGuides } from '../components/ServiceKeys';
 import { ErrorState, Loading } from '../components/States';
@@ -373,6 +374,7 @@ export function SyncPage() {
       {(loading || keys.loading) && !services && <Loading />}
       {error && <ErrorState message={error} onRetry={reload} />}
       {keys.error && <ErrorState message={keys.error} onRetry={keys.reload} />}
+      {services && <PlayViaPicker services={services} />}
       {services && (
         <div className="service-grid" id="keys">
           {services.map((s) => (

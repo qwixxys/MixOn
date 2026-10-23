@@ -1,12 +1,12 @@
 import type { Track } from '../api/types';
-import { usePlayer } from '../store/player';
+import { usePlayer, sameTrack } from '../store/player';
 import { Icon } from './Icon';
 
 /** Round orange play/pause button for a track; `queue` is what plays after it. */
 export function PlayButton({ track, queue, size = 44 }: { track: Track; queue?: Track[]; size?: number }) {
-  const isCurrent = usePlayer((s) => s.current?.id === track.id);
-  const playing = usePlayer((s) => s.current?.id === track.id && s.playing);
-  const loading = usePlayer((s) => s.current?.id === track.id && s.loading && !s.playing);
+  const isCurrent = usePlayer((s) => sameTrack(s.current, track.id));
+  const playing = usePlayer((s) => sameTrack(s.current, track.id) && s.playing);
+  const loading = usePlayer((s) => sameTrack(s.current, track.id) && s.loading && !s.playing);
   const play = usePlayer((s) => s.play);
   const icon = size * 0.45;
 

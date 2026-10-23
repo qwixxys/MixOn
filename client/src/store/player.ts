@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import type { StreamSource, Track } from '../api/types';
 import { serviceInfo } from '../lib/services';
 import { savedAudioUrl, useDownloads } from './downloads';
+import { usePlayVia } from './playVia';
 import { toast } from './toasts';
 import {
   videoIdOf,
@@ -52,6 +53,36 @@ interface PlayerState {
 }
 
 const PLAY_REPORT_AFTER_SECONDS = 5;
+
+/** Whether `current` is the track with this id, or plays in its place (the same song on another service). */
+export function sameTrack(current: Track | null, id: number): boolean {
+  return current !== null && (current.id === id || current.standsFor === id);
+}
+
+/** Songs already reported missing on the chosen service, so a queue does not repeat it at every play. */
+const missingOnChosen = new Set<string>();
+
+/**
+ * `track` from the service chosen for listening (store/playVia.ts), when it was found elsewhere and that service has
+ * the same song; null to play it where it was found.
+ */
+async function preferredVersion(track: Track): Promise<Track | null> {
+  const via = usePlayVia.getState().via;
+  if (!via || track.source === via || track.source === 'local') return null;
+  try {
+    const version = await api<Track>(`/tracks/${track.id}/version?on=${encodeURIComponent(via)}`);
+    if (version.id === track.id) return null;
+    // Keep the cover the listener saw if this service has none.
+    return { ...version, coverUrl: version.coverUrl ?? track.coverUrl, standsFor: track.standsFor ?? track.id };
+  } catch {
+    const key = `${via}:${track.id}`;
+    if (track.isPreview && !missingOnChosen.has(key)) {
+      missingOnChosen.add(key);
+      toast.info(`${serviceInfo(via).label}: этой песни нет — играет 30-секундный отрывок из ${serviceInfo(track.source).label}`);
+    }
+    return null;
+  }
+}
 
 const audio = new Audio();
 audio.preload = 'auto';
@@ -126,7 +157,8 @@ function reportProgress(current: number, duration: number) {
 }
 
 export const usePlayer = create<PlayerState>((set, get) => {
-  async function load(track: Track, startAt = 0) {
+  /** Plays `track`; unless `exact`, from the service chosen for listening when that one has the song too. */
+  async function load(track: Track, startAt = 0, exact = false) {
     const seq = ++loadSeq;
     playReported = false;
     destroyHls();
@@ -135,7 +167,19 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
     try {
       // A copy saved on the device plays without the network.
-      const offline = useDownloads.getState().saved[track.id] ? await savedAudioUrl(track.id) : null;
+      const saved = (t: Track) => (useDownloads.getState().saved[t.id] ? savedAudioUrl(t.id) : Promise.resolve(null));
+      let offline = await saved(track);
+      if (!offline && !exact) {
+        const preferred = await preferredVersion(track);
+        if (seq !== loadSeq) return;
+        if (preferred) {
+          const original = track;
+          track = preferred;
+          set({ queue: get().queue.map((t) => (t.id === original.id ? preferred : t)), current: preferred, duration: preferred.duration });
+          updateMediaSession(preferred);
+          offline = await saved(preferred);
+        }
+      }
       // Local uploads have a predictable URL; setting it synchronously keeps Safari's autoplay rules happy.
       const source: StreamSource = offline
         ? { kind: 'direct', url: offline }
@@ -197,14 +241,14 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
     play(track, queue, startAt) {
       const { current } = get();
-      if (current?.id === track.id && startAt === undefined) return get().toggle();
-      if (current?.id === track.id && startAt !== undefined) {
+      if (sameTrack(current, track.id) && startAt === undefined) return get().toggle();
+      if (sameTrack(current, track.id) && startAt !== undefined) {
         get().seek(startAt);
         resume();
         return;
       }
       let nextQueue = queue ?? get().queue;
-      let index = nextQueue.findIndex((t) => t.id === track.id);
+      let index = nextQueue.findIndex((t) => t.id === track.id || t.standsFor === track.id);
       if (index === -1) {
         nextQueue = queue ? [track, ...queue] : [track];
         index = 0;
@@ -308,8 +352,10 @@ export const usePlayer = create<PlayerState>((set, get) => {
     swapCurrent(track, startAt) {
       const { queue, index, current } = get();
       if (!current) return;
-      set({ queue: queue.map((t, i) => (i === index && t.id === current.id ? track : t)) });
-      void load(track, startAt);
+      const version = { ...track, standsFor: current.standsFor ?? current.id };
+      set({ queue: queue.map((t, i) => (i === index && t.id === current.id ? version : t)) });
+      // Exactly this version: the listener (or YouTube's closed window) picked it over the chosen service.
+      void load(version, startAt, true);
     },
 
     removeFromQueue(i) {

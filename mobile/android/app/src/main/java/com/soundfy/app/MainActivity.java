@@ -27,23 +27,20 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(VkCaptchaPlugin.class);
         registerPlugin(ClipboardPlugin.class);
+        registerPlugin(MediaNotificationPlugin.class);
         super.onCreate(savedInstanceState);
         bridge.setWebViewClient(new ServerWebViewClient(bridge));
 
-        // Back goes through the pages visited in the app, and leaves the app only from the first one.
+        // Back goes through the pages visited in the app; from the first one it puts the app in the background, like
+        // Home, so the music keeps playing instead of stopping with the page.
         getOnBackPressedDispatcher().addCallback(
             this,
             new OnBackPressedCallback(true) {
                 @Override
                 public void handleOnBackPressed() {
                     WebView webView = bridge.getWebView();
-                    if (webView.canGoBack()) {
-                        webView.goBack();
-                    } else {
-                        setEnabled(false);
-                        getOnBackPressedDispatcher().onBackPressed();
-                        setEnabled(true);
-                    }
+                    if (webView.canGoBack()) webView.goBack();
+                    else moveTaskToBack(true);
                 }
             }
         );

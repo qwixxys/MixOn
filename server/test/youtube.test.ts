@@ -208,4 +208,23 @@ describe('carrying on without the YouTube player', () => {
     const missing = t.ctx.db.prepare(`SELECT id FROM tracks WHERE external_id = 'nope'`).get() as { id: number };
     await t.request.get(`/api/tracks/${missing.id}/audio-version`).set(user.auth).expect(404);
   });
+
+  it('finds the song on the service chosen for listening', async () => {
+    const user = await register(t.request, 'chooser');
+    t.ctx.sync.storeTracks([track('vid2', { title: 'Hit', artist: 'Band', duration: 200, streamUrl: null })], 'youtube', null);
+    const { id } = t.ctx.db.prepare(`SELECT id FROM tracks WHERE external_id = 'vid2'`).get() as { id: number };
+    await t.request.get(`/api/tracks/${id}/version?on=deezer`).expect(401);
+    const res = await t.request.get(`/api/tracks/${id}/version?on=deezer`).set(user.auth).expect(200);
+    assert.equal(res.body.source, 'deezer');
+    assert.equal(res.body.artist, 'Band feat. Guest');
+    // Already there: the track itself.
+    const same = await t.request.get(`/api/tracks/${res.body.id}/version?on=deezer`).set(user.auth).expect(200);
+    assert.equal(same.body.id, res.body.id);
+    // Not on that service, or no such service.
+    t.ctx.sync.storeTracks([track('nope2', { title: 'Нигде нет', artist: 'Никто', streamUrl: null })], 'youtube', null);
+    const missing = t.ctx.db.prepare(`SELECT id FROM tracks WHERE external_id = 'nope2'`).get() as { id: number };
+    const miss = await t.request.get(`/api/tracks/${missing.id}/version?on=deezer`).set(user.auth).expect(404);
+    assert.match(miss.body.error, /этой песни нет/);
+    await t.request.get(`/api/tracks/${id}/version?on=nowhere`).set(user.auth).expect(404);
+  });
 });

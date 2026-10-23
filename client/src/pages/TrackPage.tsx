@@ -20,7 +20,7 @@ import { serviceInfo } from '../lib/services';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { useLikeState } from '../store/likes';
-import { usePlayer, useTrackProgress } from '../store/player';
+import { usePlayer, useTrackProgress, sameTrack } from '../store/player';
 import { toast } from '../store/toasts';
 import { GENRES } from './UploadPage';
 import { Icon } from '../components/Icon';
@@ -82,8 +82,8 @@ function EditTrackModal({ track, onClose, onSaved }: { track: Track; onClose(): 
 
 function Comments({ track, comments, setComments }: { track: Track; comments: Comment[]; setComments(c: Comment[]): void }) {
   const user = useAuth((s) => s.user);
-  const isCurrent = usePlayer((s) => s.current?.id === track.id);
-  const currentTime = usePlayer((s) => (s.current?.id === track.id ? s.currentTime : 0));
+  const isCurrent = usePlayer((s) => sameTrack(s.current, track.id));
+  const currentTime = usePlayer((s) => (sameTrack(s.current, track.id) ? s.currentTime : 0));
   const play = usePlayer((s) => s.play);
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
@@ -182,8 +182,8 @@ export function TrackPage() {
   const [tab, setTab] = useState<'comments' | 'lyrics' | 'about'>('comments');
   const [linking, setLinking] = useState(false);
   const progress = useTrackProgress(Number(id));
-  const isCurrent = usePlayer((s) => s.current?.id === Number(id));
-  const playerDuration = usePlayer((s) => (s.current?.id === Number(id) ? s.duration : 0));
+  const isCurrent = usePlayer((s) => sameTrack(s.current, Number(id)));
+  const playerDuration = usePlayer((s) => (sameTrack(s.current, Number(id)) ? s.duration : 0));
   const play = usePlayer((s) => s.play);
   const seek = usePlayer((s) => s.seek);
   const t = track.data;

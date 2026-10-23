@@ -2,7 +2,7 @@ import { Link } from 'react-router';
 import type { Track } from '../api/types';
 import { formatTime } from '../lib/format';
 import { useDownloads } from '../store/downloads';
-import { usePlayer } from '../store/player';
+import { usePlayer, sameTrack } from '../store/player';
 import { Cover } from './Cover';
 import { LikeButton } from './LikeButton';
 import { PreviewNote, ServiceBadge } from './ServiceBadge';
@@ -22,8 +22,8 @@ export function TrackRow({
   onRemove?: () => void;
   compact?: boolean;
 }) {
-  const isCurrent = usePlayer((s) => s.current?.id === track.id);
-  const playing = usePlayer((s) => s.current?.id === track.id && s.playing);
+  const isCurrent = usePlayer((s) => sameTrack(s.current, track.id));
+  const playing = usePlayer((s) => sameTrack(s.current, track.id) && s.playing);
   const play = usePlayer((s) => s.play);
   const saved = useDownloads((s) => Boolean(s.saved[track.id]));
 

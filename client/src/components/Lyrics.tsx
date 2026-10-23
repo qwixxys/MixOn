@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { LyricLine, Track, TrackGenius, TrackLyrics } from '../api/types';
-import { usePlayer } from '../store/player';
+import { usePlayer, sameTrack } from '../store/player';
 import { GeniusLyrics } from './Genius';
 import { Icon } from './Icon';
 import { Empty, ErrorState, Loading } from './States';
@@ -33,7 +33,7 @@ export function activeLine(lines: LyricLine[], time: number): number {
  */
 export function SyncedLyrics({ track, lines }: { track: Track; lines: LyricLine[] }) {
   const follow = !track.isPreview;
-  const time = usePlayer((s) => (follow && s.current?.id === track.id ? s.currentTime : null));
+  const time = usePlayer((s) => (follow && sameTrack(s.current, track.id) ? s.currentTime : null));
   const play = usePlayer((s) => s.play);
   const box = useRef<HTMLDivElement>(null);
   const manualScrollAt = useRef(0);
