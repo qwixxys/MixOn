@@ -1,5 +1,5 @@
 import { badRequest } from '../lib/errors.js';
-import { fetchJson, ProviderError, RateLimiter, type FetchLike } from '../lib/http.js';
+import { fetchJson, ProviderError, RateLimiter, type FetchLike, type RequestLane } from '../lib/http.js';
 import {
   SEARCH_TRACK_LIMIT,
   streamKind,
@@ -171,12 +171,12 @@ export class VkProvider implements MusicProvider {
     return true;
   }
 
-  private async call<T>(method: string, params: Record<string, string | number>, token?: string | null): Promise<T> {
+  private async call<T>(method: string, params: Record<string, string | number>, token?: string | null, lane: RequestLane = 'normal'): Promise<T> {
     const accessToken = token || this.options.fallbackToken;
     if (!accessToken) {
       throw new ProviderError(this.id, 'Подключите аккаунт ВКонтакте на странице «Сервисы»', 'no_token');
     }
-    await this.limiter.wait();
+    await this.limiter.wait(lane);
     const body = new URLSearchParams({ access_token: accessToken, v: this.options.apiVersion });
     for (const [k, v] of Object.entries(params)) body.set(k, String(v));
     const res = await fetchJson<VkEnvelope<T>>(this.fetchImpl, this.id, `${API}/${method}`, {
@@ -238,7 +238,12 @@ export class VkProvider implements MusicProvider {
   }
 
   async searchTracks(query: string, ctx: ProviderContext): Promise<ExternalTrack[]> {
-    const res = await this.call<VkList<VkAudio>>('audio.search', { q: query, count: 30, auto_complete: 1 }, ctx.token);
+    const res = await this.call<VkList<VkAudio>>(
+      'audio.search',
+      { q: query, count: 30, auto_complete: 1 },
+      ctx.token,
+      ctx.background ? 'background' : 'normal',
+    );
     return this.mapAudios(res.items).slice(0, SEARCH_TRACK_LIMIT);
   }
 
@@ -297,7 +302,8 @@ export class VkProvider implements MusicProvider {
   async resolveStream(track: StoredExternalTrack, ctx: ProviderContext): Promise<StreamSource | null> {
     const accessKey = typeof track.extra?.accessKey === 'string' ? track.extra.accessKey : null;
     const id = accessKey ? `${track.externalId}_${accessKey}` : track.externalId;
-    const [audio] = await this.call<VkAudio[]>('audio.getById', { audios: id }, ctx.token);
+    // A song about to play goes ahead of any lookups waiting for VK.
+    const [audio] = await this.call<VkAudio[]>('audio.getById', { audios: id }, ctx.token, 'urgent');
     if (!audio?.url) return null;
     if (audio.url.includes(UNAVAILABLE_MARKER)) {
       throw new ProviderError(this.id, 'ВКонтакте не отдаёт аудио для этого токена — нужен токен с доступом к аудио');

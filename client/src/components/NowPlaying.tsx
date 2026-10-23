@@ -59,9 +59,38 @@ function useWide() {
   );
 }
 
+const LYRICS_KEY = 'soundfy.npLyrics';
+
+/** Whether wide windows show the lyrics column; the listener can turn it off, and the choice is remembered. */
+function useLyricsColumn(): [boolean, (on: boolean) => void] {
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem(LYRICS_KEY) !== 'off';
+    } catch {
+      return true;
+    }
+  });
+  const set = (next: boolean) => {
+    setOn(next);
+    try {
+      localStorage.setItem(LYRICS_KEY, next ? 'on' : 'off');
+    } catch {
+      // storage unavailable: the choice lasts while the player is open
+    }
+  };
+  return [on, set];
+}
+
+type LyricsFetch = ReturnType<typeof useFetch<TrackLyrics>>;
+
+/** Whether the lyrics have words to show (not missing, not an instrumental). */
+const hasWords = (lyrics: LyricsFetch) => {
+  const found = lyrics.data?.found ? lyrics.data : null;
+  return Boolean(found && !found.instrumental && (found.synced?.length || found.plain));
+};
+
 /** The song's lyrics from LRCLIB, following playback when they are time-synced. */
-function NowPlayingLyrics({ track }: { track: Track }) {
-  const lyrics = useFetch<TrackLyrics>(`/tracks/${track.id}/lyrics`);
+function NowPlayingLyrics({ track, lyrics }: { track: Track; lyrics: LyricsFetch }) {
   const found = lyrics.data?.found ? lyrics.data : null;
   let body;
   if (lyrics.loading) {
@@ -89,6 +118,17 @@ type Panel = 'cover' | 'queue' | 'lyrics';
 
 function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) {
   const wide = useWide();
+  const [columnOn, setColumnOn] = useLyricsColumn();
+  const lyrics = useFetch<TrackLyrics>(`/tracks/${track.id}/lyrics`);
+  // While the next song's lyrics load, the layout stays as it was, so it does not jump at every track.
+  const hadWords = useRef(false);
+  const words = lyrics.loading ? hadWords.current : hasWords(lyrics);
+  useEffect(() => {
+    if (!lyrics.loading) hadWords.current = words;
+  });
+  // Wide windows: the lyrics in a column beside the cover when there are any and the listener wants them; otherwise
+  // the cover with the controls beside it.
+  const column = wide && columnOn && words;
   const [chosen, setPanel] = useState<Panel>('cover');
   // Wide windows show the lyrics beside the controls, so the stage never needs to swap them in there.
   const panel: Panel = wide && chosen === 'lyrics' ? 'cover' : chosen;
@@ -133,11 +173,12 @@ function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) 
           <ListenOn track={track} />
         </div>
         <div className="np-head-actions">
-          {!wide && (
+          {/* Narrow windows swap the lyrics in for the cover; wide ones turn their column on and off. */}
+          {(!wide || words) && (
             <button
-              className={`icon-btn ${panel === 'lyrics' ? 'icon-btn-selected' : ''}`}
-              onClick={() => toggle('lyrics')}
-              aria-pressed={panel === 'lyrics'}
+              className={`icon-btn ${(wide ? column : panel === 'lyrics') ? 'icon-btn-selected' : ''}`}
+              onClick={() => (wide ? setColumnOn(!columnOn) : toggle('lyrics'))}
+              aria-pressed={wide ? column : panel === 'lyrics'}
               aria-label="Текст песни"
               title="Текст песни"
             >
@@ -156,10 +197,10 @@ function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) 
         </div>
       </header>
 
-      <div className={`np-body ${wide ? 'np-body-lyrics' : ''}`}>
+      <div className={`np-body ${column ? 'np-body-lyrics' : ''}`}>
         <div className={`np-stage ${panel !== 'cover' ? 'np-stage-queue' : ''}`}>
           {video ? <VideoSpot layout={panel} /> : panel === 'cover' && <Cover url={track.coverUrl} seed={track.id} className="np-cover" />}
-          {panel === 'lyrics' && <NowPlayingLyrics key={track.id} track={track} />}
+          {panel === 'lyrics' && <NowPlayingLyrics key={track.id} track={track} lyrics={lyrics} />}
           {panel === 'queue' && (
             <div className="np-queue">
               <div className="np-queue-head">
@@ -226,7 +267,7 @@ function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) 
             <Volume />
           </div>
         </div>
-        {wide && <NowPlayingLyrics key={track.id} track={track} />}
+        {column && <NowPlayingLyrics key={track.id} track={track} lyrics={lyrics} />}
       </div>
     </div>
   );

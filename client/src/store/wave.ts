@@ -46,9 +46,13 @@ function savedMode(): WaveMode {
   return 'mix';
 }
 
-/** The wave's next songs: whole songs only, from the service listened through when it has them. */
-function batch(mode: WaveMode, limit: number, exclude: number[] = []) {
+/**
+ * The wave's next songs: whole songs only, from the service listened through when it has them. A `background` batch
+ * (the queue topping itself up) waits on the services behind anything the listener is waiting for.
+ */
+function batch(mode: WaveMode, limit: number, exclude: number[] = [], background = false) {
   const params = new URLSearchParams({ mode, limit: String(limit) });
+  if (background) params.set('background', '1');
   if (exclude.length) params.set('exclude', exclude.slice(-EXCLUDE).join(','));
   const via = usePlayVia.getState().via;
   if (via) params.set('on', via);
@@ -99,7 +103,7 @@ usePlayer.subscribe((st, prev) => {
   if (refilling || st.queue.length - st.index - 1 >= LOW_WATER) return;
   refilling = true;
   const exclude = st.queue.flatMap((t) => (t.standsFor ? [t.id, t.standsFor] : [t.id]));
-  batch(useWave.getState().mode, BATCH, exclude)
+  batch(useWave.getState().mode, BATCH, exclude, true)
     .then((tracks) => {
       if (usePlayer.getState().queueOrigin === 'wave') usePlayer.getState().appendToQueue(tracks);
     })

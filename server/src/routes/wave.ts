@@ -21,7 +21,7 @@ export function waveRoutes(ctx: AppContext, versions: SongVersions) {
 
   /**
    * The next songs of «Моя волна», whole songs only: ?mode=mix|favorite|discover|popular&exclude=<ids in the
-   * queue>&limit=10&on=<service listened through>.
+   * queue>&limit=10&on=<service listened through>&background=1.
    */
   r.get('/wave', async (req, res) => {
     const me = requireUser(req);
@@ -32,7 +32,9 @@ export function waveRoutes(ctx: AppContext, versions: SongVersions) {
       .filter((id) => Number.isInteger(id) && id > 0)
       .slice(-MAX_EXCLUDE);
     const limit = Math.min(30, Math.max(1, Number(req.query.limit) || 10));
-    res.json({ mode, tracks: await wave.next(me, { mode, exclude, limit, preferred: preferred(req.query.on) }) });
+    // ?background=1: the queue topping itself up, which nobody waits on yet.
+    const background = req.query.background === '1';
+    res.json({ mode, tracks: await wave.next(me, { mode, exclude, limit, preferred: preferred(req.query.on), background }) });
   });
 
   /** «Не нравится»: the song, and after a second one its artist, stay out of the wave. */

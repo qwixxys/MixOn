@@ -108,7 +108,7 @@ export class WaveService {
   async recommend(userId: number, preferred: string | null, refresh = false): Promise<TrackDTO[]> {
     const kept = this.recommendations.get(userId);
     if (kept && kept.until > Date.now() && kept.preferred === preferred && !refresh) return kept.tracks;
-    const tracks = await this.next(userId, { mode: 'mix', exclude: [], limit: 12, preferred });
+    const tracks = await this.next(userId, { mode: 'mix', exclude: [], limit: 12, preferred, background: true });
     this.recommendations.set(userId, { tracks, preferred, until: Date.now() + RECOMMENDATIONS_TTL_MS });
     return tracks;
   }
@@ -119,7 +119,13 @@ export class WaveService {
    */
   async next(
     userId: number,
-    { mode, exclude, limit, preferred = null }: { mode: WaveMode; exclude: number[]; limit: number; preferred?: string | null },
+    {
+      mode,
+      exclude,
+      limit,
+      preferred = null,
+      background = false,
+    }: { mode: WaveMode; exclude: number[]; limit: number; preferred?: string | null; background?: boolean },
   ): Promise<TrackDTO[]> {
     const taste = this.taste(userId);
     const seeds = this.seeds(taste, mode === 'popular' ? 1 : SEEDS);
@@ -131,7 +137,7 @@ export class WaveService {
         services.flatMap((p) =>
           p.similarTracks
             ? [
-                this.fromService(p, userId, (ctx) =>
+                this.fromService(p, userId, background, (ctx) =>
                   p.similarTracks!({ artist: seed.artist, title: seed.song?.title ?? '', externalId: seed.song?.source === p.id ? seed.song.external_id : null }, ctx),
                 ).then((ids) => ({ pool: 'similar' as const, ids })),
               ]
@@ -140,7 +146,7 @@ export class WaveService {
       ),
       ...(mode === 'popular' || !seeds.length
         ? services.flatMap((p) =>
-            p.popularTracks ? [this.fromService(p, userId, (ctx) => p.popularTracks!(ctx)).then((ids) => ({ pool: 'popular' as const, ids }))] : [],
+            p.popularTracks ? [this.fromService(p, userId, background, (ctx) => p.popularTracks!(ctx)).then((ids) => ({ pool: 'popular' as const, ids }))] : [],
           )
         : []),
     ]);
@@ -210,7 +216,9 @@ export class WaveService {
     const perArtist = new Map<string, number>();
     const deadline = Date.now() + LOOKUP_BUDGET_MS;
     for (let i = 0; i < candidates.length && chosen.length < limit && Date.now() < deadline; i += LOOKUPS_AT_ONCE) {
-      const whole = await Promise.all(candidates.slice(i, i + LOOKUPS_AT_ONCE).map((id) => this.whole(userId, songs.get(id)!, preferred)));
+      const whole = await Promise.all(
+        candidates.slice(i, i + LOOKUPS_AT_ONCE).map((id) => this.whole(userId, songs.get(id)!, preferred, background)),
+      );
       for (const song of whole) {
         if (!song || chosen.length >= limit) continue;
         const artist = artistKey(song.artist);
@@ -231,12 +239,12 @@ export class WaveService {
   }
 
   /** `song` as a whole song: itself, or for a preview its full version (from `preferred` first); null if none. */
-  private async whole(userId: number, song: Song, preferred: string | null): Promise<Song | null> {
+  private async whole(userId: number, song: Song, preferred: string | null, background: boolean): Promise<Song | null> {
     if (!song.is_preview) return song;
     const row = getTrackRow(this.db, song.id);
     if (!row) return null;
     try {
-      const full = await this.versions.full(userId, row, preferred);
+      const full = await this.versions.full(userId, row, preferred, background);
       return full && !full.isPreview ? { id: full.id, title: full.title, artist: full.artist, source: full.source, external_id: null, is_preview: 0 } : null;
     } catch {
       return null;
@@ -302,10 +310,15 @@ export class WaveService {
   }
 
   /** Songs from a service, stored in the catalogue; nothing when the service fails, is slow or is not set up. */
-  private async fromService(provider: MusicProvider, userId: number, get: (ctx: ProviderContext) => Promise<ExternalTrack[]>): Promise<number[]> {
+  private async fromService(
+    provider: MusicProvider,
+    userId: number,
+    background: boolean,
+    get: (ctx: ProviderContext) => Promise<ExternalTrack[]>,
+  ): Promise<number[]> {
     try {
       const tracks = await withTimeout(
-        (async () => get({ token: await this.sync.userToken(provider.id, userId) }))(),
+        (async () => get({ token: await this.sync.userToken(provider.id, userId), background }))(),
         SOURCE_TIMEOUT_MS,
       );
       return tracks.length ? this.sync.storeTracks(tracks, provider.id, null).ids : [];

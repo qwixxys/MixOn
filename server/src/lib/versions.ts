@@ -28,15 +28,18 @@ export class SongVersions {
     private sync: SyncService,
   ) {}
 
-  /** `row`'s song as a full track on one of `services`, tried in order; `on` names that choice in the cache. */
-  async find(me: number, row: TrackRow, on: string, services: MusicProvider[]): Promise<TrackDTO | null> {
+  /**
+   * `row`'s song as a full track on one of `services`, tried in order; `on` names that choice in the cache. In the
+   * `background` its searches wait for everything a listener is waiting on.
+   */
+  async find(me: number, row: TrackRow, on: string, services: MusicProvider[], background = false): Promise<TrackDTO | null> {
     const key = `${me}:${row.id}:${on}`;
     const known = this.found.get(key);
     let id = known && known.until > Date.now() ? known.id : undefined;
     if (id === undefined) {
       let search = this.searching.get(key);
       if (!search) {
-        search = findSong(row, services, (p) => this.sync.userToken(p, me))
+        search = findSong(row, services, (p) => this.sync.userToken(p, me), { background })
           .then((hit) => {
             const stored = hit ? this.sync.storeTracks([hit.track], hit.provider, null).ids[0] : null;
             this.found.delete(key);
@@ -57,12 +60,12 @@ export class SongVersions {
    * listener chose a service to listen through, then from any service with full tracks. YouTube only when chosen, as
    * its songs play in a video window.
    */
-  full(me: number, row: TrackRow, preferred: string | null): Promise<TrackDTO | null> {
+  full(me: number, row: TrackRow, preferred: string | null, background = false): Promise<TrackDTO | null> {
     const services = this.providers
       .list()
       .filter((p) => p.fullTracks && p.id !== row.source && (p.id !== 'youtube' || p.id === preferred))
       // VK limits searches more strictly than the others, so unless chosen it is asked last.
       .sort((a, b) => rank(a.id, preferred) - rank(b.id, preferred));
-    return this.find(me, row, `full:${preferred ?? ''}`, services);
+    return this.find(me, row, `full:${preferred ?? ''}`, services, background);
   }
 }

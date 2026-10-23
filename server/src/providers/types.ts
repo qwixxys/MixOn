@@ -50,6 +50,8 @@ export interface ArtistRef {
 export interface ProviderContext {
   /** User access token for services that need one (VK). */
   token?: string | null;
+  /** Nobody waits on this request («Моя волна» filling up, recommendations): it goes after everything else. */
+  background?: boolean;
 }
 
 /** A song «Моя волна» starts from: its performer, and its id when it comes from the same service. */

@@ -37,7 +37,7 @@ export async function findSong(
   song: WantedSong,
   services: MusicProvider[],
   token: (provider: string) => Promise<string | null>,
-  { previews = false }: { previews?: boolean } = {},
+  { previews = false, background = false }: { previews?: boolean; background?: boolean } = {},
 ): Promise<{ provider: string; track: ExternalTrack } | null> {
   const searchable = services.filter((p) => p.searchTracks && p.isConfigured() && (previews || p.fullTracks));
   const ordered = [...searchable.filter((p) => p.fullTracks), ...searchable.filter((p) => !p.fullTracks)];
@@ -46,7 +46,7 @@ export async function findSong(
   for (const p of ordered) {
     let found: ExternalTrack[];
     try {
-      found = await p.searchTracks!(`${q.artist} ${q.title}`, { token: await token(p.id) });
+      found = await p.searchTracks!(`${q.artist} ${q.title}`, { token: await token(p.id), background });
     } catch {
       continue;
     }

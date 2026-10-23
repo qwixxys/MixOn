@@ -1,5 +1,5 @@
 import type { KeyValueStore } from '../db/index.js';
-import { ProviderError, RateLimiter, type FetchLike } from '../lib/http.js';
+import { ProviderError, RateLimiter, type FetchLike, type RequestLane } from '../lib/http.js';
 import {
   isScPlaylistUrl,
   mapScTrack,
@@ -16,6 +16,7 @@ import {
   type ExternalTrack,
   type ImportedPlaylist,
   type MusicProvider,
+  type ProviderContext,
   type SearchHits,
   type SimilarSeed,
   type StoredExternalTrack,
@@ -212,13 +213,13 @@ export class SoundCloudWebProvider implements MusicProvider {
    * GET on api-v2 with the client_id. A rejected id is looked up again once, but not more often than the cooldown:
    * a 403 can also be SoundCloud's bot protection, which a new id does not fix.
    */
-  private async get<T>(pathOrUrl: string, retry = true, blocked403 = BLOCKED_MESSAGE): Promise<T> {
+  private async get<T>(pathOrUrl: string, retry = true, blocked403 = BLOCKED_MESSAGE, lane: RequestLane = 'normal'): Promise<T> {
     const url = new URL(pathOrUrl, API);
     // Paging links and stream links come from SoundCloud's answers; never send the id anywhere else.
     if (url.protocol !== 'https:' || url.hostname !== API_HOST) throw new ProviderError(this.id, 'SoundCloud вернул неожиданную ссылку');
     url.searchParams.set('client_id', await this.getClientId());
 
-    await this.limiter.wait();
+    await this.limiter.wait(lane);
     let res: Response;
     try {
       res = await this.fetchImpl(url.toString(), {
@@ -232,7 +233,7 @@ export class SoundCloudWebProvider implements MusicProvider {
       await res.body?.cancel().catch(() => {});
       this.lastRescrape = Date.now();
       await this.getClientId(true);
-      return this.get<T>(pathOrUrl, false, blocked403);
+      return this.get<T>(pathOrUrl, false, blocked403, lane);
     }
     if (res.status === 403) throw new ProviderError(this.id, blocked403, 403);
     if (res.status === 404) throw new ProviderError(this.id, 'Не найдено на SoundCloud', 404);
@@ -259,15 +260,25 @@ export class SoundCloudWebProvider implements MusicProvider {
     return { artists, tracks };
   }
 
-  async searchTracks(query: string): Promise<ExternalTrack[]> {
-    const page = await this.get<ScWebPage<ScWebTrack>>(`/search/tracks?q=${encodeURIComponent(query)}&limit=${SEARCH_TRACK_LIMIT}`);
+  async searchTracks(query: string, ctx?: ProviderContext): Promise<ExternalTrack[]> {
+    const page = await this.get<ScWebPage<ScWebTrack>>(
+      `/search/tracks?q=${encodeURIComponent(query)}&limit=${SEARCH_TRACK_LIMIT}`,
+      true,
+      BLOCKED_MESSAGE,
+      ctx?.background ? 'background' : 'normal',
+    );
     return this.mapTracks(page.collection);
   }
 
   /** SoundCloud's own «related tracks» for a SoundCloud track. */
-  async similarTracks(seed: SimilarSeed): Promise<ExternalTrack[]> {
+  async similarTracks(seed: SimilarSeed, ctx?: ProviderContext): Promise<ExternalTrack[]> {
     if (!seed.externalId) return [];
-    const page = await this.get<ScWebPage<ScWebTrack>>(`/tracks/${scNumericId(seed.externalId)}/related?limit=30`);
+    const page = await this.get<ScWebPage<ScWebTrack>>(
+      `/tracks/${scNumericId(seed.externalId)}/related?limit=30`,
+      true,
+      BLOCKED_MESSAGE,
+      ctx?.background ? 'background' : 'normal',
+    );
     return this.mapTracks(page.collection ?? []);
   }
 
@@ -283,8 +294,9 @@ export class SoundCloudWebProvider implements MusicProvider {
   }
 
   async resolveStream(track: StoredExternalTrack): Promise<StreamSource | null> {
-    // Stream links are signed per request with the track's authorization, so read the track fresh every time.
-    const t = await this.get<ScWebTrack>(`/tracks/${scNumericId(track.externalId)}`);
+    // Stream links are signed per request with the track's authorization, so read the track fresh every time. A song
+    // about to play goes ahead of any lookups waiting for SoundCloud.
+    const t = await this.get<ScWebTrack>(`/tracks/${scNumericId(track.externalId)}`, true, BLOCKED_MESSAGE, 'urgent');
     if (t.policy === 'BLOCK' || hasDrm(t.media?.transcodings)) return null;
     // A listed stream can still be missing (404); then the next best one is tried.
     for (const pick of rankTranscodings(t.media?.transcodings).slice(0, 3)) {
@@ -292,7 +304,7 @@ export class SoundCloudWebProvider implements MusicProvider {
       if (t.track_authorization) path.searchParams.set('track_authorization', t.track_authorization);
       let url: string | undefined;
       try {
-        ({ url } = await this.get<{ url?: string }>(path.toString()));
+        ({ url } = await this.get<{ url?: string }>(path.toString(), true, BLOCKED_MESSAGE, 'urgent'));
       } catch (err) {
         if (err instanceof ProviderError && err.code === 404) continue;
         throw err;

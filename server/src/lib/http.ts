@@ -33,20 +33,45 @@ export async function fetchJson<T = unknown>(
   }
 }
 
-/** Serialises calls so that at most one request starts every `intervalMs`. */
+/**
+ * Who is waiting on a request: «urgent» for a song about to play, «normal» for what a listener is looking at,
+ * «background» for work nobody waits on (filling «Моя волна», recommendations).
+ */
+export type RequestLane = 'urgent' | 'normal' | 'background';
+
+/**
+ * Spaces requests to a service so that at most one starts every `intervalMs`, the waiting ones by lane: urgent first,
+ * then normal, then background. A song to play waits one interval at most, never behind a queue of lookups.
+ */
 export class RateLimiter {
   private next = 0;
-  private chain: Promise<void> = Promise.resolve();
+  private queues: Record<RequestLane, (() => void)[]> = { urgent: [], normal: [], background: [] };
+  private pumping = false;
 
   constructor(private intervalMs: number) {}
 
-  wait(): Promise<void> {
-    const run = this.chain.then(async () => {
-      const delay = this.next - Date.now();
-      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
-      this.next = Date.now() + this.intervalMs;
+  wait(lane: RequestLane = 'normal'): Promise<void> {
+    return new Promise((resolve) => {
+      this.queues[lane].push(resolve);
+      void this.pump();
     });
-    this.chain = run.catch(() => {});
-    return run;
+  }
+
+  private async pump() {
+    if (this.pumping) return;
+    this.pumping = true;
+    try {
+      while (this.queues.urgent.length || this.queues.normal.length || this.queues.background.length) {
+        const delay = this.next - Date.now();
+        if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+        // Chosen after the wait, so a request that came meanwhile goes before the less pressing ones.
+        const go = this.queues.urgent.shift() ?? this.queues.normal.shift() ?? this.queues.background.shift();
+        if (!go) break;
+        this.next = Date.now() + this.intervalMs;
+        go();
+      }
+    } finally {
+      this.pumping = false;
+    }
   }
 }

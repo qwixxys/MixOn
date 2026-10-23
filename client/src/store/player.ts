@@ -57,6 +57,11 @@ interface PlayerState {
 }
 
 const PLAY_REPORT_AFTER_SECONDS = 5;
+/** Once a song has played this long, the next one is got ready. */
+const PREPARE_NEXT_AFTER_SECONDS = 5;
+/** HLS streams start once this many seconds are loaded, then keep `PLAY_BUFFER_SECONDS` ahead. */
+const START_BUFFER_SECONDS = 10;
+const PLAY_BUFFER_SECONDS = 60;
 
 /** Whether `current` is the track with this id, or plays in its place (the same song on another service). */
 export function sameTrack(current: Track | null, id: number): boolean {
@@ -70,7 +75,7 @@ const missingOnChosen = new Set<string>();
  * `track` from the service chosen for listening (store/playVia.ts), when it was found elsewhere and that service has
  * the same song; null to play it where it was found.
  */
-async function preferredVersion(track: Track): Promise<Track | null> {
+async function preferredVersion(track: Track, quiet = false): Promise<Track | null> {
   const via = usePlayVia.getState().via;
   if (!via || track.source === via || track.source === 'local') return null;
   try {
@@ -80,7 +85,7 @@ async function preferredVersion(track: Track): Promise<Track | null> {
     return { ...version, coverUrl: version.coverUrl ?? track.coverUrl, standsFor: track.standsFor ?? track.id };
   } catch {
     const key = `${via}:${track.id}`;
-    if (track.isPreview && !missingOnChosen.has(key)) {
+    if (!quiet && track.isPreview && !missingOnChosen.has(key)) {
       missingOnChosen.add(key);
       toast.info(`${serviceInfo(via).label}: этой песни нет — играет 30-секундный отрывок из ${serviceInfo(track.source).label}`);
     }
@@ -151,6 +156,39 @@ function pause() {
   else audio.pause();
 }
 
+/** hls.js, fetched once and early: most SoundCloud songs come as HLS, which only Safari plays by itself. */
+const nativeHls = audio.canPlayType('application/vnd.apple.mpegurl') !== '';
+let hlsLib: Promise<typeof import('hls.js/light').default> | null = null;
+function loadHls() {
+  hlsLib ??= import('hls.js/light').then(
+    (m) => m.default,
+    (err) => {
+      hlsLib = null;
+      throw err;
+    },
+  );
+  return hlsLib;
+}
+
+/** The track whose next song was got ready, so it is done once per track. */
+let preparedAfter: number | null = null;
+
+/**
+ * Once a song has played a few seconds, gets the next one ready — its version on the chosen service and its stream
+ * link, both kept by the server for a while — so that it starts without the wait.
+ */
+function prepareNext(current: number) {
+  const st = usePlayer.getState();
+  if (!st.current || current < PREPARE_NEXT_AFTER_SECONDS || preparedAfter === st.current.id) return;
+  preparedAfter = st.current.id;
+  if (st.shuffle || st.repeat === 'one') return;
+  const next = st.queue[st.index + 1];
+  if (!next || next.source === 'local' || useDownloads.getState().saved[next.id]) return;
+  void preferredVersion(next, true)
+    .then((version) => api(`/tracks/${(version ?? next).id}/source`))
+    .catch(() => {});
+}
+
 /** Counts a play once the listener has heard a few seconds of the track. */
 function reportProgress(current: number, duration: number) {
   const track = usePlayer.getState().current;
@@ -168,6 +206,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
     destroyHls();
     set({ current: track, loading: true, error: null, currentTime: startAt, duration: track.duration });
     updateMediaSession(track);
+    // Fetched alongside the stream link rather than after it.
+    if (!nativeHls) loadHls().catch(() => {});
 
     try {
       // A copy saved on the device plays without the network.
@@ -205,13 +245,22 @@ export const usePlayer = create<PlayerState>((set, get) => {
         return;
       }
       youtubeStop();
-      if (source.kind === 'hls' && !audio.canPlayType('application/vnd.apple.mpegurl')) {
-        const { default: HlsLib } = await import('hls.js/light');
+      if (source.kind === 'hls' && !nativeHls) {
+        const HlsLib = await loadHls();
         if (seq !== loadSeq) return;
         if (!HlsLib.isSupported()) throw new Error('Браузер не поддерживает HLS-потоки');
-        hls = new HlsLib();
-        hls.loadSource(source.url);
-        hls.attachMedia(audio);
+        // The song starts as soon as its first seconds are in; the rest loads while it plays.
+        const started = new HlsLib({ maxBufferLength: START_BUFFER_SECONDS, startFragPrefetch: true });
+        hls = started;
+        audio.addEventListener(
+          'playing',
+          () => {
+            started.config.maxBufferLength = PLAY_BUFFER_SECONDS;
+          },
+          { once: true },
+        );
+        started.loadSource(source.url);
+        started.attachMedia(audio);
       } else {
         audio.src = source.url;
       }
@@ -392,6 +441,7 @@ audio.addEventListener('durationchange', () => {
 audio.addEventListener('timeupdate', () => {
   usePlayer.setState({ currentTime: audio.currentTime });
   reportProgress(audio.currentTime, audio.duration);
+  prepareNext(audio.currentTime);
 });
 audio.addEventListener('ended', () => {
   const { repeat, next } = usePlayer.getState();
@@ -444,6 +494,7 @@ const youtubeEvents: YouTubeEvents = {
   time: (current, duration) => {
     usePlayer.setState(duration > 0 ? { currentTime: current, duration } : { currentTime: current });
     reportProgress(current, duration);
+    prepareNext(current);
   },
   error: (message) => usePlayer.setState({ error: message, loading: false, playing: false }),
   closed: () => void continueWithoutVideo(),
