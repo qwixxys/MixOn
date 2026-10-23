@@ -49,7 +49,7 @@ describe('YouTube Music', () => {
   it('needs an API key', async () => {
     const provider = new YouTubeProvider(null, fakeFetch([]).impl);
     assert.equal(provider.isConfigured(), false);
-    await assert.rejects(provider.searchArtists('band'), /Ключах сервисов/);
+    await assert.rejects(provider.searchArtists('band'), /карточке YouTube Music/);
   });
 
   it('finds artist channels', async () => {
@@ -180,16 +180,13 @@ describe('YouTube Music', () => {
 
 describe('carrying on without the YouTube player', () => {
   class AudioService extends FakeProvider {
-    async search() {
-      return {
-        artists: [],
-        tracks: [
-          track('other', { title: 'Другая песня', artist: 'Band', duration: 200 }),
-          track('preview', { title: 'Hit', artist: 'Band', duration: 201, isPreview: true }),
-          track('long', { title: 'Hit (Extended Mix)', artist: 'Band', duration: 290 }),
-          track('match', { title: 'Hit', artist: 'Band feat. Guest', duration: 203 }),
-        ],
-      };
+    async searchTracks() {
+      return [
+        track('other', { title: 'Другая песня', artist: 'Band', duration: 200 }),
+        track('preview', { title: 'Hit', artist: 'Band', duration: 201, isPreview: true }),
+        track('long', { title: 'Hit (Extended Mix)', artist: 'Band', duration: 290 }),
+        track('match', { title: 'Hit', artist: 'Band feat. Guest', duration: 203 }),
+      ];
     }
   }
   const { impl } = fakeFetch([]);

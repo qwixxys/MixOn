@@ -64,7 +64,7 @@ export function NotificationsMenu() {
           {!items && <Loading />}
           {items && !items.length && (
             <p className="muted notifications-empty">
-              Здесь появятся новые релизы артистов, на которых вы подписаны в <Link to="/sync" onClick={close}>сервисах</Link>, и
+              Здесь появятся новые релизы <Link to="/library?tab=artists" onClick={close}>ваших артистов</Link> и
               загрузки людей, на которых вы подписаны.
             </p>
           )}

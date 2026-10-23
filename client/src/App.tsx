@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { NavBar, NavRail, TopAppBar } from './components/Header';
+import { NowPlaying } from './components/NowPlaying';
 import { PlayerBar } from './components/PlayerBar';
 import { PlaylistPicker } from './components/PlaylistPicker';
 import { Loading } from './components/States';
@@ -87,6 +88,7 @@ export function App() {
       </main>
       <PlayerBar />
       <NavBar />
+      <NowPlaying />
       <PlaylistPicker />
       <Toaster />
     </div>

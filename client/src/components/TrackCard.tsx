@@ -5,7 +5,7 @@ import { formatCount, formatTime, timeAgo } from '../lib/format';
 import { usePlayer, useTrackProgress } from '../store/player';
 import { Avatar, Cover } from './Cover';
 import { PlayButton } from './PlayButton';
-import { ServiceBadge } from './ServiceBadge';
+import { PreviewNote, ServiceBadge } from './ServiceBadge';
 import { TrackActions } from './TrackActions';
 import { Waveform } from './Waveform';
 import { Icon } from './Icon';
@@ -58,6 +58,7 @@ export function TrackCard({ track, queue, reason }: { track: Track; queue?: Trac
             <Link to={`/tracks/${track.id}`} className="track-card-title">
               {track.title}
             </Link>
+            <PreviewNote track={track} />
           </div>
           <div className="track-card-meta">
             <span className="muted small" title={track.releasedAt ?? track.createdAt}>

@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { api } from '../api/client';
-import type { Artist, Playlist } from '../api/types';
-import { Avatar } from '../components/Cover';
+import type { Playlist } from '../api/types';
 import { Switch, TextArea, TextField } from '../components/Material';
 import { Modal } from '../components/Modal';
+import { MyArtists } from '../components/MyArtists';
 import { PlaylistGrid } from '../components/PlaylistTile';
-import { ServiceBadge } from '../components/ServiceBadge';
 import { Empty, Loading } from '../components/States';
 import { FilteredTrackList } from '../components/FilteredTrackList';
 import { ImportPlaylistDialog } from '../components/ImportPlaylist';
@@ -117,34 +116,6 @@ function Playlists() {
   );
 }
 
-function Artists() {
-  const { data, loading } = useFetch<Artist[]>('/subscriptions');
-  if (loading) return <Loading />;
-  if (!data?.length) {
-    return (
-      <Empty icon={<Icon name="hub" size={32} />} title="Вы ещё не подписаны на артистов">
-        <Link to="/sync" className="btn btn-filled">
-          Найти артистов в сервисах
-        </Link>
-      </Empty>
-    );
-  }
-  return (
-    <div className="people">
-      {data.map((a) => (
-        <Link key={a.id} to={`/artists/${a.id}`} className="person">
-          <Avatar url={a.imageUrl} name={a.name} size={120} />
-          <span className="person-name">{a.name}</span>
-          <ServiceBadge source={a.provider} />
-          <span className="muted small">
-            {a.trackCount} {plural(a.trackCount, ['трек', 'трека', 'треков'])}
-          </span>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 export function LibraryPage() {
   const user = useAuth((s) => s.user)!;
   const [params, setParams] = useSearchParams();
@@ -185,7 +156,7 @@ export function LibraryPage() {
         />
       )}
       {tab === 'playlists' && <Playlists />}
-      {tab === 'artists' && <Artists />}
+      {tab === 'artists' && <MyArtists />}
       {tab === 'downloads' && <Downloads />}
     </div>
   );

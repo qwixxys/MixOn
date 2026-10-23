@@ -176,6 +176,11 @@ select {
   outline: 3px solid var(--md-sys-color-secondary);
   outline-offset: 2px;
 }
+/* No blue box where you tap: touch screens get the ripple instead of the browser's tap highlight (focus rings are
+   dropped for them at the end of this file, where they win over every component's own). */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
 
 /* ---------- typography ---------- */
 
@@ -971,6 +976,24 @@ code {
 .service-badge-preview {
   color: var(--md-sys-color-tertiary);
 }
+.preview-note {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  color: var(--md-sys-color-tertiary);
+  white-space: nowrap;
+}
+.preview-note .icon {
+  flex: none;
+}
+.tile .preview-note {
+  margin-top: 2px;
+}
 .service-icon {
   display: grid;
   place-items: center;
@@ -1341,6 +1364,10 @@ textarea.tf-input {
 .switch input:focus-visible ~ .switch-track {
   outline: 3px solid var(--md-sys-color-secondary);
   outline-offset: 2px;
+}
+.switch-row:has(input:disabled) {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* ---------- slider ---------- */
@@ -2014,6 +2041,8 @@ textarea.tf-input {
 }
 .description {
   white-space: pre-wrap;
+  /* Imported playlists carry their source link, which has no spaces to break at. */
+  overflow-wrap: anywhere;
   margin: 0 0 16px;
 }
 .facts {
@@ -2079,6 +2108,7 @@ textarea.tf-input {
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+  max-width: 100%;
 }
 .playlist-meta > span:first-child {
   display: inline-flex;
@@ -2585,9 +2615,24 @@ textarea.tf-input {
   gap: 12px;
   width: 300px;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .player-track .cover {
   border-radius: var(--md-sys-shape-corner-medium);
+}
+.player-track:hover .player-title {
+  text-decoration: underline;
+}
+.player-preview {
+  display: none;
+  flex: none;
+  color: var(--md-sys-color-tertiary);
 }
 .player-track-text {
   flex: 1;
@@ -2842,6 +2887,303 @@ textarea.tf-input {
 html.yt-docked .app.has-player {
   padding-bottom: calc(var(--player-space) + 252px);
 }
+/* Over the cover's place in the full-screen player (the spot is measured by NowPlaying). */
+.yt-dock.yt-dock-staged {
+  z-index: 97;
+  right: auto;
+  bottom: auto;
+  box-shadow: var(--md-sys-elevation-1);
+}
+.yt-dock-staged .yt-dock-frame {
+  flex: 1;
+  height: auto;
+  min-height: 200px;
+}
+.yt-dock-staged .yt-dock-move {
+  display: none;
+}
+
+/* ---------- full-screen player ---------- */
+
+html.now-playing,
+html.now-playing body {
+  overflow: hidden;
+}
+html.now-playing .toaster {
+  top: calc(env(safe-area-inset-top) + 72px);
+  bottom: auto;
+}
+.np {
+  position: fixed;
+  inset: 0;
+  z-index: 96;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  animation: np-in var(--md-sys-motion-duration-medium) var(--md-sys-motion-easing-emphasized-decelerate);
+}
+@keyframes np-in {
+  from {
+    opacity: 0;
+  }
+}
+/* The cover, blurred, tints the background the way music apps do. */
+.np-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.55;
+}
+.np-backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(64px) saturate(1.3);
+  transform: scale(1.3);
+}
+.np-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--md-sys-color-surface) 35%, transparent),
+    var(--md-sys-color-surface) 92%
+  );
+}
+.np-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 64px;
+  padding: 0 12px;
+}
+.np-head .icon-btn {
+  width: 48px;
+  height: 48px;
+  color: var(--md-sys-color-on-surface);
+}
+.np-head .icon-btn-selected {
+  color: var(--md-sys-color-primary);
+}
+.np-head-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.np-overline {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.np-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.np-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0 24px 16px;
+}
+.np-stage {
+  flex: 1;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+  padding: 8px 0 16px;
+}
+.np-cover {
+  width: min(100%, 44vh);
+  border-radius: var(--md-sys-shape-corner-large);
+  box-shadow: var(--md-sys-elevation-3);
+}
+@supports (width: 1cqh) {
+  .np-cover {
+    width: min(100cqw, 100cqh - 24px);
+  }
+}
+.np-cover .cover-icon {
+  width: 30%;
+  height: 30%;
+}
+/* YouTube's window goes here: at least 200 px of video under its 36 px strip. */
+.np-video {
+  flex: none;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 236px;
+  max-height: 100%;
+}
+.np-stage-queue {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 12px;
+  container-type: normal;
+  min-height: 0;
+}
+.np-queue {
+  flex: 1;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: color-mix(in srgb, var(--md-sys-color-surface-container) 85%, transparent);
+}
+.np-queue-head {
+  display: flex;
+  align-items: center;
+  padding: 8px 8px 0 16px;
+}
+.np-queue-head h3 {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 500;
+}
+.np-queue .queue-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 8px 8px;
+}
+.np-lower {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.np-titles {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.np-titles-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.np-title {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.np-artist {
+  align-self: flex-start;
+  max-width: 100%;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--md-sys-color-on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+a.np-title:hover,
+a.np-artist:hover {
+  text-decoration: underline;
+}
+.np-error {
+  color: var(--md-sys-color-error);
+}
+.np-notice {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.player-progress-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+}
+.player-times {
+  display: flex;
+  justify-content: space-between;
+}
+.player-times .player-time {
+  width: auto;
+}
+.np .range::-webkit-slider-thumb {
+  width: 6px;
+  height: 22px;
+  margin-top: -9px;
+  border-radius: 3px;
+  box-shadow: none;
+}
+.np .player-controls {
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.np .player-controls .icon-btn {
+  width: 56px;
+  height: 56px;
+  color: var(--md-sys-color-on-surface);
+}
+.np .player-controls .icon-btn-selected {
+  color: var(--md-sys-color-primary);
+}
+.np .player-controls .player-main-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+.np-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.np-actions .action-btn {
+  height: 36px;
+  background: color-mix(in srgb, var(--md-sys-color-surface-container-high) 70%, transparent);
+}
+.np-actions .player-volume {
+  margin-left: auto;
+}
+
+/* Wide windows: the cover on the left, the controls on the right. */
+@media (min-width: 900px) {
+  .np-body {
+    max-width: 1080px;
+    flex-direction: row;
+    align-items: center;
+    gap: 48px;
+    padding: 0 48px 48px;
+  }
+  .np-stage {
+    align-self: stretch;
+  }
+  .np-lower {
+    width: 400px;
+  }
+}
 
 /* ---------- responsive: compact (phones) ---------- */
 
@@ -2978,22 +3320,23 @@ html.yt-docked .app.has-player {
     padding: 0 12px;
   }
 
-  /* Mini player above the navigation bar. */
+  /* Mini player above the navigation bar; tapping it opens the full-screen player. */
   .player {
     left: 8px;
     right: 8px;
     bottom: calc(var(--navbar-h) + 8px);
     height: 64px;
     border-radius: var(--md-sys-shape-corner-large);
-    overflow: hidden;
   }
   .player-inner {
     padding: 0 4px 0 8px;
     gap: 8px;
+    cursor: pointer;
   }
-  .player-progress,
-  .player-volume,
-  .player-controls .player-secondary {
+  .player .player-progress,
+  .player .player-volume,
+  .player .player-controls .player-secondary,
+  .player-expand {
     display: none;
   }
   .player-track {
@@ -3001,24 +3344,61 @@ html.yt-docked .app.has-player {
     flex: 1;
     width: auto;
   }
-  .player-main-btn {
+  .player-track:hover .player-title {
+    text-decoration: none;
+  }
+  .player-preview {
+    display: inline;
+  }
+  .player .player-main-btn {
     width: 40px;
     height: 40px;
     border-radius: var(--md-sys-shape-corner-full);
   }
+  /* The line along the bottom edge seeks; its touch area reaches into the gap below the player. */
   .player-mini-progress {
     display: block;
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
-    height: 3px;
-    background: var(--md-sys-color-secondary-container);
+    bottom: -8px;
+    height: 22px;
+    cursor: pointer;
+    touch-action: none;
   }
-  .player-mini-progress span {
+  .player-mini-line {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 8px;
+    height: 3px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: var(--md-sys-color-secondary-container);
+    transition: height var(--md-sys-motion-duration-short) linear;
+  }
+  .player-mini-line span {
     display: block;
     height: 100%;
     background: var(--md-sys-color-primary);
+  }
+  .player-mini-progress.is-dragging .player-mini-line,
+  .player-mini-progress:focus-visible .player-mini-line {
+    height: 6px;
+    border-radius: 3px;
+  }
+  .player-mini-time {
+    position: absolute;
+    bottom: 18px;
+    transform: translateX(-50%);
+    padding: 2px 8px;
+    border-radius: var(--md-sys-shape-corner-small);
+    background: var(--md-sys-color-inverse-surface);
+    color: var(--md-sys-color-inverse-on-surface);
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
   }
   .queue {
     position: fixed;
@@ -3039,6 +3419,13 @@ html.yt-docked .app.has-player {
   }
   .player .service-badge {
     display: none;
+  }
+  /* Phones have volume buttons. */
+  .np-actions .player-volume {
+    display: none;
+  }
+  .np-body {
+    padding: 0 20px 12px;
   }
   .app:not(.has-player) .toaster {
     bottom: calc(var(--navbar-h) + 16px);
@@ -3406,6 +3793,45 @@ button.lyric-line:focus-visible {
 
 /* ---------- import by link ---------- */
 
+/* ---------- home: playlist import ---------- */
+
+.home-import {
+  --tf-bg: var(--md-sys-color-surface-container-low);
+  margin-bottom: 24px;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+.home-import summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 16px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 500;
+}
+.home-import summary::-webkit-details-marker {
+  display: none;
+}
+.home-import-title {
+  flex: 1;
+  min-width: 0;
+}
+.home-import-title .muted {
+  font-weight: 400;
+}
+.home-import[open] .key-form-chevron {
+  transform: rotate(180deg);
+}
+.home-import > form {
+  padding: 4px 16px 16px;
+}
+.import-progress {
+  margin: 0;
+  align-items: center;
+}
+
 .import-link-row {
   display: flex;
   align-items: flex-start;
@@ -3446,40 +3872,40 @@ button.lyric-line:focus-visible {
 
 /* ---------- service keys ---------- */
 
-.key-groups {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
-  gap: 16px;
+.key-form {
+  border-radius: var(--md-sys-shape-corner-medium);
+  background: var(--md-sys-color-surface-container);
 }
-.key-group {
+.key-form summary {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  border-radius: var(--md-sys-shape-corner-large);
-  border: 1px solid var(--md-sys-color-outline-variant);
-  background: var(--md-sys-color-surface-container-lowest);
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 500;
 }
-.key-group-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
+.key-form summary::-webkit-details-marker {
+  display: none;
 }
-.key-group-head .service-icon {
-  flex: none;
-}
-.key-group-title {
+.key-form-title {
   flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
-.key-group-head h3 {
-  margin: 0;
+.key-form-chevron {
+  color: var(--md-sys-color-on-surface-variant);
+  transition: transform var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
 }
-.key-group-head .pill {
-  flex: none;
+.key-form[open] .key-form-chevron {
+  transform: rotate(180deg);
+}
+.key-form form {
+  --tf-bg: var(--md-sys-color-surface-container);
+  padding: 4px 12px 12px;
+  gap: 12px;
+}
+.key-form .form-actions {
+  margin-top: 0;
 }
 .key-steps {
   margin: 0;
@@ -3504,6 +3930,12 @@ button.lyric-line:focus-visible {
   background: var(--md-sys-color-surface-container-high);
   color: var(--md-sys-color-on-surface);
 }
-.key-group .form-actions {
-  margin-top: 4px;
+
+/* Touch screens: no focus rings after a tap (keyboards on phones are rare; mouse and keyboard keep theirs). */
+@media (pointer: coarse), (hover: none) {
+  :focus,
+  :focus-visible,
+  :focus-visible ~ .switch-track {
+    outline: none !important;
+  }
 }

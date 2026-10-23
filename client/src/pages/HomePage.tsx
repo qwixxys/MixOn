@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import type { Track } from '../api/types';
+import type { Service, Track } from '../api/types';
+import { ImportLinkForm } from '../components/ImportPlaylist';
 import { SuggestedUsers } from '../components/SuggestedUsers';
 import { SyncWidget } from '../components/SyncWidget';
 import { GenreBar } from '../components/GenreBar';
@@ -65,6 +66,26 @@ function HistoryWidget() {
   );
 }
 
+/** Bringing playlists over from elsewhere (Spotify, Deezer, …); searching is in the bar at the top. */
+function ImportCard() {
+  const services = useFetch<Service[]>('/services');
+  const [open, setOpen] = useState(false);
+
+  return (
+    <details className="home-import" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>
+        <Icon name="playlist_add" size={20} />
+        <span className="home-import-title">
+          Импорт плейлиста <span className="muted">из Spotify, Deezer, SoundCloud или YouTube</span>
+        </span>
+        <Icon name="keyboard_arrow_down" size={20} className="key-form-chevron" />
+      </summary>
+      {open && services.data && <ImportLinkForm services={services.data} />}
+      {open && services.error && <ErrorState message={services.error} onRetry={services.reload} />}
+    </details>
+  );
+}
+
 function Stream() {
   const [type, setType] = useState<FeedType>('all');
   const list = useListQuery();
@@ -79,6 +100,7 @@ function Stream() {
   return (
     <div className="with-sidebar">
       <div className="content">
+        <ImportCard />
         <div className="page-header">
           <h1>Лента</h1>
           {/* Without uploads the standalone feed holds only releases. */}
@@ -100,8 +122,8 @@ function Stream() {
         {!feed.loading && !feed.error && !feed.items.length && (
           <Empty icon={<Icon name="hub" size={32} />} title="Лента пока пуста">
             <p>
-              Подпишитесь на любимых артистов в разделе <Link to="/sync">«Сервисы»</Link> — их новые треки из SoundCloud, ВК Музыки,
-              Deezer и других сервисов будут появляться здесь.
+              Найдите любимых артистов поиском вверху и подпишитесь — их новые треки из SoundCloud, ВК Музыки, YouTube, Deezer и других
+              сервисов будут появляться здесь.
               {!STANDALONE && (
                 <>
                   {' '}
@@ -111,7 +133,7 @@ function Stream() {
             </p>
             <div className="row-gap">
               <Link to="/sync" className="btn btn-filled">
-                <Icon name="hub" size={18} /> Найти артистов
+                <Icon name="hub" size={18} /> Подключить сервисы
               </Link>
               <Link to="/discover" className="btn btn-outlined">
                 <Icon name="explore" size={18} /> Обзор

@@ -2,7 +2,7 @@ import { Link } from 'react-router';
 import type { Track } from '../api/types';
 import { Cover } from './Cover';
 import { PlayButton } from './PlayButton';
-import { ServiceBadge } from './ServiceBadge';
+import { PreviewNote, ServiceBadge } from './ServiceBadge';
 
 export function TrackTile({ track, queue }: { track: Track; queue?: Track[] }) {
   return (
@@ -28,6 +28,7 @@ export function TrackTile({ track, queue }: { track: Track; queue?: Track[] }) {
         )}
       </div>
       <ServiceBadge source={track.source} preview={track.isPreview} />
+      <PreviewNote track={track} />
     </div>
   );
 }

@@ -220,7 +220,7 @@ async function showPhoneDialog() {
   if (addresses.length && response === 0) clipboard.writeText(addresses[0]);
 }
 
-/** The keys page of the app itself: Сервисы → Ключи сервисов. */
+/** The app's own services page, where each service's card takes its keys. */
 function openKeys() {
   if (!window || !running) return;
   window.loadURL(`http://127.0.0.1:${running.port}/sync#keys`);

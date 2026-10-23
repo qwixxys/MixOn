@@ -33,7 +33,7 @@ export interface AppConfig {
   jamendo: { clientId: string | null };
   /** `relayStreams` passes VK audio through this server (see VkOptions). */
   vk: { accessToken: string | null; apiVersion: string; userAgent: string; relayStreams: boolean };
-  /** `publicClient` allows the unofficial keyless mode when no official keys are set. */
+  /** `publicClient` allows the unofficial keyless mode when no official keys are set; on unless turned off. */
   soundcloud: { clientId: string | null; clientSecret: string | null; publicClient: boolean };
   genius: { accessToken: string | null };
   /** YouTube Data API v3 key (Google Cloud), for YouTube Music. */
@@ -84,13 +84,13 @@ export function loadConfig(): AppConfig {
     soundcloud: {
       clientId: process.env.SOUNDCLOUD_CLIENT_ID || null,
       clientSecret: process.env.SOUNDCLOUD_CLIENT_SECRET || null,
-      publicClient: ['1', 'true', 'yes', 'on'].includes((process.env.SOUNDCLOUD_PUBLIC_CLIENT ?? '').toLowerCase()),
+      publicClient: !['0', 'false', 'no', 'off'].includes((process.env.SOUNDCLOUD_PUBLIC_CLIENT ?? '').toLowerCase()),
     },
     genius: { accessToken: process.env.GENIUS_ACCESS_TOKEN || null },
     youtube: { apiKey: process.env.YOUTUBE_API_KEY || null },
     lrclib: {
       baseUrl: lrclibUrl(process.env.LRCLIB_URL),
-      userAgent: 'soundFy v0.5.1 (https://github.com/qwixxys/soundFy)',
+      userAgent: 'soundFy v0.6.0 (https://github.com/qwixxys/soundFy)',
     },
   };
 }

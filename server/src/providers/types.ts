@@ -109,6 +109,8 @@ export interface MusicProvider {
   searchArtists(query: string, ctx: ProviderContext): Promise<ExternalArtist[]>;
   /** Artists and tracks for the app-wide search (only artists when a service has no track search). */
   search?(query: string, ctx: ProviderContext): Promise<SearchHits>;
+  /** Tracks for a query, e.g. "artist title", to find a song from elsewhere (Spotify playlists, YouTube videos). */
+  searchTracks?(query: string, ctx: ProviderContext): Promise<ExternalTrack[]>;
   /** Latest tracks of an artist, newest first. */
   getArtistTracks(artist: ArtistRef, ctx: ProviderContext): Promise<ExternalTrack[]>;
   /** Fresh playable URL for a previously imported track. */

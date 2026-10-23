@@ -106,9 +106,30 @@ describe('ServiceSettings', () => {
     assert.throws(() => settings.save({ GENIUS_ACCESS_TOKEN: 'other' }), /окружения/);
 
     const restarted = testConfig();
-    new ServiceSettings(store, restarted, {});
+    new ServiceSettings(store, restarted, {}, {});
     assert.equal(restarted.soundcloud.clientId, 'new-id');
     assert.equal(restarted.soundcloud.clientSecret, 'new-secret');
     assert.equal(restarted.genius.accessToken, null);
+  });
+
+  it('ships a Genius key and uses keyless SoundCloud unless told otherwise', () => {
+    const store = dbStore(openDatabase(':memory:'));
+    const config = testConfig();
+    const settings = new ServiceSettings(store, config, {}, { GENIUS_ACCESS_TOKEN: 'built-in-token' });
+    assert.equal(config.genius.accessToken, 'built-in-token');
+    assert.equal(config.soundcloud.publicClient, true, 'keyless mode is on by default');
+    const genius = settings.list().find((k) => k.name === 'GENIUS_ACCESS_TOKEN')!;
+    assert.deepEqual([genius.source, genius.preview], ['builtin', null], 'the built-in key is never shown');
+    assert.equal(settings.list().find((k) => k.name === 'SOUNDCLOUD_PUBLIC_CLIENT')!.preview, 'on');
+
+    settings.save({ GENIUS_ACCESS_TOKEN: 'my-own-genius-token', SOUNDCLOUD_PUBLIC_CLIENT: '0' });
+    assert.equal(config.genius.accessToken, 'my-own-genius-token');
+    assert.equal(config.soundcloud.publicClient, false);
+    const restarted = testConfig();
+    new ServiceSettings(store, restarted, {}, { GENIUS_ACCESS_TOKEN: 'built-in-token' });
+    assert.equal(restarted.soundcloud.publicClient, false, 'turned off stays off');
+
+    settings.save({ GENIUS_ACCESS_TOKEN: null });
+    assert.equal(config.genius.accessToken, 'built-in-token', 'removing your key brings the built-in one back');
   });
 });

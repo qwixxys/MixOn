@@ -2,7 +2,7 @@
 // play its videos, and they ask for the player to stay visible, at least 200×200 px, with nothing drawn over it. So
 // while a YouTube track plays, the player sits in a small window in a corner and the app drives it like the <audio>
 // element. A strip above the video can move the window or close it; closing pauses the video and lets the player
-// carry on with the same song from another service.
+// carry on with the same song from another service. The full-screen player puts the window where the cover would be.
 import closeSvg from '@material-symbols/svg-400/rounded/close.svg?raw';
 import swapSvg from '@material-symbols/svg-400/rounded/swap_vert.svg?raw';
 
@@ -69,6 +69,9 @@ let handlers: YouTubeEvents | null = null;
 let active = false;
 /** The listener closed the window: the track is paused until they press play. */
 let closed = false;
+/** Where the full-screen player wants the window (viewport pixels), or null for its corner. */
+let stage: { top: number; left: number; width: number; height: number } | null = null;
+const shownListeners = new Set<() => void>();
 
 /** The video id in a YouTube link (https://www.youtube.com/watch?v=…). */
 export function videoIdOf(url: string): string | null {
@@ -117,6 +120,35 @@ function describeError(code: number): string {
 function showDock(visible: boolean) {
   if (dock) dock.hidden = !visible;
   document.documentElement.classList.toggle('yt-docked', visible && !dock?.classList.contains('yt-dock-top'));
+  for (const listener of shownListeners) listener();
+}
+
+function applyStage() {
+  if (!dock) return;
+  dock.classList.toggle('yt-dock-staged', Boolean(stage));
+  const px = (n: number | undefined) => (n === undefined ? '' : `${Math.round(n)}px`);
+  dock.style.top = px(stage?.top);
+  dock.style.left = px(stage?.left);
+  dock.style.width = px(stage?.width);
+  dock.style.height = px(stage?.height);
+}
+
+/** Whether YouTube's window is on screen (a YouTube track is playing and the window was not closed). */
+export function youtubeShown() {
+  return Boolean(dock && !dock.hidden);
+}
+
+export function onYoutubeShown(listener: () => void) {
+  shownListeners.add(listener);
+  return () => {
+    shownListeners.delete(listener);
+  };
+}
+
+/** Moves the window over `box` while the full-screen player is open; null puts it back in its corner. */
+export function youtubeStage(box: { top: number; left: number; width: number; height: number } | null) {
+  stage = box;
+  applyStage();
 }
 
 function savedAtTop() {
@@ -127,10 +159,10 @@ function savedAtTop() {
   }
 }
 
-function dockButton(svg: string, label: string, onClick: () => void) {
+function dockButton(svg: string, label: string, onClick: () => void, className = '') {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'icon-btn';
+  button.className = `icon-btn ${className}`.trim();
   button.title = label;
   button.setAttribute('aria-label', label);
   button.innerHTML = svg;
@@ -159,7 +191,7 @@ function createDock() {
         // the position is just not remembered
       }
       showDock(true);
-    }),
+    }, 'yt-dock-move'),
     dockButton(closeSvg, 'Закрыть видео и слушать дальше без него', () => {
       youtubeClose();
       handlers?.closed();
@@ -171,6 +203,8 @@ function createDock() {
   frame.append(target);
   el.append(bar, frame);
   document.body.append(el);
+  dock = el;
+  applyStage();
   return { el, target };
 }
 
@@ -185,9 +219,7 @@ function stopPolling() {
 }
 
 function createPlayer(videoId: string, startAt: number): Promise<YTPlayer> {
-  const created = createDock();
-  dock = created.el;
-  const { target } = created;
+  const { target } = createDock();
   return loadApi().then(
     (YT) =>
       new Promise<YTPlayer>((resolve) => {

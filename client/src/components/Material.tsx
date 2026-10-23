@@ -50,11 +50,13 @@ export function Switch({
   onChange,
   label,
   description,
+  disabled = false,
 }: {
   checked: boolean;
   onChange(checked: boolean): void;
   label: ReactNode;
   description?: ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <label className="switch-row">
@@ -63,7 +65,7 @@ export function Switch({
         {description && <span className="muted small" style={{ display: 'block' }}>{description}</span>}
       </span>
       <span className="switch">
-        <input type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
         <span className="switch-track" />
         <span className="switch-handle" />
       </span>

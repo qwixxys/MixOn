@@ -40,8 +40,8 @@ export function DiscoverSections() {
           <Link to="/upload" className="btn btn-filled">
             <Icon name="upload" size={18} /> Загрузить трек
           </Link>
-          <Link to="/sync" className="btn btn-outlined">
-            Подписаться на артистов
+          <Link to="/search" className="btn btn-outlined">
+            Найти артистов
           </Link>
         </div>
       </Empty>

@@ -162,12 +162,13 @@ export class DeezerProvider implements MusicProvider {
   }
 
   async search(query: string): Promise<SearchHits> {
-    const [artists, found] = await Promise.all([
-      this.searchArtists(query),
-      this.get<DeezerList<DzTrack>>(`/search/track?q=${encodeURIComponent(query)}&limit=${SEARCH_TRACK_LIMIT}`),
-    ]);
-    const tracks = (found.data ?? []).map((t) => mapTrack(t, t.album)).filter((t): t is ExternalTrack => t !== null);
+    const [artists, tracks] = await Promise.all([this.searchArtists(query), this.searchTracks(query)]);
     return { artists, tracks };
+  }
+
+  async searchTracks(query: string): Promise<ExternalTrack[]> {
+    const found = await this.get<DeezerList<DzTrack>>(`/search/track?q=${encodeURIComponent(query)}&limit=${SEARCH_TRACK_LIMIT}`);
+    return (found.data ?? []).map((t) => mapTrack(t, t.album)).filter((t): t is ExternalTrack => t !== null);
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {

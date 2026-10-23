@@ -20,7 +20,8 @@ export interface ServiceKeyInfo {
   label: string;
   secret: boolean;
   flag: boolean;
-  source: 'env' | 'app' | null;
+  /** The environment (.env), the app, soundFy's built-in key (Genius), or not set. */
+  source: 'env' | 'app' | 'builtin' | null;
   preview: string | null;
 }
 
@@ -126,6 +127,9 @@ export interface ImportResult {
   fetched: number;
   total: number;
   newTracks: number;
+  /** Spotify imports: songs found nowhere, and songs found only as 30-second previews. */
+  missing?: number;
+  previews?: number;
 }
 
 export interface FoundArtist {

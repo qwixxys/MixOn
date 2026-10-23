@@ -137,7 +137,7 @@ function UserMenu({ onAppearance }: { onAppearance(): void }) {
             <Icon name="library_music" size={24} /> Медиатека
           </Link>
           <Link to="/sync" className="menu-item" role="menuitem">
-            <Icon name="hub" size={24} /> Сервисы и артисты
+            <Icon name="hub" size={24} /> Сервисы
           </Link>
           <button className="menu-item" role="menuitem" onClick={onAppearance}>
             <Icon name="palette" size={24} /> Оформление

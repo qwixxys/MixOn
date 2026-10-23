@@ -15,15 +15,36 @@ const EXAMPLES: Record<string, string> = {
   soundcloud: 'soundcloud.com/автор/sets/…',
   youtube: 'music.youtube.com/playlist?list=…',
 };
+const SPOTIFY_EXAMPLE = 'open.spotify.com/playlist/… или /album/…';
+const isSpotify = (url: string) => /(^|[/.])(open\.spotify\.com|spotify\.link|spoti\.fi)(\/|$)/i.test(url.trim());
+
+function resultMessage(r: ImportResult) {
+  const count = `${r.imported} ${plural(r.imported, ['трек', 'трека', 'треков'])}`;
+  if (r.missing !== undefined) {
+    // Spotify: songs are looked up on the listener's services.
+    return (
+      `«${r.title}»: найдено ${r.imported} из ${r.fetched}` +
+      (r.previews ? `, из них ${r.previews} — 30-секундные отрывки` : '') +
+      (r.missing ? `. Не нашлось: ${r.missing}` : '')
+    );
+  }
+  const unavailable = r.fetched - r.imported;
+  return (
+    `«${r.title}»: ${count}` +
+    (unavailable > 0 ? `, ${unavailable} недоступно для прослушивания` : '') +
+    (r.total > r.fetched ? `. Взяты первые ${r.fetched} из ${r.total}` : '')
+  );
+}
 
 /**
  * Copies a public playlist or album from another service by its link: no keys and no login on that service.
- * The result is a private playlist; importing the same link again adds what is new.
+ * Spotify plays only in its own apps, so its songs are found on the listener's services instead. The result is a
+ * private playlist; importing the same link again adds what is new.
  */
 export function ImportLinkForm({ services, onDone }: { services: Service[]; onDone?(): void }) {
   const navigate = useNavigate();
   const [url, setUrl] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'import' | 'spotify' | null>(null);
   const sources = services.filter((s) => s.importsLinks);
   const previews = sources.filter((s) => !s.fullTracks).map((s) => s.name);
   if (!sources.length) return null;
@@ -39,21 +60,16 @@ export function ImportLinkForm({ services, onDone }: { services: Service[]; onDo
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
-    setBusy(true);
+    setBusy(isSpotify(url) ? 'spotify' : 'import');
     try {
       const r = await api<ImportResult>('/import', { body: { url: url.trim() } });
-      const unavailable = r.fetched - r.imported;
-      toast.success(
-        `«${r.title}»: ${r.imported} ${plural(r.imported, ['трек', 'трека', 'треков'])}` +
-          (unavailable > 0 ? `, ${unavailable} недоступно для прослушивания` : '') +
-          (r.total > r.fetched ? `. Взяты первые ${r.fetched} из ${r.total}` : ''),
-      );
+      toast.success(resultMessage(r));
       onDone?.();
       navigate(`/playlists/${r.playlistId}`);
     } catch (err) {
       toast.error(err);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
@@ -67,22 +83,30 @@ export function ImportLinkForm({ services, onDone }: { services: Service[]; onDo
           inputMode="url"
           autoComplete="off"
           maxLength={2000}
-          supportingText={sources.map((s) => EXAMPLES[s.id] ?? s.name).join(' · ')}
+          supportingText={[SPOTIFY_EXAMPLE, ...sources.map((s) => EXAMPLES[s.id] ?? s.name)].join(' · ')}
         />
         {typeof navigator.clipboard?.readText === 'function' && (
-          <button type="button" className="icon-btn" onClick={paste} title="Вставить из буфера обмена" disabled={busy}>
+          <button type="button" className="icon-btn" onClick={paste} title="Вставить из буфера обмена" disabled={busy !== null}>
             <Icon name="content_paste" />
           </button>
         )}
-        <button className="btn btn-filled" disabled={busy || !url.trim()}>
+        <button className="btn btn-filled" disabled={busy !== null || !url.trim()}>
           <Icon name={busy ? 'progress_activity' : 'download'} size={18} className={busy ? 'spin' : ''} />
           {busy ? 'Импортируем…' : 'Импортировать'}
         </button>
       </div>
-      <span className="muted small">
-        Работает с открытыми плейлистами {sources.map((s) => s.name).join(', ')}, входить в эти сервисы не нужно.
-        {previews.length > 0 && ` Треки ${previews.join(' и ')} доступны как 30-секундные превью.`}
-      </span>
+      {busy === 'spotify' ? (
+        <span className="small notice import-progress">
+          <Icon name="progress_activity" size={18} className="spin" />
+          <span>Ищем каждую песню плейлиста в ваших сервисах — это может занять минуту-другую.</span>
+        </span>
+      ) : (
+        <span className="muted small">
+          Работает с открытыми плейлистами Spotify, {sources.map((s) => s.name).join(', ')}, входить в эти сервисы не нужно. Песни
+          из Spotify soundFy находит в подключённых сервисах: сам Spotify играет музыку только в своих приложениях.
+          {previews.length > 0 && ` Треки ${previews.join(' и ')} доступны как 30-секундные отрывки.`}
+        </span>
+      )}
     </form>
   );
 }

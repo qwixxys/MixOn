@@ -254,11 +254,13 @@ export class SoundCloudWebProvider implements MusicProvider {
   }
 
   async search(query: string): Promise<SearchHits> {
-    const [artists, page] = await Promise.all([
-      this.searchArtists(query),
-      this.get<ScWebPage<ScWebTrack>>(`/search/tracks?q=${encodeURIComponent(query)}&limit=${SEARCH_TRACK_LIMIT}`),
-    ]);
-    return { artists, tracks: this.mapTracks(page.collection) };
+    const [artists, tracks] = await Promise.all([this.searchArtists(query), this.searchTracks(query)]);
+    return { artists, tracks };
+  }
+
+  async searchTracks(query: string): Promise<ExternalTrack[]> {
+    const page = await this.get<ScWebPage<ScWebTrack>>(`/search/tracks?q=${encodeURIComponent(query)}&limit=${SEARCH_TRACK_LIMIT}`);
+    return this.mapTracks(page.collection);
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {

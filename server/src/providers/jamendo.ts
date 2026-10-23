@@ -101,11 +101,13 @@ export class JamendoProvider implements MusicProvider {
   }
 
   async search(query: string): Promise<SearchHits> {
-    const [artists, tracks] = await Promise.all([
-      this.searchArtists(query),
-      this.get<JmTrack>('/tracks/', { search: query, limit: String(SEARCH_TRACK_LIMIT), ...TRACK_PARAMS }),
-    ]);
-    return { artists, tracks: tracks.filter((t) => t.audio).map(mapTrack) };
+    const [artists, tracks] = await Promise.all([this.searchArtists(query), this.searchTracks(query)]);
+    return { artists, tracks };
+  }
+
+  async searchTracks(query: string): Promise<ExternalTrack[]> {
+    const tracks = await this.get<JmTrack>('/tracks/', { search: query, limit: String(SEARCH_TRACK_LIMIT), ...TRACK_PARAMS });
+    return tracks.filter((t) => t.audio).map(mapTrack);
   }
 
   async resolveStream(track: StoredExternalTrack): Promise<StreamSource | null> {

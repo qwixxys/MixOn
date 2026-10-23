@@ -127,7 +127,7 @@ export async function boot(): Promise<void> {
 
   const config = standaloneConfig();
   const store = dbStore(db);
-  // Keys entered in the app (Синхронизация → Ключи сервисов) are kept in the database like on a server.
+  // Keys entered in the app (the service cards on «Сервисы») are kept in the database like on a server.
   const settings = new ServiceSettings(store, config, {});
   const providers = createProviders(config, store, fetchImpl);
   const sync = new SyncService(db, providers);

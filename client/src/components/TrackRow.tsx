@@ -5,7 +5,7 @@ import { useDownloads } from '../store/downloads';
 import { usePlayer } from '../store/player';
 import { Cover } from './Cover';
 import { LikeButton } from './LikeButton';
-import { ServiceBadge } from './ServiceBadge';
+import { PreviewNote, ServiceBadge } from './ServiceBadge';
 import { Icon } from './Icon';
 
 /** Compact single-line track entry for playlists, queues and sidebars. */
@@ -42,6 +42,7 @@ export function TrackRow({
           {saved && <Icon name="download_done" size={14} className="track-row-saved" />}
           {track.artist}
         </span>
+        <PreviewNote track={track} />
       </div>
       {!compact && <ServiceBadge source={track.source} preview={track.isPreview} />}
       {!compact && <LikeButton track={track} small />}

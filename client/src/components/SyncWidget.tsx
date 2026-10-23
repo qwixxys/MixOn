@@ -49,8 +49,8 @@ export function SyncWidget({ onSynced }: { onSynced?: () => void }) {
     <section className="side-card">
       <div className="side-card-header">
         <h3>Синхронизация</h3>
-        <Link to="/sync" className="small">
-          Все сервисы
+        <Link to="/library?tab=artists" className="small">
+          Мои артисты
         </Link>
       </div>
       {artists && artists.length > 0 ? (
@@ -73,10 +73,10 @@ export function SyncWidget({ onSynced }: { onSynced?: () => void }) {
       ) : (
         <>
           <p className="muted small">
-            Подпишитесь на артистов в SoundCloud, ВК Музыке, Deezer, Apple Music или Jamendo — их новые треки будут появляться в вашей
-            ленте.
+            Найдите артистов поиском и подпишитесь — их новые треки из SoundCloud, ВК Музыки, YouTube, Deezer и других сервисов будут
+            появляться в вашей ленте.
           </p>
-          <Link to="/sync" className="btn btn-filled btn-block">
+          <Link to="/sync" className="btn btn-outlined btn-block">
             Подключить сервисы
           </Link>
         </>

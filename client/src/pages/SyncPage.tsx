@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { api } from '../api/client';
-import type { Artist, FoundArtist, Service, SyncResult, SyncSummary } from '../api/types';
-import { Avatar } from '../components/Cover';
+import type { Service, ServiceKeyInfo } from '../api/types';
 import { TextField } from '../components/Material';
-import { ServiceBadge, ServiceIcon } from '../components/ServiceBadge';
-import { ImportLinkForm } from '../components/ImportPlaylist';
-import { ServiceKeys } from '../components/ServiceKeys';
-import { Empty, ErrorState, Loading } from '../components/States';
-import { runSync } from '../components/SyncWidget';
-import { Tabs } from '../components/Tabs';
-import { plural, timeAgo } from '../lib/format';
-import { openFoundArtist } from '../lib/openArtist';
+import { ServiceIcon } from '../components/ServiceBadge';
+import { KeyFlag, KeyForm, keyGuides } from '../components/ServiceKeys';
+import { ErrorState, Loading } from '../components/States';
+import { plural } from '../lib/format';
 import { serviceInfo } from '../lib/services';
 import { STANDALONE } from '../lib/standalone';
 import { useFetch } from '../lib/useFetch';
@@ -43,8 +38,16 @@ function VkInstructions() {
   );
 }
 
-function ServiceCard({ service, onChange }: { service: Service; onChange(s: Service): void }) {
+interface CardKeys {
+  /** This service's keys; null for listeners other than the server's owner, who cannot see or change them. */
+  list: ServiceKeyInfo[] | null;
+  onSaved(list: ServiceKeyInfo[]): void;
+}
+
+function ServiceCard({ service, keys, onChange }: { service: Service; keys: CardKeys; onChange(s: Service): void }) {
   const user = useAuth((s) => s.user);
+  const guide = keyGuides(location.origin)[service.id];
+  const flag = keys.list?.find((k) => k.flag);
   const navigate = useNavigate();
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -131,23 +134,20 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
           <Icon name="warning" size={18} />
           <span>
             Работает без ключей через внутренний API сайта {service.name}, как его веб-плеер. Сервис не разрешает такое использование и
-            может в любой момент перестать отвечать. {STANDALONE ? 'Режим включён в разделе «Ключи сервисов».' : 'Режим включил администратор сервера.'}
+            может в любой момент перестать отвечать.{keys.list && ' Можно указать свои ключи ниже или выключить этот режим.'}
           </span>
         </div>
       )}
 
-      {!service.configured && (
+      {!service.configured && !keys.list && (
         <div className="small notice">
           <Icon name="key" size={18} />
-          {user?.owner ? (
-            <span>
-              Нужны ключи API: укажите их ниже, в разделе <a href="#keys">«Ключи сервисов»</a>.
-            </span>
-          ) : (
-            <span>Сервису нужны ключи API — их указывает владелец сервера.</span>
-          )}
+          <span>Сервису нужны ключи API — их указывает владелец сервера.</span>
         </div>
       )}
+
+      {flag && <KeyFlag flag={flag} onSaved={keys.onSaved} />}
+      {guide && keys.list && <KeyForm guide={guide} keys={keys.list} onSaved={keys.onSaved} optional={service.configured} />}
 
       {service.configured && service.connectMode && (
         <>
@@ -208,225 +208,6 @@ function ServiceCard({ service, onChange }: { service: Service; onChange(s: Serv
   );
 }
 
-function ArtistSearch({ services, onSubscribed }: { services: Service[]; onSubscribed(): void }) {
-  const user = useAuth((s) => s.user);
-  const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
-  const available = services.filter((s) => s.available);
-  const [provider, setProvider] = useState(params.get('provider') ?? available[0]?.id ?? 'deezer');
-  const [q, setQ] = useState(params.get('q') ?? '');
-  const [results, setResults] = useState<FoundArtist[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [pending, setPending] = useState<string | null>(null);
-
-  const search = async (query = q, prov = provider) => {
-    if (!query.trim()) return;
-    setLoading(true);
-    setError(null);
-    setParams(
-      (p) => {
-        p.set('q', query.trim());
-        p.set('provider', prov);
-        return p;
-      },
-      { replace: true },
-    );
-    try {
-      setResults(await api<FoundArtist[]>(`/services/${prov}/artists?q=${encodeURIComponent(query.trim())}`));
-    } catch (err) {
-      setResults(null);
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (params.get('q')) void search(params.get('q')!, provider);
-    // Only run for the query the page was opened with.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const [opening, setOpening] = useState<string | null>(null);
-  const open = async (a: FoundArtist) => {
-    setOpening(a.externalId);
-    try {
-      navigate(`/artists/${await openFoundArtist(a)}`);
-    } catch (err) {
-      toast.error(err);
-      setOpening(null);
-    }
-  };
-
-  const subscribe = async (a: FoundArtist) => {
-    setPending(a.externalId);
-    try {
-      const res = await api<{ artist: Artist; sync: SyncResult }>('/subscriptions', {
-        body: { provider: a.provider, externalId: a.externalId, name: a.name, imageUrl: a.imageUrl, url: a.url },
-      });
-      setResults((r) => r?.map((x) => (x.externalId === a.externalId ? { ...x, isSubscribed: true, artistId: res.artist.id } : x)) ?? null);
-      if (res.sync.error) toast.error(`Подписка оформлена, но загрузить треки не удалось: ${res.sync.error}`);
-      else toast.success(`${a.name}: загружено ${res.sync.fetched} ${plural(res.sync.fetched, ['трек', 'трека', 'треков'])}`);
-      onSubscribed();
-    } catch (err) {
-      toast.error(err);
-    } finally {
-      setPending(null);
-    }
-  };
-
-  if (!available.length) return null;
-  return (
-    <section className="section">
-      <h2>Найти артиста</h2>
-      <Tabs
-        tabs={available.map((s) => ({ id: s.id, label: s.name }))}
-        value={provider}
-        onChange={(id) => {
-          setProvider(id);
-          setResults(null);
-          if (q.trim()) void search(q, id);
-        }}
-      />
-      <form
-        className="search search-large"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void search();
-        }}
-      >
-        <Icon name="search" size={18} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Имя артиста или группы" />
-        <button className="btn btn-filled btn-small" disabled={loading || !q.trim()}>
-          Найти
-        </button>
-      </form>
-      {loading && <Loading label="Ищем…" />}
-      {error && <ErrorState message={error} />}
-      {results && !results.length && <Empty title="Никого не нашли">Попробуйте другое написание или другой сервис.</Empty>}
-      <div className="artist-results">
-        {results?.map((a) => (
-          <div key={a.externalId} className="artist-result">
-            <Avatar url={a.imageUrl} name={a.name} size={56} />
-            <div className="artist-result-main">
-              <button type="button" className="link-btn" disabled={opening !== null} onClick={() => open(a)} title="Открыть страницу артиста">
-                {opening === a.externalId ? 'Загружаем треки…' : a.name}
-              </button>
-              {a.subtitle && <span className="muted small">{a.subtitle}</span>}
-            </div>
-            {a.url && (
-              <a className="icon-btn" href={a.url} target="_blank" rel="noreferrer" title="Открыть в сервисе">
-                <Icon name="open_in_new" />
-              </a>
-            )}
-            {user ? (
-              <button
-                className={`btn btn-small ${a.isSubscribed ? 'btn-outlined' : 'btn-filled'}`}
-                disabled={a.isSubscribed || pending !== null}
-                onClick={() => subscribe(a)}
-              >
-                {pending === a.externalId ? 'Загружаем…' : a.isSubscribed ? 'Вы подписаны' : 'Подписаться'}
-              </button>
-            ) : (
-              <Link to="/login?next=/sync" className="btn btn-small btn-filled">
-                Подписаться
-              </Link>
-            )}
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function MyArtists() {
-  const { data, loading, error, reload, setData } = useFetch<Artist[]>('/subscriptions');
-  const [syncing, setSyncing] = useState<number | 'all' | null>(null);
-
-  const syncOne = async (a: Artist) => {
-    setSyncing(a.id);
-    try {
-      const r = await api<SyncResult>(`/artists/${a.id}/sync`, { method: 'POST' });
-      toast.success(
-        `${a.name}: ${r.newTracks ? `${r.newTracks} ${plural(r.newTracks, ['новый трек', 'новых трека', 'новых треков'])}` : 'новых треков нет'}`,
-      );
-    } catch (err) {
-      toast.error(err);
-    } finally {
-      setSyncing(null);
-      reload();
-    }
-  };
-
-  const syncAll = async () => {
-    setSyncing('all');
-    const summary: SyncSummary | null = await runSync();
-    setSyncing(null);
-    if (summary) reload();
-  };
-
-  const unsubscribe = async (a: Artist) => {
-    try {
-      await api(`/subscriptions/${a.id}`, { method: 'DELETE' });
-      setData((d) => d?.filter((x) => x.id !== a.id) ?? null);
-    } catch (err) {
-      toast.error(err);
-    }
-  };
-
-  return (
-    <section className="section">
-      <div className="section-header">
-        <h2>Мои артисты</h2>
-        {data && data.length > 0 && (
-          <button className="btn btn-filled btn-small" onClick={syncAll} disabled={syncing !== null}>
-            <Icon name="refresh" size={18} className={syncing === 'all' ? 'spin' : ''} /> Проверить новинки у всех
-          </button>
-        )}
-      </div>
-      {loading && !data && <Loading />}
-      {error && <ErrorState message={error} onRetry={reload} />}
-      {data && !data.length && (
-        <Empty title="Подписок пока нет">Найдите артиста выше — его новые треки будут появляться в вашей ленте и уведомлениях.</Empty>
-      )}
-      <div className="subscriptions">
-        {data?.map((a) => (
-          <div key={a.id} className="subscription">
-            <Link to={`/artists/${a.id}`}>
-              <Avatar url={a.imageUrl} name={a.name} size={48} />
-            </Link>
-            <div className="subscription-main">
-              <div className="row-gap">
-                <Link to={`/artists/${a.id}`} className="strong">
-                  {a.name}
-                </Link>
-                <ServiceBadge source={a.provider} />
-              </div>
-              <span className="muted small">
-                {a.trackCount} {plural(a.trackCount, ['трек', 'трека', 'треков'])}
-                {a.latestReleaseAt && <> · последний релиз {timeAgo(a.latestReleaseAt)}</>}
-                {a.lastSyncedAt ? <> · проверено {timeAgo(a.lastSyncedAt)}</> : <> · ещё не синхронизирован</>}
-              </span>
-              {a.lastError && (
-                <span className="small error-text">
-                  <Icon name="error" size={18} /> {a.lastError}
-                </span>
-              )}
-            </div>
-            <button className="icon-btn" onClick={() => syncOne(a)} disabled={syncing !== null} title="Проверить новинки">
-              <Icon name="refresh" className={syncing === a.id ? 'spin' : ''} />
-            </button>
-            <button className="icon-btn" onClick={() => unsubscribe(a)} title="Отписаться">
-              <Icon name="delete" />
-            </button>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 /** Shows the outcome of an OAuth login the service redirected back from (?connected=… or ?error=…). */
 function useOAuthResult() {
   const [params, setParams] = useSearchParams();
@@ -447,51 +228,85 @@ function useOAuthResult() {
   }, [params, setParams]);
 }
 
+/** Genius is no music service, so it has a card of its own: just its key (soundFy ships with one). */
+function GeniusCard({ keys }: { keys: CardKeys & { list: ServiceKeyInfo[] } }) {
+  const guide = keyGuides(location.origin).genius;
+  const ready = keys.list.every((k) => k.source);
+  return (
+    <div className="service-card">
+      <div className="service-card-head">
+        <ServiceIcon id="genius" size={48} />
+        <div>
+          <h3>Genius</h3>
+          <div className="row-gap">
+            <span className="pill">Сведения о песнях</span>
+            {ready ? (
+              <span className="pill pill-good">
+                <Icon name="check" size={18} /> Доступен
+              </span>
+            ) : (
+              <span className="pill pill-warn">Не настроен</span>
+            )}
+          </div>
+        </div>
+      </div>
+      <p className="muted">{guide.what}</p>
+      <KeyForm guide={guide} keys={keys.list} onSaved={keys.onSaved} />
+    </div>
+  );
+}
+
 export function SyncPage() {
   const user = useAuth((s) => s.user);
   const { data: services, loading, error, reload, setData } = useFetch<Service[]>('/services');
-  const [version, setVersion] = useState(0);
+  // Keys are the owner's business: other listeners see whether a service works, not its keys.
+  const keys = useFetch<ServiceKeyInfo[]>(user?.owner ? '/settings/keys' : null);
   useOAuthResult();
 
   useEffect(() => {
-    const bump = () => setVersion((v) => v + 1);
-    window.addEventListener('soundfy:subscriptions', bump);
-    return () => window.removeEventListener('soundfy:subscriptions', bump);
-  }, []);
+    if (services && keys.data && location.hash === '#keys') document.getElementById('keys')?.scrollIntoView({ behavior: 'smooth' });
+  }, [services, keys.data]);
+
+  const onKeysSaved = (list: ServiceKeyInfo[]) => {
+    keys.setData(() => list);
+    reload();
+  };
+  const keysOf = (service: string): CardKeys => ({
+    list: keys.data ? keys.data.filter((k) => k.service === service) : null,
+    onSaved: onKeysSaved,
+  });
+  const genius = keysOf('genius');
 
   return (
     <div className="page">
       <div className="page-header page-header-column">
-        <h1>Сервисы и синхронизация</h1>
+        <h1>Сервисы</h1>
         <p className="muted">
-          Подпишитесь на артистов в SoundCloud, ВК Музыке, Deezer, Apple Music и Jamendo. soundFy регулярно проверяет их новые треки,
-          добавляет в вашу ленту и присылает уведомления.
+          Подключите музыкальные сервисы — soundFy ищет в них артистов и треки, играет их и проверяет новые релизы.{' '}
+          {user?.owner && (STANDALONE ? 'Ключи API хранятся на телефоне. ' : 'Ключи API видны только вам как владельцу сервера. ')}
+          Искать музыку и импортировать плейлисты — на <Link to="/">главной</Link>, подписки на артистов — в{' '}
+          <Link to="/library?tab=artists">Медиатеке</Link>.
         </p>
       </div>
-      {loading && <Loading />}
+      {(loading || keys.loading) && !services && <Loading />}
       {error && <ErrorState message={error} onRetry={reload} />}
+      {keys.error && <ErrorState message={keys.error} onRetry={keys.reload} />}
       {services && (
-        <>
-          <div className="service-grid">
-            {services.map((s) => (
-              <ServiceCard key={s.id} service={s} onChange={(u) => setData((list) => list?.map((x) => (x.id === u.id ? u : x)) ?? null)} />
-            ))}
-          </div>
-          {user?.owner && <ServiceKeys onSaved={reload} />}
-          {user && services.some((s) => s.importsLinks) && (
-            <section className="section">
-              <h2>Импорт плейлиста по ссылке</h2>
-              <ImportLinkForm services={services} />
-            </section>
-          )}
-          <ArtistSearch services={services} onSubscribed={() => setVersion((v) => v + 1)} />
-        </>
+        <div className="service-grid" id="keys">
+          {services.map((s) => (
+            <ServiceCard
+              key={s.id}
+              service={s}
+              keys={keysOf(s.id)}
+              onChange={(u) => setData((list) => list?.map((x) => (x.id === u.id ? u : x)) ?? null)}
+            />
+          ))}
+          {genius.list && genius.list.length > 0 && <GeniusCard keys={{ ...genius, list: genius.list }} />}
+        </div>
       )}
-      {user ? (
-        <MyArtists key={version} />
-      ) : (
+      {!user && (
         <div className="notice">
-          <Link to="/login?next=/sync">Войдите</Link>, чтобы подписываться на артистов и получать уведомления о новых релизах.
+          <Link to="/login?next=/sync">Войдите</Link>, чтобы подключать аккаунты сервисов и подписываться на артистов.
         </div>
       )}
     </div>

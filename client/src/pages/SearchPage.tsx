@@ -107,7 +107,7 @@ function FoundArtistCard({ artist, onSubscribed }: { artist: FoundArtist; onSubs
           {busy ? 'Загружаем…' : artist.isSubscribed ? 'Вы подписаны' : 'Подписаться'}
         </button>
       ) : (
-        <Link to="/login?next=/sync" className="btn btn-small btn-filled">
+        <Link to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} className="btn btn-small btn-filled">
           Подписаться
         </Link>
       )}

@@ -75,13 +75,14 @@ export class ItunesProvider implements MusicProvider {
   }
 
   async search(query: string): Promise<SearchHits> {
-    const params = new URLSearchParams({ term: query, entity: 'song', limit: String(SEARCH_TRACK_LIMIT), country: this.country });
-    const [artists, songs] = await Promise.all([
-      this.searchArtists(query),
-      fetchJson<ItunesResponse<ItSong>>(this.fetchImpl, this.id, `${API}/search?${params}`),
-    ]);
-    const tracks = songs.results.filter((s) => s.wrapperType === 'track' && s.previewUrl).map((s) => this.mapSong(s));
+    const [artists, tracks] = await Promise.all([this.searchArtists(query), this.searchTracks(query)]);
     return { artists, tracks };
+  }
+
+  async searchTracks(query: string): Promise<ExternalTrack[]> {
+    const params = new URLSearchParams({ term: query, entity: 'song', limit: String(SEARCH_TRACK_LIMIT), country: this.country });
+    const songs = await fetchJson<ItunesResponse<ItSong>>(this.fetchImpl, this.id, `${API}/search?${params}`);
+    return songs.results.filter((s) => s.wrapperType === 'track' && s.previewUrl).map((s) => this.mapSong(s));
   }
 
   private async lookupSongs(params: Record<string, string>): Promise<ItSong[]> {

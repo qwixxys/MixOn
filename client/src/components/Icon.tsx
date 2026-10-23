@@ -40,6 +40,7 @@ import msLogin from '@material-symbols/svg-400/rounded/login.svg?raw';
 import msLogout from '@material-symbols/svg-400/rounded/logout.svg?raw';
 import msLyrics from '@material-symbols/svg-400/rounded/lyrics.svg?raw';
 import msMic from '@material-symbols/svg-400/rounded/mic.svg?raw';
+import msOpenInFull from '@material-symbols/svg-400/rounded/open_in_full.svg?raw';
 import msMusicNote from '@material-symbols/svg-400/rounded/music_note.svg?raw';
 import msNotifications from '@material-symbols/svg-400/rounded/notifications.svg?raw';
 import msOpenInNew from '@material-symbols/svg-400/rounded/open_in_new.svg?raw';
@@ -61,6 +62,7 @@ import msShuffle from '@material-symbols/svg-400/rounded/shuffle.svg?raw';
 import msSkipNext from '@material-symbols/svg-400/rounded/skip_next.svg?raw';
 import msSkipPrevious from '@material-symbols/svg-400/rounded/skip_previous.svg?raw';
 import msSort from '@material-symbols/svg-400/rounded/sort.svg?raw';
+import msTimer from '@material-symbols/svg-400/rounded/timer.svg?raw';
 import msTravelExplore from '@material-symbols/svg-400/rounded/travel_explore.svg?raw';
 import msUpload from '@material-symbols/svg-400/rounded/upload.svg?raw';
 import msVisibility from '@material-symbols/svg-400/rounded/visibility.svg?raw';
@@ -126,6 +128,7 @@ const ICONS = {
   mic: msMic,
   music_note: msMusicNote,
   notifications: msNotifications,
+  open_in_full: msOpenInFull,
   open_in_new: msOpenInNew,
   palette: msPalette,
   pause: msPause,
@@ -145,6 +148,7 @@ const ICONS = {
   skip_next: msSkipNext,
   skip_previous: msSkipPrevious,
   sort: msSort,
+  timer: msTimer,
   travel_explore: msTravelExplore,
   upload: msUpload,
   visibility: msVisibility,

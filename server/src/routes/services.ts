@@ -5,6 +5,7 @@ import type { AppContext } from '../context.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { ProviderError } from '../lib/http.js';
 import { expandLink } from '../lib/links.js';
+import { importSpotify, SPOTIFY_SHORT_HOSTS, spotifyLink } from '../lib/spotify.js';
 import { listOptions, listTracks, resolveScope } from '../lib/trackLists.js';
 import { idParam, parse } from '../lib/validate.js';
 import { requireUser } from '../middleware/auth.js';
@@ -233,8 +234,10 @@ export function serviceRoutes(ctx: AppContext) {
   r.post('/import', async (req, res) => {
     const me = requireUser(req);
     const { url } = parse(importSchema, req.body);
-    const shortHosts = providers.list().flatMap((p) => p.shortLinkHosts ?? []);
-    res.status(201).json(await sync.importFromUrl(me, await expandLink(url, shortHosts, ctx.fetchImpl)));
+    const shortHosts = [...providers.list().flatMap((p) => p.shortLinkHosts ?? []), ...SPOTIFY_SHORT_HOSTS];
+    const target = await expandLink(url, shortHosts, ctx.fetchImpl);
+    const spotify = spotifyLink(target);
+    res.status(201).json(spotify ? await importSpotify(ctx, me, spotify) : await sync.importFromUrl(me, target));
   });
 
   r.post('/services/:id/import-followings', async (req, res) => {

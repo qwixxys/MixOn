@@ -113,7 +113,8 @@ export function createTestApp(
   const config = testConfig();
   const db = openDatabase(':memory:');
   const registry = new ProviderRegistry(providers);
-  const settings = new ServiceSettings(dbStore(db), config, {});
+  // No built-in keys, so tests never reach real services.
+  const settings = new ServiceSettings(dbStore(db), config, {}, {});
   const sync = new SyncService(db, registry, { info() {}, warn() {}, error() {} });
   const genius = new GeniusService(db, new GeniusClient(geniusToken, fetchImpl));
   const lyrics = new LyricsService(db, new LrclibClient(lrclibUrl, 'soundFy-test', fetchImpl, 0));

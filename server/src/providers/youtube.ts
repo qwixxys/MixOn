@@ -163,7 +163,7 @@ export class YouTubeProvider implements MusicProvider {
   }
 
   private async get<T>(path: string, params: Record<string, string>): Promise<T> {
-    if (!this.apiKey) throw new ProviderError(this.id, 'YouTube не настроен: укажите ключ YouTube Data API в «Ключах сервисов»');
+    if (!this.apiKey) throw new ProviderError(this.id, 'YouTube не настроен: укажите ключ YouTube Data API в карточке YouTube Music на странице «Сервисы»');
     const url = `${API}${path}?${new URLSearchParams({ ...params, key: this.apiKey })}`;
     let res: Response;
     try {

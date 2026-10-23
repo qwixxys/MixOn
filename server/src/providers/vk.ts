@@ -211,8 +211,12 @@ export class VkProvider implements MusicProvider {
   async search(query: string, ctx: ProviderContext): Promise<SearchHits> {
     // One after another: VK allows a few requests per second per token.
     const artists = await this.searchArtists(query, ctx);
+    return { artists, tracks: await this.searchTracks(query, ctx) };
+  }
+
+  async searchTracks(query: string, ctx: ProviderContext): Promise<ExternalTrack[]> {
     const res = await this.call<VkList<VkAudio>>('audio.search', { q: query, count: 30, auto_complete: 1 }, ctx.token);
-    return { artists, tracks: this.mapAudios(res.items).slice(0, SEARCH_TRACK_LIMIT) };
+    return this.mapAudios(res.items).slice(0, SEARCH_TRACK_LIMIT);
   }
 
   private async searchArtistsByTracks(query: string, ctx: ProviderContext): Promise<ExternalArtist[]> {

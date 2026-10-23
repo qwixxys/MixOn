@@ -305,7 +305,7 @@ export class SyncService {
     const provider = matching.find((p) => p.isConfigured());
     if (!provider?.importPlaylist) {
       if (matching.length) throw badRequest(`${matching[0].name} не настроен на сервере`);
-      throw badRequest('Такие ссылки пока не поддерживаются: подойдут плейлисты и альбомы Deezer или плейлисты SoundCloud');
+      throw badRequest('Такие ссылки пока не поддерживаются: подойдут плейлисты и альбомы Spotify и Deezer, плейлисты SoundCloud и YouTube');
     }
 
     const playlist = await provider.importPlaylist(url, { token: await this.userToken(provider.id, userId) });
@@ -324,7 +324,7 @@ export class SyncService {
    * Appends tracks to the user's private playlist, creating it first. An existing playlist is found by its title,
    * or, when `marker` is given, by a description ending with it.
    */
-  private savePlaylist(userId: number, title: string, description: string, trackIds: number[], marker?: string): number {
+  savePlaylist(userId: number, title: string, description: string, trackIds: number[], marker?: string): number {
     return this.db.transaction(() => {
       const existing = (
         marker
