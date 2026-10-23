@@ -317,7 +317,7 @@ export function TrackPage() {
                   <dt>Длительность</dt>
                   <dd>{formatTime(t.duration)}</dd>
                   <dt>Источник</dt>
-                  <dd>{t.source === 'local' ? 'Загружен на soundFy' : <ServiceBadge source={t.source} preview={t.isPreview} />}</dd>
+                  <dd>{t.source === 'local' ? 'Загружен на MixOn' : <ServiceBadge source={t.source} preview={t.isPreview} />}</dd>
                   {song && <GeniusFacts song={song} track={t} />}
                 </dl>
               </div>

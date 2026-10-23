@@ -394,12 +394,36 @@ const youtubeEvents: YouTubeEvents = {
 
 function updateMediaSession(track: Track) {
   if (!('mediaSession' in navigator)) return;
+  // Several artwork sizes so Android (and the live-activity capsule on One UI, Xiaomi, Vivo…) picks a crisp one.
+  const art = track.coverUrl ? new URL(track.coverUrl, location.href).href : null;
   navigator.mediaSession.metadata = new MediaMetadata({
     title: track.title,
     artist: track.artist,
     album: track.album ?? undefined,
-    artwork: track.coverUrl ? [{ src: new URL(track.coverUrl, location.href).href, sizes: '500x500' }] : [],
+    artwork: art ? ['96x96', '192x192', '256x256', '512x512'].map((sizes) => ({ src: art, sizes, type: 'image/jpeg' })) : [],
   });
+  syncMediaSessionState();
+}
+
+/**
+ * Tells the OS whether a track is playing and where it is, so the system media notification — which the live-activity
+ * capsule on One UI (Now Bar), Xiaomi, Vivo and others shows — has the right play/pause state and a progress bar.
+ */
+function syncMediaSessionState() {
+  if (!('mediaSession' in navigator)) return;
+  const st = usePlayer.getState();
+  navigator.mediaSession.playbackState = !st.current ? 'none' : st.playing ? 'playing' : 'paused';
+  try {
+    if (st.current && Number.isFinite(st.duration) && st.duration > 0 && 'setPositionState' in navigator.mediaSession) {
+      navigator.mediaSession.setPositionState({
+        duration: st.duration,
+        position: Math.min(Math.max(st.currentTime, 0), st.duration),
+        playbackRate: 1,
+      });
+    }
+  } catch {
+    // Some browsers reject position state mid-change; it will be set again on the next update.
+  }
 }
 
 if ('mediaSession' in navigator) {
@@ -411,6 +435,30 @@ if ('mediaSession' in navigator) {
   navigator.mediaSession.setActionHandler('previoustrack', () => s().prev());
   navigator.mediaSession.setActionHandler('nexttrack', () => s().next());
   navigator.mediaSession.setActionHandler('seekto', (d) => d.seekTime !== undefined && s().seek(d.seekTime));
+  const seekBy = (delta: number) => {
+    const st = s();
+    st.seek(Math.min(Math.max(st.currentTime + delta, 0), st.duration || st.currentTime + delta));
+  };
+  try {
+    navigator.mediaSession.setActionHandler('seekbackward', (d) => seekBy(-(d.seekOffset ?? 10)));
+    navigator.mediaSession.setActionHandler('seekforward', (d) => seekBy(d.seekOffset ?? 10));
+  } catch {
+    // older WebViews may not support these actions
+  }
+
+  // Keep the OS notification's play/pause and progress bar in step with the player (position at most once a second).
+  let lastPosition = 0;
+  usePlayer.subscribe((st, prev) => {
+    if (st.playing !== prev.playing || st.current?.id !== prev.current?.id || st.duration !== prev.duration) {
+      syncMediaSessionState();
+    } else if (st.currentTime !== prev.currentTime) {
+      const now = Date.now();
+      if (now - lastPosition >= 1000) {
+        lastPosition = now;
+        syncMediaSessionState();
+      }
+    }
+  });
 }
 
 /** Playback progress (0..1) of `trackId`, or 0 if another track is playing. */

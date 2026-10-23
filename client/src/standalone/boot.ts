@@ -1,4 +1,4 @@
-// Runs the soundFy server inside the page, for the Android app that works without a computer. The server's own code
+// Runs the MixOn server inside the page, for the Android app that works without a computer. The server's own code
 // is bundled here with small stand-ins for what only exists in Node (see vite.config.ts): SQLite runs as WebAssembly
 // and is saved to the device, services are called through the native HTTP client, and the page's requests to /api
 // are answered in-process instead of going over the network.
@@ -47,7 +47,7 @@ function standaloneConfig(): AppConfig {
     soundcloud: { clientId: null, clientSecret: null, publicClient: false },
     genius: { accessToken: null },
     youtube: { apiKey: null },
-    lrclib: { baseUrl: 'https://lrclib.net', userAgent: `soundFy v${version} (https://github.com/qwixxys/soundFy)` },
+    lrclib: { baseUrl: 'https://lrclib.net', userAgent: `MixOn v${version} (https://github.com/qwixxys/soundFy)` },
   };
 }
 
@@ -77,7 +77,7 @@ function persist(db: Database) {
     timer = undefined;
     chain = chain
       .then(() => saveDatabase(db.serialize()))
-      .catch((err) => console.error('soundFy: не удалось сохранить данные', err));
+      .catch((err) => console.error('MixOn: не удалось сохранить данные', err));
     return chain;
   };
   db.onChange = () => {
@@ -116,7 +116,7 @@ export async function boot(): Promise<void> {
 
   await initSqlite({ locateFile: () => wasmUrl });
   const saved = await loadDatabase().catch((err) => {
-    console.error('soundFy: не удалось прочитать сохранённые данные', err);
+    console.error('MixOn: не удалось прочитать сохранённые данные', err);
     return null;
   });
   const raw = new Database(saved ?? undefined);

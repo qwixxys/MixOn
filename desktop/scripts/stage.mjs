@@ -66,7 +66,7 @@ fs.writeFileSync(
   JSON.stringify(
     {
       name: 'soundfy',
-      productName: 'soundFy',
+      productName: 'MixOn',
       version: rootPkg.version,
       description: 'Музыкальная платформа в духе SoundCloud с синхронизацией новых релизов',
       author: { name: 'soundFy', url: 'https://github.com/qwixxys/soundFy' },

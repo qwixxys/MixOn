@@ -1,6 +1,6 @@
 {
   "appId": "com.soundfy.app",
-  "appName": "soundFy",
+  "appName": "MixOn",
   "webDir": "www",
   "server": {
     "androidScheme": "http",

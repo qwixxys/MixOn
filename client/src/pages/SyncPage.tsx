@@ -15,32 +15,8 @@ import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
 import { Icon } from '../components/Icon';
 
-function VkInstructions() {
-  return (
-    <details className="instructions">
-      <summary>Как soundFy подключает ВКонтакте</summary>
-      <ol>
-        <li>
-          Аудио-методы VK API закрыты для сторонних приложений. В сентябре 2026 ВКонтакте закрыл доступ и Kate Mobile, которым
-          раньше представлялись плееры, поэтому soundFy входит в аккаунт как официальное приложение «ВКонтакте для Android».
-        </li>
-        <li>
-          Введите телефон или почту и пароль от ВКонтакте. Если включено подтверждение входа, ВКонтакте пришлёт код — введите его.
-        </li>
-        <li>
-          Иногда ВКонтакте просит пройти проверку «я не робот». В приложении soundFy для Android она откроется сама; в браузере
-          этот способ входа её пройти не может.
-        </li>
-      </ol>
-      <p className="muted small">
-        Это неофициальный способ доступа, ВКонтакте может его ограничить.
-      </p>
-    </details>
-  );
-}
-
 /**
- * Signs in to VK with a login and password: VK closed the audio API to third-party clients, so soundFy asks as the
+ * Signs in to VK with a login and password: VK closed the audio API to third-party clients, so MixOn asks as the
  * official VK app for Android. VK may first want a confirmation code or a "not a robot" check; the form walks through
  * those. The password goes only to VK (through the server or, in the app, the phone) and is not stored.
  */
@@ -77,7 +53,7 @@ function VkLogin({ service, onChange }: { service: Service; onChange(s: Service)
       setCaptchaKey('');
       setStep(result);
       if (!result.image && !result.page) {
-        toast.info('ВКонтакте просит пройти проверку «я не робот». Откройте вход через приложение soundFy на телефоне.');
+        toast.info('ВКонтакте просит пройти проверку «я не робот». Откройте вход через приложение MixOn на телефоне.');
       }
     } catch (err) {
       toast.error(err);
@@ -104,7 +80,6 @@ function VkLogin({ service, onChange }: { service: Service; onChange(s: Service)
 
   return (
     <form className="stack" onSubmit={submit}>
-      <VkInstructions />
       <TextField
         label="Телефон или почта ВКонтакте"
         type="text"
@@ -284,7 +259,7 @@ function ServiceCard({ service, keys, onChange }: { service: Service; keys: Card
           ) : service.connectMode === 'oauth' && STANDALONE ? (
             // The service sends the listener back to a web address after sign-in, which only a server has.
             <span className="small muted">
-              Вход через {service.name} для импорта лайков и подписок работает, когда телефон подключён к серверу soundFy. Поиск
+              Вход через {service.name} для импорта лайков и подписок работает, когда телефон подключён к серверу MixOn. Поиск
               и прослушивание работают и так.
             </span>
           ) : service.connectMode === 'oauth' ? (
@@ -296,7 +271,6 @@ function ServiceCard({ service, keys, onChange }: { service: Service; keys: Card
           ) : (
             <form className="stack" onSubmit={connectToken}>
               {service.serverToken && <span className="small muted">Сейчас используется общий токен сервера — можно подключить свой.</span>}
-              {service.id === 'vk' && <VkInstructions />}
               <TextField
                 label="access_token или ссылка с ним"
                 type="password"
@@ -335,7 +309,7 @@ function useOAuthResult() {
   }, [params, setParams]);
 }
 
-/** Genius is no music service, so it has a card of its own: just its key (soundFy ships with one). */
+/** Genius is no music service, so it has a card of its own: just its key (MixOn ships with one). */
 function GeniusCard({ keys }: { keys: CardKeys & { list: ServiceKeyInfo[] } }) {
   const guide = keyGuides(location.origin).genius;
   const ready = keys.list.every((k) => k.source);
@@ -389,7 +363,7 @@ export function SyncPage() {
       <div className="page-header page-header-column">
         <h1>Сервисы</h1>
         <p className="muted">
-          Подключите музыкальные сервисы — soundFy ищет в них артистов и треки, играет их и проверяет новые релизы.{' '}
+          Подключите музыкальные сервисы — MixOn ищет в них артистов и треки, играет их и проверяет новые релизы.{' '}
           {user?.owner && (STANDALONE ? 'Ключи API хранятся на телефоне. ' : 'Ключи API видны только вам как владельцу сервера. ')}
           Искать музыку и импортировать плейлисты — на <Link to="/">главной</Link>, подписки на артистов — в{' '}
           <Link to="/library?tab=artists">Медиатеке</Link>.

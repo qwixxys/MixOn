@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <title>soundFy</title>
+    <title>MixOn</title>
     <style>
       :root {
         --bg: #fff8f6;
@@ -148,10 +148,10 @@
           <rect x="44" y="26" width="5" height="16" rx="2.5" />
         </g>
       </svg>
-      <h1>soundFy</h1>
+      <h1>MixOn</h1>
       <p>
-        Подключитесь к своему серверу soundFy — например, к приложению на компьютере, — чтобы слушать общую библиотеку,
-        свои загрузки и музыку с ВКонтакте. Без сервера soundFy работает прямо на телефоне.
+        Подключитесь к своему серверу MixOn — например, к приложению на компьютере, — чтобы слушать общую библиотеку,
+        свои загрузки и музыку с ВКонтакте. Без сервера MixOn работает прямо на телефоне.
       </p>
 
       <form id="form">
@@ -167,9 +167,9 @@
       <div id="recent" class="recent" hidden></div>
 
       <div class="hint">
-        <b>soundFy на компьютере:</b> включите в меню «soundFy → Подключить телефон», подключите телефон к той же Wi-Fi сети
+        <b>MixOn на компьютере:</b> включите в меню «MixOn → Подключить телефон», подключите телефон к той же Wi-Fi сети
         и введите показанный адрес.<br /><br />
-        <b>soundFy на сервере:</b> введите адрес сайта, например https://music.example.com.
+        <b>MixOn на сервере:</b> введите адрес сайта, например https://music.example.com.
       </div>
     </main>
 
@@ -236,8 +236,8 @@
       }
 
       /**
-       * Asks the address whether it is a soundFy server. Returns the address it really answers at (after redirects) and
-       * one of "soundfy", "other" (something else answered) or "unverified" (an older soundFy, or anything that does not
+       * Asks the address whether it is a MixOn server. Returns the address it really answers at (after redirects) and
+       * one of "soundfy", "other" (something else answered) or "unverified" (an older MixOn, or anything that does not
        * allow the check, answered); throws when nothing answers.
        */
       async function probe(base) {
@@ -308,8 +308,8 @@
         }
         setStatus(
           answered
-            ? 'По этому адресу отвечает не soundFy'
-            : `Не удалось подключиться к ${list[0]}. Проверьте, что soundFy запущен, доступ из сети включён и телефон в той же сети.`,
+            ? 'По этому адресу отвечает не MixOn'
+            : `Не удалось подключиться к ${list[0]}. Проверьте, что MixOn запущен, доступ из сети включён и телефон в той же сети.`,
           true,
         );
       }

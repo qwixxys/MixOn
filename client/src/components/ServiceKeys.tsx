@@ -67,7 +67,7 @@ export function keyGuides(origin: string): Record<string, Guide> {
         <>Откройте {link('https://genius.com/api-clients', 'genius.com/api-clients')} и войдите в аккаунт Genius.</>,
         <>Нажмите New API Client. Название любое, в App Website URL можно указать {STANDALONE ? 'любой сайт' : 'адрес этого сервера'}.</>,
         <>Нажмите Generate Access Token и вставьте Client Access Token ниже.</>,
-        <>Без своего ключа работает встроенный ключ soundFy: он общий для всех, поэтому Genius иногда может ограничивать запросы.</>,
+        <>Без своего ключа работает встроенный ключ MixOn: он общий для всех, поэтому Genius иногда может ограничивать запросы.</>,
       ],
     },
     youtube: {
@@ -134,7 +134,7 @@ function keySupportingText(k: ServiceKeyInfo) {
     case 'app':
       return `Сохранён: ${k.preview}. Введите новый, чтобы заменить`;
     case 'builtin':
-      return 'Используется встроенный ключ soundFy — можно указать свой';
+      return 'Используется встроенный ключ MixOn — можно указать свой';
     default:
       return undefined;
   }

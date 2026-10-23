@@ -183,7 +183,7 @@ export function ProfilePage() {
               </div>
               {p.bio && <p className="bio">{p.bio}</p>}
               <p className="muted small">
-                На soundFy с {formatDate(p.createdAt)} · {p.likeCount} {plural(p.likeCount, ['лайк', 'лайка', 'лайков'])}
+                На MixOn с {formatDate(p.createdAt)} · {p.likeCount} {plural(p.likeCount, ['лайк', 'лайка', 'лайков'])}
               </p>
             </section>
           </aside>

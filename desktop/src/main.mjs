@@ -1,5 +1,5 @@
-// soundFy desktop: runs the soundFy server inside Electron and shows its web interface in a window.
-// Data (database, uploads, keys) lives in the user's profile, e.g. %APPDATA%\soundFy on Windows.
+// MixOn desktop: runs the MixOn server inside Electron and shows its web interface in a window.
+// Data (database, uploads, keys) lives in the user's profile, e.g. %APPDATA%\MixOn on Windows.
 import { app, BrowserWindow, clipboard, dialog, Menu, nativeTheme, session, shell } from 'electron';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -13,7 +13,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PORT = 4777;
 /** Service login pages: they open in a separate login window that can follow the service's own sign-in steps. */
 const OAUTH_HOSTS = new Set(['secure.soundcloud.com', 'soundcloud.com', 'api.soundcloud.com']);
-/** What the soundFy interface itself may use; everything else (camera, microphone, location, clipboard…) is denied. */
+/** What the MixOn interface itself may use; everything else (camera, microphone, location, clipboard…) is denied. */
 const ALLOWED_PERMISSIONS = new Set(['fullscreen', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']);
 const REPO_URL = 'https://github.com/qwixxys/soundFy';
 
@@ -87,7 +87,7 @@ const sameOrigin = (url, origin) => {
 
 /**
  * Service sign-in in its own window: it may go through other sites (Google, Apple…) and finishes when the service
- * sends the browser back to soundFy, whose page then opens in the main window.
+ * sends the browser back to MixOn, whose page then opens in the main window.
  */
 function openLoginWindow(url, origin) {
   const login = new BrowserWindow({
@@ -120,7 +120,7 @@ function createWindow(url) {
     minWidth: 380,
     minHeight: 560,
     show: false,
-    title: 'soundFy',
+    title: 'MixOn',
     icon: path.join(here, 'icon.png'),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1a1110' : '#fff8f6',
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
@@ -170,11 +170,11 @@ async function setLanAccess(enabled) {
     const { response } = await dialog.showMessageBox(window, {
       type: 'warning',
       title: 'Доступ из локальной сети',
-      message: 'Открыть soundFy для других устройств в вашей сети?',
+      message: 'Открыть MixOn для других устройств в вашей сети?',
       detail:
-        'Так к soundFy можно подключиться с телефона. Открыть сайт и зарегистрироваться сможет любой, кто подключён к той же сети, ' +
+        'Так к MixOn можно подключиться с телефона. Открыть сайт и зарегистрироваться сможет любой, кто подключён к той же сети, ' +
         'поэтому включайте доступ только в домашней сети, которой доверяете. Windows может спросить разрешение для брандмауэра.\n\n' +
-        'soundFy перезапустится.',
+        'MixOn перезапустится.',
       buttons: ['Включить', 'Отмена'],
       defaultId: 0,
       cancelId: 1,
@@ -193,7 +193,7 @@ async function showPhoneDialog() {
       title: 'Подключить телефон',
       message: 'Слушайте свою библиотеку с телефона',
       detail:
-        'Установите приложение soundFy для Android и подключите телефон к той же Wi-Fi сети, что и компьютер. ' +
+        'Установите приложение MixOn для Android и подключите телефон к той же Wi-Fi сети, что и компьютер. ' +
         'Сначала нужно включить доступ из локальной сети.',
       buttons: ['Включить доступ…', 'Закрыть'],
       defaultId: 0,
@@ -208,7 +208,7 @@ async function showPhoneDialog() {
     title: 'Подключить телефон',
     message: addresses.length ? addresses.join('\n') : 'Компьютер не подключён к сети',
     detail: addresses.length
-      ? 'В приложении soundFy на телефоне, подключённом к той же Wi-Fi сети, откройте меню профиля → «Подключиться к серверу» ' +
+      ? 'В приложении MixOn на телефоне, подключённом к той же Wi-Fi сети, откройте меню профиля → «Подключиться к серверу» ' +
         'и введите этот адрес. ' +
         'Войдите тем же аккаунтом, что и здесь.' +
         (running.port === DEFAULT_PORT ? '' : `\n\nПорт ${DEFAULT_PORT} был занят, поэтому адрес может измениться после перезапуска.`)
@@ -233,7 +233,7 @@ async function openEnvFile() {
     fs.mkdirSync(userData, { recursive: true });
     fs.writeFileSync(
       envFile,
-      '# Ключи сервисов для soundFy. После изменения перезапустите приложение.\n' +
+      '# Ключи сервисов для MixOn. После изменения перезапустите приложение.\n' +
         '# PORT, HOST и DATA_DIR здесь не действуют: их задаёт само приложение.\n\n' +
         template,
     );
@@ -246,7 +246,7 @@ function showAbout() {
   dialog.showMessageBox(window, {
     type: 'info',
     title: 'О программе',
-    message: `soundFy ${app.getVersion()}`,
+    message: `MixOn ${app.getVersion()}`,
     detail: `Музыкальная платформа в духе SoundCloud с синхронизацией новых релизов.\n\nДанные: ${dataDir}\n${REPO_URL}`,
     buttons: ['OK'],
   });
@@ -256,7 +256,7 @@ function buildMenu() {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       {
-        label: 'soundFy',
+        label: 'MixOn',
         submenu: [
           { label: 'Подключить телефон…', click: showPhoneDialog },
           { label: 'Доступ из локальной сети', type: 'checkbox', checked: settings.lanAccess, click: (item) => setLanAccess(item.checked) },
@@ -297,7 +297,7 @@ function buildMenu() {
       {
         label: 'Справка',
         submenu: [
-          { label: 'soundFy на GitHub', click: () => shell.openExternal(REPO_URL) },
+          { label: 'MixOn на GitHub', click: () => shell.openExternal(REPO_URL) },
           { label: 'О программе', click: showAbout },
         ],
       },
@@ -311,7 +311,7 @@ async function main() {
   try {
     running = await startServer();
   } catch (err) {
-    dialog.showErrorBox('soundFy не запустился', `${err.message}\n\nДанные: ${dataDir}`);
+    dialog.showErrorBox('MixOn не запустился', `${err.message}\n\nДанные: ${dataDir}`);
     app.exit(1);
     return;
   }

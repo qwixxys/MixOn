@@ -168,7 +168,7 @@ export function SearchPage() {
         <div className="page-header">
           <h1>Поиск</h1>
         </div>
-        <Empty title="Что ищем?">Введите имя артиста или название трека — soundFy поищет во всех подключённых сервисах.</Empty>
+        <Empty title="Что ищем?">Введите имя артиста или название трека — MixOn поищет во всех подключённых сервисах.</Empty>
       </div>
     );
   }
@@ -250,7 +250,7 @@ export function SearchPage() {
 
       {!only && local.data && local.data.artists.length > 0 && (
         <section className="section">
-          <h2>Артисты в soundFy</h2>
+          <h2>Артисты в MixOn</h2>
           <div className="people">
             {local.data.artists.map((a) => (
               <Link key={a.id} to={`/artists/${a.id}`} className="person">
@@ -264,7 +264,7 @@ export function SearchPage() {
       )}
       {!only && known.length > 0 && (
         <section className="section">
-          <h2>Уже в soundFy</h2>
+          <h2>Уже в MixOn</h2>
           <div className="chart">
             {known.map((t) => (
               <TrackRow key={t.id} track={t} queue={known} />

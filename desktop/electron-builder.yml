@@ -1,6 +1,6 @@
 # Two-package layout: build/app (made by scripts/stage.mjs) is what ships; this folder only holds the tooling.
 appId: com.soundfy.desktop
-productName: soundFy
+productName: MixOn
 copyright: soundFy
 directories:
   app: build/app
@@ -15,7 +15,7 @@ files:
 win:
   target: nsis
   icon: resources/icon.png
-  artifactName: soundFy-Setup-${version}.${ext}
+  artifactName: MixOn-Setup-${version}.${ext}
 nsis:
   oneClick: false
   perMachine: false
@@ -32,4 +32,4 @@ linux:
   executableName: soundfy
   syncDesktopName: true
   synopsis: Музыкальная платформа с синхронизацией новых релизов
-  artifactName: soundFy-${version}-${arch}.AppImage
+  artifactName: MixOn-${version}-${arch}.AppImage

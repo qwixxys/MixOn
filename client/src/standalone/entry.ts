@@ -2,7 +2,7 @@
 import { inAndroidApp } from '../lib/androidApp';
 import { boot } from './boot';
 
-/** Set by connect.html while the listener uses a soundFy server instead of the phone. */
+/** Set by connect.html while the listener uses a MixOn server instead of the phone. */
 function usesServer() {
   try {
     return JSON.parse(localStorage.getItem('soundfy.mode') ?? 'null') === 'server';
@@ -21,7 +21,7 @@ if (inAndroidApp && (usesServer() || new URLSearchParams(location.search).has('c
   } catch (err) {
     console.error(err);
     const root = document.getElementById('root')!;
-    root.innerHTML = '<div style="padding:32px 16px;font-family:Roboto,system-ui,sans-serif"><h2>soundFy не запустился</h2><p></p></div>';
+    root.innerHTML = '<div style="padding:32px 16px;font-family:Roboto,system-ui,sans-serif"><h2>MixOn не запустился</h2><p></p></div>';
     root.querySelector('p')!.textContent = err instanceof Error ? err.message : String(err);
   }
 }

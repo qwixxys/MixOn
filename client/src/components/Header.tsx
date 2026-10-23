@@ -33,9 +33,9 @@ export function LogoMark({ size = 40 }: { size?: number }) {
 
 export function Logo() {
   return (
-    <Link to="/" className="logo" aria-label="soundFy — на главную">
+    <Link to="/" className="logo" aria-label="MixOn — на главную">
       <LogoMark />
-      <span className="logo-text">soundFy</span>
+      <span className="logo-text">MixOn</span>
     </Link>
   );
 }
@@ -64,7 +64,7 @@ export function NavRail() {
   const user = useAuth((s) => s.user);
   return (
     <nav className="rail" aria-label="Разделы">
-      <Link to="/" className="rail-logo" aria-label="soundFy — на главную">
+      <Link to="/" className="rail-logo" aria-label="MixOn — на главную">
         <LogoMark size={44} />
       </Link>
       {!STANDALONE && (

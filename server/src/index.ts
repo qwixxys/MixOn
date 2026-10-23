@@ -2,7 +2,7 @@ import { startServer } from './start.js';
 
 const running = await startServer();
 const { config, port } = running;
-console.info(`soundFy server: http://localhost:${port}`);
+console.info(`MixOn server: http://localhost:${port}`);
 console.info(`Данные: ${config.dataDir}`);
 if (config.syncIntervalMinutes > 0) {
   console.info(`Синхронизация артистов каждые ${config.syncIntervalMinutes} мин.`);

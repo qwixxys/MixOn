@@ -104,7 +104,7 @@ export function ImportLinkForm({ services, onDone }: { services: Service[]; onDo
       ) : (
         <span className="muted small">
           Работает с открытыми плейлистами Spotify, {sources.map((s) => s.name).join(', ')}, входить в эти сервисы не нужно. Песни
-          из Spotify soundFy находит в подключённых сервисах: сам Spotify играет музыку только в своих приложениях.
+          из Spotify MixOn находит в подключённых сервисах: сам Spotify играет музыку только в своих приложениях.
           {previews.length > 0 && ` Треки ${previews.join(' и ')} доступны как 30-секундные отрывки.`}
         </span>
       )}

@@ -63,7 +63,7 @@ jobs:
           npm run ${{ matrix.script }}
       - uses: actions/upload-artifact@v7
         with:
-          name: soundFy-${{ matrix.name }}
+          name: MixOn-${{ matrix.name }}
           path: |
             desktop/dist/*.exe
             desktop/dist/*.AppImage
@@ -130,13 +130,13 @@ jobs:
           apk=mobile/android/app/build/outputs/apk
           mkdir -p out
           if [ -f "$apk/release/app-release.apk" ]; then
-            cp "$apk/release/app-release.apk" "out/soundFy-$version.apk"
+            cp "$apk/release/app-release.apk" "out/MixOn-$version.apk"
           else
-            cp "$apk/debug/app-debug.apk" "out/soundFy-$version-debug.apk"
+            cp "$apk/debug/app-debug.apk" "out/MixOn-$version-debug.apk"
           fi
       - uses: actions/upload-artifact@v7
         with:
-          name: soundFy-Android
+          name: MixOn-Android
           path: out/*.apk
           if-no-files-found: error
 
@@ -175,11 +175,11 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: soundFy ${{ steps.version.outputs.tag }}
+          name: MixOn ${{ steps.version.outputs.tag }}
           body: |
-            **Windows:** `soundFy-Setup-*.exe` — установщик. SmartScreen может предупредить, что издатель неизвестен: «Подробнее» → «Выполнить в любом случае».
+            **Windows:** `MixOn-Setup-*.exe` — установщик. SmartScreen может предупредить, что издатель неизвестен: «Подробнее» → «Выполнить в любом случае».
             **Linux:** `*.AppImage` — сделайте файл исполняемым (`chmod +x`) и запустите.
-            **Android:** `*.apk` — работает на телефоне сам, без компьютера: поиск сразу по ВК Музыке, YouTube Music, Deezer, Apple Music, SoundCloud и Jamendo, прослушивание, скачивание треков для офлайна, подписки на артистов, лайки, плейлисты и тексты песен хранятся на телефоне. Можно и подключиться к серверу soundFy: меню профиля → «Подключиться к серверу».
+            **Android:** `*.apk` — работает на телефоне сам, без компьютера: поиск сразу по ВК Музыке, YouTube Music, Deezer, Apple Music, SoundCloud и Jamendo, прослушивание, скачивание треков для офлайна, подписки на артистов, лайки, плейлисты и тексты песен хранятся на телефоне. Можно и подключиться к серверу MixOn: меню профиля → «Подключиться к серверу».
 
             Подробности — в README, раздел «Готовые приложения».
           generate_release_notes: true

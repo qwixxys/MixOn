@@ -1,6 +1,6 @@
 {
   "name": "soundfy",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "private": true,
   "description": "soundFy — музыкальная платформа в духе SoundCloud с синхронизацией новых релизов из ВК Музыки, Deezer, iTunes и Jamendo",
   "workspaces": [

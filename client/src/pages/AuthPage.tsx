@@ -49,7 +49,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     <div className="page auth-page">
       <form className="auth-card" onSubmit={submit}>
         <LogoMark size={48} />
-        <h1>{mode === 'login' ? 'Вход в soundFy' : 'Создать аккаунт'}</h1>
+        <h1>{mode === 'login' ? 'Вход в MixOn' : 'Создать аккаунт'}</h1>
         <p className="muted">
           {mode === 'login'
             ? 'Слушайте, загружайте и следите за новыми релизами любимых артистов.'

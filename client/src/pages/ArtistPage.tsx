@@ -73,7 +73,7 @@ export function ArtistPage() {
             <span className="label-large">Артист · {service.label}</span>
             <h1 className="hero-title">{data.name}</h1>
             <span className="body-large">
-              {formatCount(data.subscribers)} {plural(data.subscribers, ['подписчик', 'подписчика', 'подписчиков'])} на soundFy
+              {formatCount(data.subscribers)} {plural(data.subscribers, ['подписчик', 'подписчика', 'подписчиков'])} на MixOn
             </span>
           </div>
         </div>
