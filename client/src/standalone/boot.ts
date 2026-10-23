@@ -41,7 +41,6 @@ function standaloneConfig(): AppConfig {
     clientDist: '/soundfy/client',
     publicUrl: null,
     itunes: { country: 'US' },
-    jamendo: { clientId: null },
     // The phone asks VK for audio links and plays them itself, so nothing needs relaying (see VkAudioRelay.java).
     vk: { accessToken: null, apiVersion: '5.131', userAgent: VK_USER_AGENT, relayStreams: false },
     soundcloud: { clientId: null, clientSecret: null, publicClient: false },

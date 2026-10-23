@@ -89,14 +89,6 @@ export function keyGuides(origin: string): Record<string, Guide> {
         </>,
       ],
     },
-    jamendo: {
-      title: 'Jamendo',
-      what: 'Полные треки независимых артистов под лицензией Creative Commons.',
-      steps: [
-        <>Зарегистрируйтесь на {link('https://devportal.jamendo.com', 'devportal.jamendo.com')}.</>,
-        <>Создайте приложение в разделе My Applications и вставьте его Client ID ниже.</>,
-      ],
-    },
   };
 }
 

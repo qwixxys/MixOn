@@ -15,7 +15,7 @@ export function ServiceBadge({ source, preview }: { source: string; preview?: bo
   );
 }
 
-/** The service's logo on its brand colour (initials for services without one, such as Jamendo). */
+/** The service's logo on its brand colour (initials for a service without one). */
 export function ServiceIcon({ id, size = 40 }: { id: string; size?: number }) {
   const info = serviceInfo(id);
   const logo = SERVICE_LOGOS[id];

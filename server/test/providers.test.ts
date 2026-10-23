@@ -3,7 +3,6 @@ import { describe, it } from 'node:test';
 import { ProviderError } from '../src/lib/http.js';
 import { DeezerProvider } from '../src/providers/deezer.js';
 import { ItunesProvider } from '../src/providers/itunes.js';
-import { JamendoProvider } from '../src/providers/jamendo.js';
 import { VkProvider, type VkAudio } from '../src/providers/vk.js';
 import { fakeFetch } from './helpers.js';
 
@@ -121,48 +120,6 @@ describe('iTunes', () => {
     );
     assert.equal(tracks[0].coverUrl, 'https://img/600x600bb.jpg');
     assert.equal(tracks[1].duration, 200);
-  });
-});
-
-describe('Jamendo', () => {
-  it('requires a client id', async () => {
-    const provider = new JamendoProvider(null, fakeFetch([]).impl);
-    assert.equal(provider.isConfigured(), false);
-    await assert.rejects(provider.searchArtists('x'), /JAMENDO_CLIENT_ID/);
-  });
-
-  it('returns full tracks', async () => {
-    const { impl, calls } = fakeFetch([
-      [
-        '/tracks/',
-        {
-          headers: { status: 'success', code: 0 },
-          results: [
-            {
-              id: '99',
-              name: 'Free Song',
-              duration: 240,
-              artist_name: 'Indie',
-              album_name: 'EP',
-              album_image: 'cover.jpg',
-              audio: 'https://mp3/99',
-              shareurl: 'https://jamendo/99',
-              releasedate: '2026-08-15',
-            },
-          ],
-        },
-      ],
-    ]);
-    const [t] = await new JamendoProvider('cid', impl).getArtistTracks({ externalId: '7', name: 'Indie' });
-    assert.match(calls[0].url, /client_id=cid/);
-    assert.equal(t.isPreview, false);
-    assert.equal(t.streamUrl, 'https://mp3/99');
-    assert.equal(t.releasedAt, '2026-08-15T00:00:00.000Z');
-  });
-
-  it('reports API failures', async () => {
-    const { impl } = fakeFetch([['/artists/', { headers: { status: 'failed', code: 5, error_message: 'bad client id' }, results: [] }]]);
-    await assert.rejects(new JamendoProvider('cid', impl).searchArtists('x'), /bad client id/);
   });
 });
 

@@ -32,7 +32,7 @@ function Hero() {
         <h1>Вся новая музыка ваших артистов — в одной ленте</h1>
         <p className="body-large">
           MixOn — площадка в духе SoundCloud: загружайте свои треки, собирайте плейлисты, комментируйте прямо на волне. А
-          синхронизация с SoundCloud, ВК Музыкой, Deezer, Apple Music и Jamendo сама приносит свежие релизы артистов, на которых вы
+          синхронизация с SoundCloud, ВК Музыкой, YouTube Music, Deezer и Apple Music сама приносит свежие релизы артистов, на которых вы
           подписаны.
         </p>
         <div className="hero-actions">
@@ -67,8 +67,7 @@ function HistoryWidget() {
 }
 
 /** Bringing playlists over from elsewhere (Spotify, Deezer, …); searching is in the bar at the top. */
-function ImportCard() {
-  const services = useFetch<Service[]>('/services');
+function ImportCard({ services }: { services: ReturnType<typeof useFetch<Service[]>> }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -87,6 +86,9 @@ function ImportCard() {
 }
 
 function Stream() {
+  const services = useFetch<Service[]>('/services');
+  // The sync card asks to connect a service; once one with full tracks works (SoundCloud does by default) it is gone.
+  const needsService = Boolean(services.data && !services.data.some((s) => s.available && s.fullTracks));
   const [type, setType] = useState<FeedType>('all');
   const list = useListQuery();
   const feed = usePaged<Track>(withQuery(`/feed?type=${type}`, list.qs));
@@ -100,7 +102,7 @@ function Stream() {
   return (
     <div className="with-sidebar">
       <div className="content">
-        <ImportCard />
+        <ImportCard services={services} />
         <div className="page-header">
           <h1>Лента</h1>
           {/* Without uploads the standalone feed holds only releases. */}
@@ -154,7 +156,7 @@ function Stream() {
         )}
       </div>
       <aside className="sidebar">
-        <SyncWidget />
+        {needsService && <SyncWidget />}
         <SuggestedUsers />
         <HistoryWidget />
       </aside>

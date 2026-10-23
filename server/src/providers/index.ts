@@ -4,7 +4,6 @@ import { notFound } from '../lib/errors.js';
 import type { FetchLike } from '../lib/http.js';
 import { DeezerProvider } from './deezer.js';
 import { ItunesProvider } from './itunes.js';
-import { JamendoProvider } from './jamendo.js';
 import { SoundCloudProvider } from './soundcloud.js';
 import { SoundCloudWebProvider } from './soundcloudWeb.js';
 import type { MusicProvider } from './types.js';
@@ -60,7 +59,6 @@ export function createProviders(config: AppConfig, store?: KeyValueStore, fetchI
     soundcloud,
     new DeezerProvider(fetchImpl),
     new ItunesProvider(config.itunes.country, fetchImpl),
-    new JamendoProvider(config.jamendo.clientId, fetchImpl),
     new YouTubeProvider(config.youtube.apiKey, fetchImpl),
   ]);
 }

@@ -1,4 +1,4 @@
-export type ProviderId = 'vk' | 'deezer' | 'itunes' | 'jamendo' | 'soundcloud' | 'youtube';
+export type ProviderId = 'vk' | 'deezer' | 'itunes' | 'soundcloud' | 'youtube';
 
 export interface ExternalArtist {
   externalId: string;

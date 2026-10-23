@@ -95,7 +95,6 @@ export function testConfig(): AppConfig {
     clientDist: path.join(dataDir, 'no-client'),
     publicUrl: null,
     itunes: { country: 'US' },
-    jamendo: { clientId: null },
     vk: { accessToken: null, apiVersion: '5.131', userAgent: 'test', relayStreams: true },
     soundcloud: { clientId: null, clientSecret: null, publicClient: false },
     genius: { accessToken: null },

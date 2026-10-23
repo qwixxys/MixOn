@@ -30,7 +30,6 @@ export interface AppConfig {
   /** Public origin used in OAuth redirect URIs; derived from the request when unset. */
   publicUrl: string | null;
   itunes: { country: string };
-  jamendo: { clientId: string | null };
   /** `relayStreams` passes VK audio through this server (see VkOptions). */
   vk: { accessToken: string | null; apiVersion: string; userAgent: string; relayStreams: boolean };
   /** `publicClient` allows the unofficial keyless mode when no official keys are set; on unless turned off. */
@@ -74,7 +73,6 @@ export function loadConfig(): AppConfig {
     clientDist: path.join(rootDir, 'client', 'dist'),
     publicUrl: process.env.PUBLIC_URL ? process.env.PUBLIC_URL.replace(/\/+$/, '') : null,
     itunes: { country: process.env.ITUNES_COUNTRY || 'US' },
-    jamendo: { clientId: process.env.JAMENDO_CLIENT_ID || null },
     vk: {
       accessToken: process.env.VK_ACCESS_TOKEN || null,
       apiVersion: process.env.VK_API_VERSION || '5.131',

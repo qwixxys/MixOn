@@ -3174,6 +3174,46 @@ a.np-artist:hover {
   margin-left: auto;
 }
 
+.np-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* Lyrics in the full-screen player: in place of the cover, or a column of their own on wide windows. */
+.np-lyrics {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.np-lyrics .synced-lyrics {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+  background: transparent;
+  padding: 24px 0;
+}
+.np-lyrics .plain-lyrics {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: transparent;
+  padding: 8px 0;
+}
+.np-lyrics-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: auto 0;
+  text-align: center;
+}
+.np-lyrics-source {
+  flex: none;
+}
+
 /* Wide windows: the cover on the left, the controls on the right. */
 @media (min-width: 900px) {
   .np-body {
@@ -3188,6 +3228,24 @@ a.np-artist:hover {
   }
   .np-lower {
     width: 400px;
+  }
+}
+/* Wider still: the lyrics follow the song in a third column, the way desktop music apps show them. */
+@media (min-width: 1200px) {
+  .np-body.np-body-lyrics {
+    max-width: 1680px;
+    gap: 56px;
+  }
+  .np-body-lyrics .np-stage {
+    flex: 1;
+  }
+  .np-body-lyrics .np-lyrics {
+    flex: 1.15;
+    align-self: stretch;
+    padding-top: 24px;
+  }
+  .np-body-lyrics .np-lyrics .lyric-line {
+    font-size: 26px;
   }
 }
 

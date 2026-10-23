@@ -31,7 +31,7 @@ export function activeLine(lines: LyricLine[], time: number): number {
  * Time-synced lyrics that follow playback: the current line is highlighted and kept in view, and clicking a line
  * jumps there. A 30-second preview starts mid-song, so its lines are shown without following along.
  */
-function SyncedLyrics({ track, lines }: { track: Track; lines: LyricLine[] }) {
+export function SyncedLyrics({ track, lines }: { track: Track; lines: LyricLine[] }) {
   const follow = !track.isPreview;
   const time = usePlayer((s) => (follow && s.current?.id === track.id ? s.currentTime : null));
   const play = usePlayer((s) => s.play);

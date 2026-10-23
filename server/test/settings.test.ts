@@ -39,7 +39,6 @@ describe('service keys entered in the app', () => {
         ['SOUNDCLOUD_CLIENT_SECRET', null],
         ['SOUNDCLOUD_PUBLIC_CLIENT', null],
         ['GENIUS_ACCESS_TOKEN', null],
-        ['JAMENDO_CLIENT_ID', null],
         ['YOUTUBE_API_KEY', null],
       ],
     );
@@ -51,7 +50,7 @@ describe('service keys entered in the app', () => {
     const saved = await t.request
       .put('/api/settings/keys')
       .set(owner.auth)
-      .send({ values: { SOUNDCLOUD_CLIENT_ID: 'client-id-abcdef-1234', SOUNDCLOUD_CLIENT_SECRET: secret, JAMENDO_CLIENT_ID: 'jam123' } })
+      .send({ values: { SOUNDCLOUD_CLIENT_ID: 'client-id-abcdef-1234', SOUNDCLOUD_CLIENT_SECRET: secret, YOUTUBE_API_KEY: 'AIza-test-key' } })
       .expect(200);
     assert.ok(!JSON.stringify(saved.body).includes(secret), 'the secret is masked');
     const sc = saved.body.find((k: { name: string }) => k.name === 'SOUNDCLOUD_CLIENT_SECRET');
@@ -60,7 +59,7 @@ describe('service keys entered in the app', () => {
     const now = await services();
     assert.equal(now.soundcloud.configured, true);
     assert.equal(now.soundcloud.unofficial, false);
-    assert.equal(now.jamendo.configured, true);
+    assert.equal(now.youtube.configured, true);
   });
 
   it('turns Genius on without a restart', async () => {

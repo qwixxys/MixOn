@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useNavigate } from 'react-router';
-import type { Track } from '../api/types';
+import type { Track, TrackLyrics } from '../api/types';
 import { gradientFor } from '../lib/gradient';
 import { useNowPlaying } from '../lib/nowPlaying';
+import { useFetch } from '../lib/useFetch';
 import { serviceInfo } from '../lib/services';
 import { useAuth } from '../store/auth';
 import { usePlayer } from '../store/player';
@@ -12,6 +13,7 @@ import { Cover } from './Cover';
 import { DownloadButton } from './DownloadButton';
 import { Icon } from './Icon';
 import { LikeButton } from './LikeButton';
+import { SyncedLyrics } from './Lyrics';
 import { clearQueue, PlayerControls, Progress, QueueList, Volume } from './PlayerBar';
 import { shareTrack } from './TrackActions';
 
@@ -42,8 +44,61 @@ function VideoSpot({ layout }: { layout: unknown }) {
   return <div ref={ref} className="np-video" aria-hidden />;
 }
 
+/** Windows at least this wide show the lyrics in a column of their own; narrower ones swap them in for the cover. */
+const LYRICS_COLUMN = window.matchMedia('(min-width: 1200px)');
+
+function useWide() {
+  return useSyncExternalStore(
+    (onChange) => {
+      LYRICS_COLUMN.addEventListener('change', onChange);
+      return () => LYRICS_COLUMN.removeEventListener('change', onChange);
+    },
+    () => LYRICS_COLUMN.matches,
+  );
+}
+
+/** The song's lyrics from LRCLIB, following playback when they are time-synced. */
+function NowPlayingLyrics({ track }: { track: Track }) {
+  const lyrics = useFetch<TrackLyrics>(`/tracks/${track.id}/lyrics`);
+  const found = lyrics.data?.found ? lyrics.data : null;
+  let body;
+  if (lyrics.loading) {
+    body = (
+      <p className="np-lyrics-note muted">
+        <Icon name="progress_activity" size={18} className="spin" /> Ищем текст песни…
+      </p>
+    );
+  } else if (lyrics.error) {
+    body = <p className="np-lyrics-note muted">Текст не загрузился: {lyrics.error}</p>;
+  } else if (found?.instrumental) {
+    body = <p className="np-lyrics-note muted">Инструментальный трек — в нём нет слов.</p>;
+  } else if (found?.synced?.length) {
+    body = <SyncedLyrics track={track} lines={found.synced} />;
+  } else if (found?.plain) {
+    body = <div className="plain-lyrics">{found.plain}</div>;
+  } else {
+    body = <p className="np-lyrics-note muted">Текста для этой песни не нашлось.</p>;
+  }
+  return (
+    <div className="np-lyrics">
+      {body}
+      {found && !found.instrumental && (
+        <span className="np-lyrics-source muted small">
+          {found.synced?.length ? 'Синхронизированный текст' : 'Текст'} из LRCLIB
+        </span>
+      )}
+    </div>
+  );
+}
+
+type Panel = 'cover' | 'queue' | 'lyrics';
+
 function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) {
-  const [queueOpen, setQueueOpen] = useState(false);
+  const wide = useWide();
+  const [chosen, setPanel] = useState<Panel>('cover');
+  // Wide windows show the lyrics beside the controls, so the stage never needs to swap them in there.
+  const panel: Panel = wide && chosen === 'lyrics' ? 'cover' : chosen;
+  const toggle = (p: Panel) => setPanel(panel === p ? 'cover' : p);
   const video = useSyncExternalStore(onYoutubeShown, youtubeShown);
   const error = usePlayer((s) => s.error);
   const user = useAuth((s) => s.user);
@@ -88,21 +143,35 @@ function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) 
             </span>
           )}
         </div>
-        <button
-          className={`icon-btn ${queueOpen ? 'icon-btn-selected' : ''}`}
-          onClick={() => setQueueOpen(!queueOpen)}
-          aria-pressed={queueOpen}
-          aria-label="Очередь"
-          title="Очередь"
-        >
-          <Icon name="queue_music" />
-        </button>
+        <div className="np-head-actions">
+          {!wide && (
+            <button
+              className={`icon-btn ${panel === 'lyrics' ? 'icon-btn-selected' : ''}`}
+              onClick={() => toggle('lyrics')}
+              aria-pressed={panel === 'lyrics'}
+              aria-label="Текст песни"
+              title="Текст песни"
+            >
+              <Icon name="lyrics" />
+            </button>
+          )}
+          <button
+            className={`icon-btn ${panel === 'queue' ? 'icon-btn-selected' : ''}`}
+            onClick={() => toggle('queue')}
+            aria-pressed={panel === 'queue'}
+            aria-label="Очередь"
+            title="Очередь"
+          >
+            <Icon name="queue_music" />
+          </button>
+        </div>
       </header>
 
-      <div className="np-body">
-        <div className={`np-stage ${queueOpen ? 'np-stage-queue' : ''}`}>
-          {video ? <VideoSpot layout={queueOpen} /> : !queueOpen && <Cover url={track.coverUrl} seed={track.id} className="np-cover" />}
-          {queueOpen && (
+      <div className={`np-body ${wide ? 'np-body-lyrics' : ''}`}>
+        <div className={`np-stage ${panel !== 'cover' ? 'np-stage-queue' : ''}`}>
+          {video ? <VideoSpot layout={panel} /> : panel === 'cover' && <Cover url={track.coverUrl} seed={track.id} className="np-cover" />}
+          {panel === 'lyrics' && <NowPlayingLyrics key={track.id} track={track} />}
+          {panel === 'queue' && (
             <div className="np-queue">
               <div className="np-queue-head">
                 <h3>Очередь</h3>
@@ -156,9 +225,9 @@ function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) 
               <span>В плейлист</span>
             </button>
             <DownloadButton track={track} labels />
-            <Link to={`/tracks/${track.id}`} replace className="action-btn" title="Текст песни и комментарии">
-              <Icon name="lyrics" size={20} />
-              <span>Текст</span>
+            <Link to={`/tracks/${track.id}`} replace className="action-btn" title="Страница трека: о песне и комментарии">
+              <Icon name="info" size={20} />
+              <span>О треке</span>
             </Link>
             <button className="action-btn" title="Скопировать ссылку" onClick={() => shareTrack(track)}>
               <Icon name="link" size={20} />
@@ -167,6 +236,7 @@ function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) 
             <Volume />
           </div>
         </div>
+        {wide && <NowPlayingLyrics key={track.id} track={track} />}
       </div>
     </div>
   );
