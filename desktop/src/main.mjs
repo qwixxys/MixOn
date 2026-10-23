@@ -24,6 +24,8 @@ const envFile = path.join(userData, 'soundfy.env');
 
 let settings = { lanAccess: false };
 let running = null;
+/** The interface language: what the window last showed, else the system's. */
+let lang = 'ru';
 let window = null;
 let quitting = false;
 
@@ -56,6 +58,70 @@ function lanAddresses() {
 }
 
 const isWebUrl = (url) => /^https?:\/\//i.test(url);
+
+/** The app's own texts in English; the window's are translated by the interface itself (client/src/i18n). */
+const EN = {
+  'Вход': 'Sign in',
+  'Доступ из локальной сети': 'Local network access',
+  'Открыть MixOn для других устройств в вашей сети?': 'Open MixOn to other devices on your network?',
+  'Так к MixOn можно подключиться с телефона. Открыть сайт и зарегистрироваться сможет любой, кто подключён к той же сети, поэтому включайте доступ только в домашней сети, которой доверяете. Windows может спросить разрешение для брандмауэра.\n\nMixOn перезапустится.':
+    'This lets you connect to MixOn from your phone. Anyone on the same network will be able to open the site and sign up, so turn access on only on a home network you trust. Windows may ask for a firewall permission.\n\nMixOn will restart.',
+  'Включить': 'Turn on',
+  'Отмена': 'Cancel',
+  'Подключить телефон': 'Connect a phone',
+  'Слушайте свою библиотеку с телефона': 'Listen to your library from your phone',
+  'Установите приложение MixOn для Android и подключите телефон к той же Wi-Fi сети, что и компьютер. Сначала нужно включить доступ из локальной сети.':
+    'Install the MixOn app for Android and connect the phone to the same Wi-Fi network as the computer. Local network access has to be turned on first.',
+  'Включить доступ…': 'Turn on access…',
+  'Закрыть': 'Close',
+  'Компьютер не подключён к сети': 'The computer is not connected to a network',
+  'В приложении MixOn на телефоне, подключённом к той же Wi-Fi сети, откройте меню профиля → «Подключиться к серверу» и введите этот адрес. Войдите тем же аккаунтом, что и здесь.':
+    'In the MixOn app on a phone connected to the same Wi-Fi network, open the profile menu → “Connect to a server” and enter this address. Sign in with the same account as here.',
+  'Порт {0} был занят, поэтому адрес может измениться после перезапуска.': 'Port {0} was taken, so the address may change after a restart.',
+  'Подключитесь к Wi-Fi или кабельной сети и откройте это окно снова.': 'Connect to Wi-Fi or a wired network and open this window again.',
+  'Скопировать адрес': 'Copy the address',
+  '# Ключи сервисов для MixOn. После изменения перезапустите приложение.': '# Service keys for MixOn. Restart the app after changing them.',
+  '# PORT, HOST и DATA_DIR здесь не действуют: их задаёт само приложение.': '# PORT, HOST and DATA_DIR have no effect here: the app sets them itself.',
+  'Не удалось открыть файл': 'Could not open the file',
+  'О программе': 'About',
+  'Музыкальная платформа в духе SoundCloud с синхронизацией новых релизов.': 'A music platform in the spirit of SoundCloud that syncs new releases.',
+  'Данные: {0}': 'Data: {0}',
+  'Подключить телефон…': 'Connect a phone…',
+  'Ключи сервисов…': 'Service keys…',
+  'Файл настроек (soundfy.env)…': 'Settings file (soundfy.env)…',
+  'Папка с данными': 'Data folder',
+  'Перезапустить': 'Restart',
+  'Выход': 'Quit',
+  'Правка': 'Edit',
+  'Отменить': 'Undo',
+  'Повторить': 'Redo',
+  'Вырезать': 'Cut',
+  'Копировать': 'Copy',
+  'Вставить': 'Paste',
+  'Выделить всё': 'Select all',
+  'Вид': 'View',
+  'Обновить страницу': 'Reload the page',
+  'Обычный масштаб': 'Actual size',
+  'Увеличить': 'Zoom in',
+  'Уменьшить': 'Zoom out',
+  'Во весь экран': 'Full screen',
+  'Инструменты разработчика': 'Developer tools',
+  'Справка': 'Help',
+  'MixOn на GitHub': 'MixOn on GitHub',
+  'MixOn не запустился': 'MixOn did not start',
+};
+
+/** A text in the interface language, with {0}, {1}… filled in. */
+const t = (text, ...values) => (lang === 'en' ? (EN[text] ?? text) : text).replace(/\{(\d+)\}/g, (_, i) => String(values[i]));
+
+/** Follows the language chosen in the window («Оформление»): the menu and dialogs switch with it. */
+async function followLanguage() {
+  const chosen = await window?.webContents.executeJavaScript('document.documentElement.lang').catch(() => null);
+  if ((chosen !== 'ru' && chosen !== 'en') || chosen === lang) return;
+  lang = settings.lang = chosen;
+  saveSettings();
+  buildMenu();
+}
 
 /**
  * The server reads its settings from the environment once, while starting. They are put there only for that moment,
@@ -94,7 +160,7 @@ function openLoginWindow(url, origin) {
     parent: window,
     width: 520,
     height: 760,
-    title: 'Вход',
+    title: t('Вход'),
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, partition: 'login' },
   });
@@ -143,6 +209,7 @@ function createWindow(url) {
   };
   window.webContents.on('will-navigate', leave);
   window.webContents.on('will-redirect', leave);
+  window.webContents.on('did-finish-load', followLanguage);
   window.loadURL(url);
 }
 
@@ -169,13 +236,14 @@ async function setLanAccess(enabled) {
   if (enabled) {
     const { response } = await dialog.showMessageBox(window, {
       type: 'warning',
-      title: 'Доступ из локальной сети',
-      message: 'Открыть MixOn для других устройств в вашей сети?',
-      detail:
+      title: t('Доступ из локальной сети'),
+      message: t('Открыть MixOn для других устройств в вашей сети?'),
+      detail: t(
         'Так к MixOn можно подключиться с телефона. Открыть сайт и зарегистрироваться сможет любой, кто подключён к той же сети, ' +
-        'поэтому включайте доступ только в домашней сети, которой доверяете. Windows может спросить разрешение для брандмауэра.\n\n' +
-        'MixOn перезапустится.',
-      buttons: ['Включить', 'Отмена'],
+          'поэтому включайте доступ только в домашней сети, которой доверяете. Windows может спросить разрешение для брандмауэра.\n\n' +
+          'MixOn перезапустится.',
+      ),
+      buttons: [t('Включить'), t('Отмена')],
       defaultId: 0,
       cancelId: 1,
     });
@@ -190,12 +258,13 @@ async function showPhoneDialog() {
   if (!settings.lanAccess) {
     const { response } = await dialog.showMessageBox(window, {
       type: 'info',
-      title: 'Подключить телефон',
-      message: 'Слушайте свою библиотеку с телефона',
-      detail:
+      title: t('Подключить телефон'),
+      message: t('Слушайте свою библиотеку с телефона'),
+      detail: t(
         'Установите приложение MixOn для Android и подключите телефон к той же Wi-Fi сети, что и компьютер. ' +
-        'Сначала нужно включить доступ из локальной сети.',
-      buttons: ['Включить доступ…', 'Закрыть'],
+          'Сначала нужно включить доступ из локальной сети.',
+      ),
+      buttons: [t('Включить доступ…'), t('Закрыть')],
       defaultId: 0,
       cancelId: 1,
     });
@@ -205,15 +274,16 @@ async function showPhoneDialog() {
   const addresses = lanAddresses().map((ip) => `http://${ip}:${running.port}`);
   const { response } = await dialog.showMessageBox(window, {
     type: 'info',
-    title: 'Подключить телефон',
-    message: addresses.length ? addresses.join('\n') : 'Компьютер не подключён к сети',
+    title: t('Подключить телефон'),
+    message: addresses.length ? addresses.join('\n') : t('Компьютер не подключён к сети'),
     detail: addresses.length
-      ? 'В приложении MixOn на телефоне, подключённом к той же Wi-Fi сети, откройте меню профиля → «Подключиться к серверу» ' +
-        'и введите этот адрес. ' +
-        'Войдите тем же аккаунтом, что и здесь.' +
-        (running.port === DEFAULT_PORT ? '' : `\n\nПорт ${DEFAULT_PORT} был занят, поэтому адрес может измениться после перезапуска.`)
-      : 'Подключитесь к Wi-Fi или кабельной сети и откройте это окно снова.',
-    buttons: addresses.length ? ['Скопировать адрес', 'Закрыть'] : ['Закрыть'],
+      ? t(
+          'В приложении MixOn на телефоне, подключённом к той же Wi-Fi сети, откройте меню профиля → «Подключиться к серверу» ' +
+            'и введите этот адрес. Войдите тем же аккаунтом, что и здесь.',
+        ) +
+        (running.port === DEFAULT_PORT ? '' : `\n\n${t('Порт {0} был занят, поэтому адрес может измениться после перезапуска.', DEFAULT_PORT)}`)
+      : t('Подключитесь к Wi-Fi или кабельной сети и откройте это окно снова.'),
+    buttons: addresses.length ? [t('Скопировать адрес'), t('Закрыть')] : [t('Закрыть')],
     defaultId: 0,
     cancelId: addresses.length ? 1 : 0,
   });
@@ -233,21 +303,21 @@ async function openEnvFile() {
     fs.mkdirSync(userData, { recursive: true });
     fs.writeFileSync(
       envFile,
-      '# Ключи сервисов для MixOn. После изменения перезапустите приложение.\n' +
-        '# PORT, HOST и DATA_DIR здесь не действуют: их задаёт само приложение.\n\n' +
+      `${t('# Ключи сервисов для MixOn. После изменения перезапустите приложение.')}\n` +
+        `${t('# PORT, HOST и DATA_DIR здесь не действуют: их задаёт само приложение.')}\n\n` +
         template,
     );
   }
   const error = await shell.openPath(envFile);
-  if (error) dialog.showErrorBox('Не удалось открыть файл', `${envFile}\n\n${error}`);
+  if (error) dialog.showErrorBox(t('Не удалось открыть файл'), `${envFile}\n\n${error}`);
 }
 
 function showAbout() {
   dialog.showMessageBox(window, {
     type: 'info',
-    title: 'О программе',
+    title: t('О программе'),
     message: `MixOn ${app.getVersion()}`,
-    detail: `Музыкальная платформа в духе SoundCloud с синхронизацией новых релизов.\n\nДанные: ${dataDir}\n${REPO_URL}`,
+    detail: `${t('Музыкальная платформа в духе SoundCloud с синхронизацией новых релизов.')}\n\n${t('Данные: {0}', dataDir)}\n${REPO_URL}`,
     buttons: ['OK'],
   });
 }
@@ -258,47 +328,47 @@ function buildMenu() {
       {
         label: 'MixOn',
         submenu: [
-          { label: 'Подключить телефон…', click: showPhoneDialog },
-          { label: 'Доступ из локальной сети', type: 'checkbox', checked: settings.lanAccess, click: (item) => setLanAccess(item.checked) },
+          { label: t('Подключить телефон…'), click: showPhoneDialog },
+          { label: t('Доступ из локальной сети'), type: 'checkbox', checked: settings.lanAccess, click: (item) => setLanAccess(item.checked) },
           { type: 'separator' },
-          { label: 'Ключи сервисов…', click: openKeys },
-          { label: 'Файл настроек (soundfy.env)…', click: openEnvFile },
-          { label: 'Папка с данными', click: () => shell.openPath(dataDir) },
+          { label: t('Ключи сервисов…'), click: openKeys },
+          { label: t('Файл настроек (soundfy.env)…'), click: openEnvFile },
+          { label: t('Папка с данными'), click: () => shell.openPath(dataDir) },
           { type: 'separator' },
-          { label: 'Перезапустить', click: restart },
-          { role: 'quit', label: 'Выход' },
+          { label: t('Перезапустить'), click: restart },
+          { role: 'quit', label: t('Выход') },
         ],
       },
       {
-        label: 'Правка',
+        label: t('Правка'),
         submenu: [
-          { role: 'undo', label: 'Отменить' },
-          { role: 'redo', label: 'Повторить' },
+          { role: 'undo', label: t('Отменить') },
+          { role: 'redo', label: t('Повторить') },
           { type: 'separator' },
-          { role: 'cut', label: 'Вырезать' },
-          { role: 'copy', label: 'Копировать' },
-          { role: 'paste', label: 'Вставить' },
-          { role: 'selectAll', label: 'Выделить всё' },
+          { role: 'cut', label: t('Вырезать') },
+          { role: 'copy', label: t('Копировать') },
+          { role: 'paste', label: t('Вставить') },
+          { role: 'selectAll', label: t('Выделить всё') },
         ],
       },
       {
-        label: 'Вид',
+        label: t('Вид'),
         submenu: [
-          { role: 'reload', label: 'Обновить страницу' },
+          { role: 'reload', label: t('Обновить страницу') },
           { type: 'separator' },
-          { role: 'resetZoom', label: 'Обычный масштаб' },
-          { role: 'zoomIn', label: 'Увеличить' },
-          { role: 'zoomOut', label: 'Уменьшить' },
+          { role: 'resetZoom', label: t('Обычный масштаб') },
+          { role: 'zoomIn', label: t('Увеличить') },
+          { role: 'zoomOut', label: t('Уменьшить') },
           { type: 'separator' },
-          { role: 'togglefullscreen', label: 'Во весь экран' },
-          { role: 'toggleDevTools', label: 'Инструменты разработчика' },
+          { role: 'togglefullscreen', label: t('Во весь экран') },
+          { role: 'toggleDevTools', label: t('Инструменты разработчика') },
         ],
       },
       {
-        label: 'Справка',
+        label: t('Справка'),
         submenu: [
-          { label: 'MixOn на GitHub', click: () => shell.openExternal(REPO_URL) },
-          { label: 'О программе', click: showAbout },
+          { label: t('MixOn на GitHub'), click: () => shell.openExternal(REPO_URL) },
+          { label: t('О программе'), click: showAbout },
         ],
       },
     ]),
@@ -307,11 +377,12 @@ function buildMenu() {
 
 async function main() {
   settings = readSettings();
+  lang = settings.lang ?? (/^(ru|uk|be|kk)\b/i.test(app.getLocale()) ? 'ru' : 'en');
   buildMenu();
   try {
     running = await startServer();
   } catch (err) {
-    dialog.showErrorBox('MixOn не запустился', `${err.message}\n\nДанные: ${dataDir}`);
+    dialog.showErrorBox(t('MixOn не запустился'), `${err.message}\n\n${t('Данные: {0}', dataDir)}`);
     app.exit(1);
     return;
   }

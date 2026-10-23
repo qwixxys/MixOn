@@ -7,6 +7,7 @@ import { useFetch } from '../lib/useFetch';
 import { toast } from '../store/toasts';
 import { Avatar } from './Cover';
 import { Icon } from './Icon';
+import { tr } from '../i18n/runtime';
 
 export function announceSync(summary: SyncSummary) {
   window.dispatchEvent(new CustomEvent('soundfy:synced', { detail: summary }));
@@ -15,7 +16,7 @@ export function announceSync(summary: SyncSummary) {
   } else if (!summary.errors.length) {
     toast.info('Новых треков пока нет');
   }
-  for (const e of summary.errors.slice(0, 3)) toast.error(`${e.name}: ${e.error}`);
+  for (const e of summary.errors.slice(0, 3)) toast.error(`${e.name}: ${tr(e.error)}`);
 }
 
 export async function runSync(): Promise<SyncSummary | null> {

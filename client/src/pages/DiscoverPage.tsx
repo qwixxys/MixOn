@@ -10,6 +10,7 @@ import { useFetch } from '../lib/useFetch';
 import { plural } from '../lib/format';
 import { gradientFor } from '../lib/gradient';
 import { Icon } from '../components/Icon';
+import { tr } from '../i18n/runtime';
 
 function Section({ title, link, children }: { title: string; link?: { to: string; label: string }; children: React.ReactNode }) {
   return (
@@ -88,7 +89,7 @@ function GenreCards() {
         {data.genres.slice(0, 18).map((g) => (
           <Link key={g.name} to={`/discover?genre=${encodeURIComponent(g.name)}`} className="genre-card" style={{ background: gradientFor(g.name) }}>
             {g.coverUrl && <img src={g.coverUrl} alt="" loading="lazy" />}
-            <span className="genre-card-name">{g.name}</span>
+            <span className="genre-card-name">{tr(g.name)}</span>
             <span className="genre-card-count">
               {g.count} {plural(g.count, ['трек', 'трека', 'треков'])}
             </span>
@@ -109,7 +110,7 @@ export function DiscoverPage() {
   const title = genre
     ? genre === NO_GENRE
       ? 'Без жанра'
-      : genre
+      : tr(genre)
     : source === 'external'
       ? 'Релизы с сервисов'
       : source === 'local'

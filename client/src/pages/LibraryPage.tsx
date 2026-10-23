@@ -11,6 +11,7 @@ import { FilteredTrackList } from '../components/FilteredTrackList';
 import { ImportPlaylistDialog } from '../components/ImportPlaylist';
 import { Tabs } from '../components/Tabs';
 import { TrackRow } from '../components/TrackRow';
+import { locale } from '../i18n/runtime';
 import { plural } from '../lib/format';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
@@ -21,7 +22,8 @@ import { Icon } from '../components/Icon';
 type Tab = 'likes' | 'playlists' | 'history' | 'artists' | 'downloads';
 const TABS: Tab[] = ['likes', 'playlists', 'history', 'artists', 'downloads'];
 
-const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} МБ`;
+const megabytes = (bytes: number) =>
+  `${(bytes / 1024 / 1024).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} МБ`;
 
 /** Tracks saved on this device; the list itself is stored with them, so it shows even without internet. */
 function Downloads() {

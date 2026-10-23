@@ -3,6 +3,7 @@ import type { GenreFacets, TrackSort } from '../api/types';
 import { useDismiss } from '../lib/useDismiss';
 import { useFetch } from '../lib/useFetch';
 import { Icon } from './Icon';
+import { tr } from '../i18n/runtime';
 
 /** Special genre value for tracks without a genre (matches the server's NO_GENRE). */
 export const NO_GENRE = '-';
@@ -107,7 +108,7 @@ export function GenreBar({
                 onClick={() => onChange({ genre: selected ? null : g.name })}
               >
                 {selected && <Icon name="check" size={18} />}
-                {g.name}
+                {tr(g.name)}
                 <span className="chip-count">{g.count}</span>
               </button>
             );

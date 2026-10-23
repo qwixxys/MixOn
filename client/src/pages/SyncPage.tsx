@@ -14,6 +14,7 @@ import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
 import { Icon } from '../components/Icon';
+import { tr } from '../i18n/runtime';
 
 /**
  * Signs in to VK with a login and password: VK closed the audio API to third-party clients, so MixOn asks as the
@@ -40,7 +41,7 @@ function VkLogin({ service, onChange }: { service: Service; onChange(s: Service)
       }
       if (result.status === 'ok') {
         onChange(result.service);
-        toast.success(`${service.name}: аккаунт ${result.service.account?.displayName ?? ''} подключён`);
+        toast.success(`${tr(service.name)}: аккаунт ${result.service.account?.displayName ?? ''} подключён`);
         return;
       }
       if (result.status === 'code') {
@@ -149,7 +150,7 @@ function ServiceCard({ service, keys, onChange }: { service: Service; keys: Card
       const updated = await api<Service>(`/services/${service.id}/connect`, { body: { accessToken: token } });
       onChange(updated);
       setToken('');
-      toast.success(`${service.name}: аккаунт ${updated.account?.displayName ?? ''} подключён`);
+      toast.success(`${tr(service.name)}: аккаунт ${updated.account?.displayName ?? ''} подключён`);
     });
   };
 
@@ -195,7 +196,7 @@ function ServiceCard({ service, keys, onChange }: { service: Service; keys: Card
       <div className="service-card-head">
         <ServiceIcon id={service.id} size={48} />
         <div>
-          <h3>{service.name}</h3>
+          <h3>{tr(service.name)}</h3>
           <div className="row-gap">
             <span className="pill">{service.fullTracks ? 'Полные треки' : 'Превью 30 сек'}</span>
             {status}
@@ -207,13 +208,13 @@ function ServiceCard({ service, keys, onChange }: { service: Service; keys: Card
           </div>
         </div>
       </div>
-      <p className="muted">{service.description}</p>
+      <p className="muted">{tr(service.description)}</p>
 
       {service.unofficial && (
         <div className="small notice notice-warn">
           <Icon name="warning" size={18} />
           <span>
-            Работает без ключей через внутренний API сайта {service.name}, как его веб-плеер. Сервис не разрешает такое использование и
+            Работает без ключей через внутренний API сайта {tr(service.name)}, как его веб-плеер. Сервис не разрешает такое использование и
             может в любой момент перестать отвечать.{keys.list && ' Можно указать свои ключи ниже или выключить этот режим.'}
           </span>
         </div>
@@ -239,7 +240,7 @@ function ServiceCard({ service, keys, onChange }: { service: Service; keys: Card
               <div className="row-gap">
                 {service.canImportLibrary && (
                   <button className="btn btn-tonal btn-small" onClick={importLibrary} disabled={busy !== null}>
-                    <Icon name="download" size={18} className={busy === 'import' ? 'spin' : ''} /> Импортировать {service.libraryLabel ?? 'библиотеку'}
+                    <Icon name="download" size={18} className={busy === 'import' ? 'spin' : ''} /> Импортировать {tr(service.libraryLabel) ?? 'библиотеку'}
                   </button>
                 )}
                 {service.canImportFollowings && (
@@ -259,12 +260,12 @@ function ServiceCard({ service, keys, onChange }: { service: Service; keys: Card
           ) : service.connectMode === 'oauth' && STANDALONE ? (
             // The service sends the listener back to a web address after sign-in, which only a server has.
             <span className="small muted">
-              Вход через {service.name} для импорта лайков и подписок работает, когда телефон подключён к серверу MixOn. Поиск
+              Вход через {tr(service.name)} для импорта лайков и подписок работает, когда телефон подключён к серверу MixOn. Поиск
               и прослушивание работают и так.
             </span>
           ) : service.connectMode === 'oauth' ? (
             <button className="btn btn-filled" onClick={connectOAuth} disabled={busy !== null}>
-              <Icon name="login" size={18} /> Войти через {service.name}
+              <Icon name="login" size={18} /> Войти через {tr(service.name)}
             </button>
           ) : service.canLogin ? (
             <VkLogin service={service} onChange={onChange} />

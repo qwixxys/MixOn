@@ -125,6 +125,9 @@
         white-space: nowrap;
       }
       .hint {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5em;
         font-size: 14px;
         padding: 16px;
         border-radius: 12px;
@@ -149,31 +152,69 @@
         </g>
       </svg>
       <h1>MixOn</h1>
-      <p>
+      <p data-t>
         Подключитесь к своему серверу MixOn — например, к приложению на компьютере, — чтобы слушать общую библиотеку,
         свои загрузки и музыку с ВКонтакте. Без сервера MixOn работает прямо на телефоне.
       </p>
 
       <form id="form">
         <label>
-          Адрес сервера
+          <span data-t>Адрес сервера</span>
           <input id="address" type="text" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="192.168.1.10:4777" />
         </label>
       </form>
-      <button id="connect" class="primary" type="submit" form="form">Подключиться</button>
+      <button id="connect" class="primary" type="submit" form="form" data-t>Подключиться</button>
       <div id="status" class="status" role="status" aria-live="polite"></div>
-      <button id="phone" class="tonal" type="button">Музыка на телефоне, без сервера</button>
+      <button id="phone" class="tonal" type="button" data-t>Музыка на телефоне, без сервера</button>
 
       <div id="recent" class="recent" hidden></div>
 
       <div class="hint">
-        <b>MixOn на компьютере:</b> включите в меню «MixOn → Подключить телефон», подключите телефон к той же Wi-Fi сети
-        и введите показанный адрес.<br /><br />
-        <b>MixOn на сервере:</b> введите адрес сайта, например https://music.example.com.
+        <div>
+          <b data-t>MixOn на компьютере:</b>
+          <span data-t>включите в меню «MixOn → Подключить телефон», подключите телефон к той же Wi-Fi сети и введите показанный адрес.</span>
+        </div>
+        <div><b data-t>MixOn на сервере:</b> <span data-t>введите адрес сайта, например https://music.example.com.</span></div>
       </div>
     </main>
 
     <script>
+      // The language chosen in the app («Оформление»), else the system's, as in client/src/i18n/runtime.ts.
+      const LANG = (() => {
+        try {
+          const saved = localStorage.getItem('soundfy.lang');
+          if (saved === 'ru' || saved === 'en') return saved;
+        } catch {
+          // storage unavailable: follow the system
+        }
+        return (navigator.languages ?? [navigator.language]).some((l) => /^(ru|uk|be|kk)\b/i.test(l ?? '')) ? 'ru' : 'en';
+      })();
+      const EN = {
+        'Подключитесь к своему серверу MixOn — например, к приложению на компьютере, — чтобы слушать общую библиотеку, свои загрузки и музыку с ВКонтакте. Без сервера MixOn работает прямо на телефоне.':
+          'Connect to your MixOn server, for example the app on your computer, to listen to the shared library, your uploads and music from VK. Without a server, MixOn works right on the phone.',
+        'Адрес сервера': 'Server address',
+        'Подключиться': 'Connect',
+        'Музыка на телефоне, без сервера': 'Music on the phone, no server',
+        'MixOn на компьютере:': 'MixOn on a computer:',
+        'включите в меню «MixOn → Подключить телефон», подключите телефон к той же Wi-Fi сети и введите показанный адрес.':
+          'choose “MixOn → Connect a phone” in its menu, connect the phone to the same Wi-Fi network and enter the address shown.',
+        'MixOn на сервере:': 'MixOn on a server:',
+        'введите адрес сайта, например https://music.example.com.': 'enter the website address, for example https://music.example.com.',
+        'Введите адрес сервера': 'Enter the server address',
+        'Это не похоже на адрес': 'This does not look like an address',
+        'Нужен адрес http:// или https://': 'An http:// or https:// address is needed',
+        'Подключаемся к {0}…': 'Connecting to {0}…',
+        'По этому адресу отвечает не MixOn': 'Something other than MixOn answers at this address',
+        'Не удалось подключиться к {0}. Проверьте, что MixOn запущен, доступ из сети включён и телефон в той же сети.':
+          'Could not connect to {0}. Check that MixOn is running, network access is on and the phone is on the same network.',
+        'Не удалось открыть {0}. Проверьте, что сервер работает, и подключитесь снова.':
+          'Could not open {0}. Check that the server is running and connect again.',
+      };
+      /** A text in the chosen language, with {0} filled in. */
+      const t = (text, ...values) => (LANG === 'en' ? (EN[text] ?? text) : text).replace(/\{(\d+)\}/g, (_, i) => values[i]);
+      document.documentElement.lang = LANG;
+      for (const el of document.querySelectorAll('[data-t]')) el.textContent = t(el.textContent.replace(/\s+/g, ' ').trim());
+
       const SERVER_KEY = 'soundfy.server';
       const RECENT_KEY = 'soundfy.servers';
       // "server" while the app should open the server at start; the app's own page (index.html) reads it too.
@@ -212,7 +253,7 @@
        */
       function candidates(text) {
         const value = text.trim();
-        if (!value) throw new Error('Введите адрес сервера');
+        if (!value) throw new Error(t('Введите адрес сервера'));
         const typed = /^[a-z][a-z0-9+.-]*:\/\//i.test(value)
           ? [value]
           : isLocal(value)
@@ -223,9 +264,9 @@
           try {
             url = new URL(candidate);
           } catch {
-            throw new Error('Это не похоже на адрес');
+            throw new Error(t('Это не похоже на адрес'));
           }
-          if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('Нужен адрес http:// или https://');
+          if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error(t('Нужен адрес http:// или https://'));
           return url.origin + url.pathname.replace(/\/+$/, '');
         });
       }
@@ -290,7 +331,7 @@
         let answered = false;
         try {
           for (const candidate of list) {
-            setStatus(`Подключаемся к ${candidate}…`);
+            setStatus(t('Подключаемся к {0}…', candidate));
             try {
               const result = await probe(candidate);
               if (result.kind === 'other') {
@@ -308,8 +349,8 @@
         }
         setStatus(
           answered
-            ? 'По этому адресу отвечает не MixOn'
-            : `Не удалось подключиться к ${list[0]}. Проверьте, что MixOn запущен, доступ из сети включён и телефон в той же сети.`,
+            ? t('По этому адресу отвечает не MixOn')
+            : t('Не удалось подключиться к {0}. Проверьте, что MixOn запущен, доступ из сети включён и телефон в той же сети.', list[0]),
           true,
         );
       }
@@ -337,7 +378,7 @@
       showRecent();
       if (saved) input.value = saved;
       // The app comes back here when the server's page failed to load; don't loop into it again.
-      if (params.has('failed') && saved) setStatus(`Не удалось открыть ${saved}. Проверьте, что сервер работает, и подключитесь снова.`, true);
+      if (params.has('failed') && saved) setStatus(t('Не удалось открыть {0}. Проверьте, что сервер работает, и подключитесь снова.', saved), true);
       else if (saved && read(MODE_KEY, null) === 'server' && !params.has('change')) connect(saved);
     </script>
   </body>

@@ -1,3 +1,5 @@
+import { tr } from '../i18n/runtime';
+
 const TOKEN_KEY = 'soundfy.token';
 
 export function getToken(): string | null {
@@ -58,7 +60,8 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     throw new ApiError('Нет соединения с сервером', 0);
   }
   const data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : null;
-  if (!res.ok) throw new ApiError(data?.error ?? `Ошибка ${res.status}`, res.status);
+  // The server writes its messages in Russian; tr() shows them in the chosen language.
+  if (!res.ok) throw new ApiError(data?.error ? tr(data.error) : `Ошибка ${res.status}`, res.status);
   return data as T;
 }
 
@@ -80,7 +83,7 @@ export function uploadWithProgress<T>(path: string, form: FormData, onProgress: 
         data = null;
       }
       if (xhr.status >= 200 && xhr.status < 300) resolve(data as T);
-      else reject(new ApiError(data?.error ?? `Ошибка ${xhr.status}`, xhr.status));
+      else reject(new ApiError(data?.error ? tr(data.error) : `Ошибка ${xhr.status}`, xhr.status));
     };
     xhr.onerror = () => reject(new ApiError('Нет соединения с сервером', 0));
     xhr.send(form);

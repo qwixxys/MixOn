@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { lang, setLang, type Lang } from '../i18n/runtime';
 import { buildScheme, roleHex, type SchemeVariant } from '../theme/scheme';
 import { activeSeed, useTheme, type ThemeMode } from '../theme/store';
 import { SegmentedButtons, Switch } from './Material';
@@ -60,6 +61,21 @@ export function AppearanceDialog({ onClose }: { onClose(): void }) {
   return (
     <Modal title="Оформление" onClose={onClose}>
       <div className="appearance">
+        <section>
+          <h3>Язык</h3>
+          {/* Each language by its own name; choosing one reloads the app in it. */}
+          <SegmentedButtons<Lang>
+            block
+            label="Язык"
+            value={lang}
+            onChange={setLang}
+            options={[
+              { id: 'ru', label: 'Русский' },
+              { id: 'en', label: 'English' },
+            ]}
+          />
+        </section>
+
         <section>
           <h3>Тема</h3>
           <SegmentedButtons<ThemeMode>

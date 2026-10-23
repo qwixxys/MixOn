@@ -10,6 +10,7 @@ import { Icon } from './Icon';
 import { TextField } from './Material';
 import { Modal } from './Modal';
 import { ErrorState, Loading } from './States';
+import { tr } from '../i18n/runtime';
 
 const EXAMPLES: Record<string, string> = {
   deezer: 'deezer.com/playlist/… или /album/…',
@@ -47,7 +48,7 @@ export function ImportLinkForm({ services, onDone }: { services: Service[]; onDo
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState<'import' | 'spotify' | null>(null);
   const sources = services.filter((s) => s.importsLinks);
-  const previews = sources.filter((s) => !s.fullTracks).map((s) => s.name);
+  const previews = sources.filter((s) => !s.fullTracks).map((s) => tr(s.name));
   if (!sources.length) return null;
 
   const paste = async () => {
@@ -84,7 +85,7 @@ export function ImportLinkForm({ services, onDone }: { services: Service[]; onDo
           inputMode="url"
           autoComplete="off"
           maxLength={2000}
-          supportingText={[SPOTIFY_EXAMPLE, ...sources.map((s) => EXAMPLES[s.id] ?? s.name)].join(' · ')}
+          supportingText={[SPOTIFY_EXAMPLE, ...sources.map((s) => EXAMPLES[s.id] ?? tr(s.name))].join(' · ')}
         />
         {canPaste() && (
           <button type="button" className="icon-btn" onClick={paste} title="Вставить из буфера обмена" disabled={busy !== null}>
@@ -103,7 +104,7 @@ export function ImportLinkForm({ services, onDone }: { services: Service[]; onDo
         </span>
       ) : (
         <span className="muted small">
-          Работает с открытыми плейлистами Spotify, {sources.map((s) => s.name).join(', ')}, входить в эти сервисы не нужно. Песни
+          Работает с открытыми плейлистами Spotify, {sources.map((s) => tr(s.name)).join(', ')}, входить в эти сервисы не нужно. Песни
           из Spotify MixOn находит в подключённых сервисах: сам Spotify играет музыку только в своих приложениях.
           {previews.length > 0 && ` Треки ${previews.join(' и ')} доступны как 30-секундные отрывки.`}
         </span>

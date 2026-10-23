@@ -13,6 +13,7 @@ import { openFoundArtist } from '../lib/openArtist';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
+import { tr } from '../i18n/runtime';
 
 interface ServiceHits {
   artists: FoundArtist[];
@@ -96,7 +97,7 @@ function FoundArtistCard({ artist, onSubscribed }: { artist: FoundArtist; onSubs
       {opening ? (
         <span className="muted small found-artist-sub">Загружаем треки…</span>
       ) : (
-        artist.subtitle && <span className="muted small found-artist-sub">{artist.subtitle}</span>
+        artist.subtitle && <span className="muted small found-artist-sub">{tr(artist.subtitle)}</span>
       )}
       {user ? (
         <button
@@ -141,7 +142,7 @@ export function SearchPage() {
   const searching = usable.some((s) => found[s.id]?.status === 'loading');
   const errors = usable.flatMap((s) => {
     const st = found[s.id];
-    return st?.status === 'error' ? [`${s.name}: ${st.message}`] : [];
+    return st?.status === 'error' ? [`${tr(s.name)}: ${st.message}`] : [];
   });
   const missing = order.filter((s) => !s.available);
   const nothing =
@@ -203,7 +204,7 @@ export function SearchPage() {
                 ) : (
                   only === s.id && <Icon name="check" size={18} />
                 )}
-                {s.name}
+                {tr(s.name)}
                 {count !== null && <span className="chip-count">{count}</span>}
               </button>
             );
@@ -219,7 +220,7 @@ export function SearchPage() {
       )}
       {missing.length > 0 && (
         <p className="muted small">
-          Ещё можно искать в {missing.map((s) => s.name).join(', ')} — <Link to="/sync">подключите их в «Сервисах»</Link>.
+          Ещё можно искать в {missing.map((s) => tr(s.name)).join(', ')} — <Link to="/sync">подключите их в «Сервисах»</Link>.
         </p>
       )}
 

@@ -13,6 +13,7 @@ import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
 import { toast } from '../store/toasts';
 import { Icon } from '../components/Icon';
+import { tr } from '../i18n/runtime';
 
 export function ArtistPage() {
   const { id } = useParams();
@@ -112,7 +113,7 @@ export function ArtistPage() {
             )}
           </div>
         </div>
-        {data.lastError && <div className="notice notice-error">Последняя синхронизация не удалась: {data.lastError}</div>}
+        {data.lastError && <div className="notice notice-error">Последняя синхронизация не удалась: {tr(data.lastError)}</div>}
         <GeniusArtistCard genius={genius.data} loading={genius.loading} error={genius.error} onRetry={genius.reload} />
         <FilteredTrackList
           key={version}

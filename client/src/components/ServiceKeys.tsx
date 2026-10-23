@@ -6,6 +6,7 @@ import { STANDALONE } from '../lib/standalone';
 import { toast } from '../store/toasts';
 import { Icon } from './Icon';
 import { Switch, TextField } from './Material';
+import { tr } from '../i18n/runtime';
 
 const link = (href: string, text: string) => (
   <a className="link" href={href} target="_blank" rel="noreferrer">
@@ -113,7 +114,7 @@ export function KeyFlag({ flag, onSaved }: { flag: ServiceKeyInfo; onSaved(list:
       checked={flag.preview === 'on'}
       disabled={busy || flag.source === 'env'}
       onChange={(on) => void set(on)}
-      label={flag.label}
+      label={tr(flag.label)}
       description={flag.source === 'env' ? `${KEYLESS_NOTE} Задан в настройках сервера (.env).` : KEYLESS_NOTE}
     />
   );
@@ -204,7 +205,7 @@ export function KeyForm({
         {textKeys.map((k) => (
           <TextField
             key={k.name}
-            label={k.label}
+            label={tr(k.label)}
             type={k.secret ? 'password' : 'text'}
             autoComplete="off"
             spellCheck={false}

@@ -16,6 +16,7 @@ import { useDownloads } from '../store/downloads';
 import { usePlayer } from '../store/player';
 import { toast } from '../store/toasts';
 import { Icon } from '../components/Icon';
+import { tr } from '../i18n/runtime';
 
 function EditPlaylistModal({ playlist, onClose, onSaved }: { playlist: Playlist; onClose(): void; onSaved(p: Playlist): void }) {
   const [title, setTitle] = useState(playlist.title);
@@ -165,7 +166,7 @@ export function PlaylistPage() {
                 {list.sort === 'genre' && (i === 0 || visible[i - 1].genre !== t.genre) && (
                   <h3 className="list-subheader">
                     <Icon name="category" size={20} />
-                    {t.genre ?? 'Без жанра'}
+                    {tr(t.genre) ?? 'Без жанра'}
                   </h3>
                 )}
                 <TrackRow track={t} queue={visible} index={i} onRemove={isOwner ? () => removeTrack(t.id) : undefined} />

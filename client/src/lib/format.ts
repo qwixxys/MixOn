@@ -1,3 +1,5 @@
+import { lang, locale } from '../i18n/runtime';
+
 export function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
   const s = Math.floor(seconds % 60);
@@ -7,8 +9,12 @@ export function formatTime(seconds: number): string {
   return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
-/** Russian plural form: plural(5, ['трек', 'трека', 'треков']) → 'треков'. */
+/**
+ * Russian plural form: plural(5, ['трек', 'трека', 'треков']) → 'треков'. In English the forms are translated
+ * ('track', 'tracks', 'tracks') and only one or many matters.
+ */
 export function plural(n: number, forms: [string, string, string]): string {
+  if (lang === 'en') return n === 1 ? forms[0] : forms[2];
   const mod10 = n % 10;
   const mod100 = n % 100;
   if (mod10 === 1 && mod100 !== 11) return forms[0];
@@ -44,7 +50,7 @@ export function timeAgo(iso: string | null | undefined): string {
 
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  return new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 export function totalDuration(seconds: number): string {

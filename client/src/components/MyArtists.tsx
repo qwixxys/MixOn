@@ -10,6 +10,7 @@ import { Icon } from './Icon';
 import { ServiceBadge } from './ServiceBadge';
 import { Empty, ErrorState, Loading } from './States';
 import { runSync } from './SyncWidget';
+import { tr } from '../i18n/runtime';
 
 /** The artists the listener follows: check them for new releases or unfollow. */
 export function MyArtists() {
@@ -95,7 +96,7 @@ export function MyArtists() {
               </span>
               {a.lastError && (
                 <span className="small error-text">
-                  <Icon name="error" size={18} /> {a.lastError}
+                  <Icon name="error" size={18} /> {tr(a.lastError)}
                 </span>
               )}
             </div>

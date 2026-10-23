@@ -88,7 +88,16 @@ function persist(db: Database) {
   return { save, flush };
 }
 
+/** The names the account gets on first start, in each language (i18n-ignore); a name of the listener's own stays. */
+const DEFAULT_NAMES = ['Я', 'Me'];
+
 async function signIn(app: App, db: DB) {
+  // The account is named in the language of the first start; follow a later switch of the language.
+  db.prepare(`UPDATE users SET display_name = ? WHERE username = ? AND display_name IN (${DEFAULT_NAMES.map(() => '?').join(', ')})`).run(
+    ACCOUNT.displayName,
+    ACCOUNT.username,
+    ...DEFAULT_NAMES,
+  );
   const call = async (path: string, body?: unknown, token?: string | null) => {
     const headers: Record<string, string> = body ? { 'content-type': 'application/json' } : {};
     if (token) headers.authorization = `Bearer ${token}`;

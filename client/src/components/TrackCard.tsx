@@ -9,6 +9,7 @@ import { PreviewNote, ServiceBadge } from './ServiceBadge';
 import { TrackActions } from './TrackActions';
 import { Waveform } from './Waveform';
 import { Icon } from './Icon';
+import { tr } from '../i18n/runtime';
 
 /** Approximate playable length used before the player knows the real duration. */
 export function playableDuration(track: Track) {
@@ -68,7 +69,7 @@ export function TrackCard({ track, queue, reason }: { track: Track; queue?: Trac
               <ServiceBadge source={track.source} preview={track.isPreview} />
               {track.genre && (
                 <Link to={`/discover?genre=${encodeURIComponent(track.genre)}`} className="tag">
-                  #{track.genre}
+                  #{tr(track.genre)}
                 </Link>
               )}
             </div>
@@ -115,7 +116,7 @@ export function TrackList({
           {groupByGenre && (i === 0 || tracks[i - 1].genre !== t.genre) && (
             <h3 className="list-subheader">
               <Icon name="category" size={20} />
-              {t.genre ?? 'Без жанра'}
+              {tr(t.genre) ?? 'Без жанра'}
             </h3>
           )}
           <TrackCard track={t} queue={tracks} reason={reason?.(t)} />

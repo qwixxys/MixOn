@@ -24,12 +24,14 @@ import { usePlayer, useTrackProgress } from '../store/player';
 import { toast } from '../store/toasts';
 import { GENRES } from './UploadPage';
 import { Icon } from '../components/Icon';
+import { tr } from '../i18n/runtime';
 
 function EditTrackModal({ track, onClose, onSaved }: { track: Track; onClose(): void; onSaved(t: Track): void }) {
   const [form, setForm] = useState({
     title: track.title,
     artist: track.artist,
-    genre: track.genre ?? '',
+    // In the chosen language; the server stores any known spelling under one name.
+    genre: tr(track.genre) ?? '',
     description: track.description,
   });
   const [cover, setCover] = useState<File | null>(null);
@@ -230,7 +232,7 @@ export function TrackPage() {
                 <span>{timeAgo(t.releasedAt ?? t.createdAt)}</span>
                 {t.genre && (
                   <Link to={`/discover?genre=${encodeURIComponent(t.genre)}`} className="tag tag-dark">
-                    #{t.genre}
+                    #{tr(t.genre)}
                   </Link>
                 )}
               </div>

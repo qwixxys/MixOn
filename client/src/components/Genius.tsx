@@ -8,6 +8,7 @@ import { Icon } from './Icon';
 import { TextField } from './Material';
 import { Modal } from './Modal';
 import { Empty, ErrorState, Loading } from './States';
+import { tr } from '../i18n/runtime';
 
 export function GeniusBadge() {
   return <span className="genius-badge">Genius</span>;
@@ -218,7 +219,7 @@ export function GeniusAbout({ song }: { song: GeniusSong }) {
 
       {song.relationships.map((r) => (
         <div key={r.type} className="genius-block">
-          <h3>{r.label}</h3>
+          <h3>{tr(r.label)}</h3>
           {r.songs.map((s) => (
             <SongRow key={s.id} song={s} />
           ))}

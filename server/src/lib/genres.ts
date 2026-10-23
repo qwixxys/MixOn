@@ -33,7 +33,7 @@ const FAMILIES: Record<string, string[]> = {
   Фонк: ['phonk', 'фонк', 'drift phonk'],
   Инструментальная: ['instrumental', 'инструментальная', 'beats', 'piano', 'фортепиано'],
   Детская: ['kids', "children's music", 'детская', 'детская музыка'],
-  'Аудиокниги и подкасты': ['speech', 'spoken', 'audiobooks', 'podcast', 'podcasts', 'речь'],
+  'Аудиокниги и подкасты': ['speech', 'spoken', 'audiobooks', 'podcast', 'podcasts', 'audiobooks & podcasts', 'речь'],
 };
 
 /** Values that say nothing about the music. */
