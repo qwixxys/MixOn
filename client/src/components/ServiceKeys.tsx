@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { api } from '../api/client';
 import type { ServiceKeyInfo } from '../api/types';
+import { copyText } from '../lib/clipboard';
 import { STANDALONE } from '../lib/standalone';
 import { toast } from '../store/toasts';
 import { Icon } from './Icon';
@@ -15,7 +16,7 @@ const link = (href: string, text: string) => (
 function CopyValue({ value }: { value: string }) {
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(value);
+      await copyText(value);
       toast.success('Скопировано');
     } catch {
       toast.error('Не удалось скопировать — выделите адрес вручную');

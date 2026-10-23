@@ -26,6 +26,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(VkCaptchaPlugin.class);
+        registerPlugin(ClipboardPlugin.class);
         super.onCreate(savedInstanceState);
         bridge.setWebViewClient(new ServerWebViewClient(bridge));
 

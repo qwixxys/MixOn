@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 import type { Track } from '../api/types';
 import { serviceInfo } from '../lib/services';
+import { copyText } from '../lib/clipboard';
 import { STANDALONE } from '../lib/standalone';
 import { useAuth } from '../store/auth';
 import { usePlayer } from '../store/player';
@@ -18,7 +19,7 @@ export async function shareTrack(track: Track) {
     return;
   }
   try {
-    await navigator.clipboard.writeText(url);
+    await copyText(url);
     toast.success('Ссылка скопирована');
   } catch {
     toast.info(url);

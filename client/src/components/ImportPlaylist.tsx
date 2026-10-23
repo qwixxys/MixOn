@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { api } from '../api/client';
 import type { ImportResult, Service } from '../api/types';
 import { plural } from '../lib/format';
+import { canPaste, pasteText } from '../lib/clipboard';
 import { useFetch } from '../lib/useFetch';
 import { toast } from '../store/toasts';
 import { Icon } from './Icon';
@@ -51,9 +52,9 @@ export function ImportLinkForm({ services, onDone }: { services: Service[]; onDo
 
   const paste = async () => {
     try {
-      setUrl((await navigator.clipboard.readText()).trim());
+      setUrl((await pasteText()).trim());
     } catch {
-      toast.error('Браузер не дал прочитать буфер обмена — вставьте ссылку вручную');
+      toast.error('Не удалось прочитать буфер обмена — вставьте ссылку вручную');
     }
   };
 
@@ -85,7 +86,7 @@ export function ImportLinkForm({ services, onDone }: { services: Service[]; onDo
           maxLength={2000}
           supportingText={[SPOTIFY_EXAMPLE, ...sources.map((s) => EXAMPLES[s.id] ?? s.name)].join(' · ')}
         />
-        {typeof navigator.clipboard?.readText === 'function' && (
+        {canPaste() && (
           <button type="button" className="icon-btn" onClick={paste} title="Вставить из буфера обмена" disabled={busy !== null}>
             <Icon name="content_paste" />
           </button>
