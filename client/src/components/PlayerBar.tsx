@@ -150,7 +150,7 @@ export function PlayerBar() {
               </span>
             ) : (
               <span className="player-artist">
-                {current.artist}
+                <span className="player-artist-name">{current.artist}</span>
                 {current.source !== 'local' && <ServiceBadge source={current.source} preview={current.isPreview} />}
               </span>
             )}

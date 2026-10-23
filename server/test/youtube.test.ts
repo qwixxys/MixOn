@@ -92,6 +92,28 @@ describe('YouTube Music', () => {
     assert.deepEqual(tracks.map((t) => t.externalId), ['new', 'old']);
   });
 
+  it('searches channels and music videos with one quota-costly request', async () => {
+    const { impl, calls } = fakeFetch([
+      [
+        '/youtube/v3/search',
+        {
+          items: [
+            { id: { kind: 'youtube#channel', channelId: 'UC1' }, snippet: { title: 'Band - Topic' } },
+            { id: { kind: 'youtube#video', videoId: 'm1' }, snippet: { title: 'Song' } },
+            { id: { kind: 'youtube#video', videoId: 'vlog' }, snippet: { title: 'Vlog' } },
+          ],
+        },
+      ],
+      ['/youtube/v3/channels', { items: [{ id: 'UC1', statistics: { subscriberCount: '10' } }] }],
+      ['/youtube/v3/videos', { items: [video('m1'), video('vlog', { categoryId: '22' })] }],
+    ]);
+    const hits = await new YouTubeProvider('key', impl).search('band');
+    assert.deepEqual(hits.artists.map((a) => a.externalId), ['UC1']);
+    assert.deepEqual(hits.tracks.map((t) => t.externalId), ['m1']);
+    assert.equal(calls.filter((c) => c.url.includes('/search')).length, 1);
+    assert.equal(new URL(calls[0].url).searchParams.get('type'), 'video,channel');
+  });
+
   it('plays tracks as YouTube videos', async () => {
     const source = await new YouTubeProvider('key').resolveStream({ externalId: 'abc_123', streamUrl: null, extra: null });
     assert.deepEqual(source, { url: 'https://www.youtube.com/watch?v=abc_123', kind: 'youtube' });

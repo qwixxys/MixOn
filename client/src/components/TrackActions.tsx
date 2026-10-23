@@ -6,6 +6,7 @@ import { useAuth } from '../store/auth';
 import { usePlayer } from '../store/player';
 import { usePlaylistPicker } from '../store/playlistPicker';
 import { toast } from '../store/toasts';
+import { DownloadButton } from './DownloadButton';
 import { LikeButton } from './LikeButton';
 import { Icon } from './Icon';
 
@@ -52,6 +53,7 @@ export function TrackActions({ track, labels = false }: { track: Track; labels?:
         <Icon name="playlist_play" size={18} />
         {labels && <span>В очередь</span>}
       </button>
+      <DownloadButton track={track} labels={labels} />
       <button className="action-btn" title="Скопировать ссылку" onClick={() => shareTrack(track)}>
         <Icon name="link" size={18} />
         {labels && <span>Поделиться</span>}

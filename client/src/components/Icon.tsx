@@ -16,6 +16,7 @@ import msDarkMode from '@material-symbols/svg-400/rounded/dark_mode.svg?raw';
 import msDelete from '@material-symbols/svg-400/rounded/delete.svg?raw';
 import msDescription from '@material-symbols/svg-400/rounded/description.svg?raw';
 import msDownload from '@material-symbols/svg-400/rounded/download.svg?raw';
+import msDownloadDone from '@material-symbols/svg-400/rounded/download_done.svg?raw';
 import msEdit from '@material-symbols/svg-400/rounded/edit.svg?raw';
 import msEditNote from '@material-symbols/svg-400/rounded/edit_note.svg?raw';
 import msError from '@material-symbols/svg-400/rounded/error.svg?raw';
@@ -99,6 +100,7 @@ const ICONS = {
   delete: msDelete,
   description: msDescription,
   download: msDownload,
+  download_done: msDownloadDone,
   edit: msEdit,
   edit_note: msEditNote,
   error: msError,

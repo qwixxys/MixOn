@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import type { Track } from '../api/types';
 import { formatTime } from '../lib/format';
+import { useDownloads } from '../store/downloads';
 import { usePlayer } from '../store/player';
 import { Cover } from './Cover';
 import { LikeButton } from './LikeButton';
@@ -24,6 +25,7 @@ export function TrackRow({
   const isCurrent = usePlayer((s) => s.current?.id === track.id);
   const playing = usePlayer((s) => s.current?.id === track.id && s.playing);
   const play = usePlayer((s) => s.play);
+  const saved = useDownloads((s) => Boolean(s.saved[track.id]));
 
   return (
     <div className={`track-row ${isCurrent ? 'is-current' : ''} ${compact ? 'track-row-compact' : ''}`}>
@@ -36,7 +38,10 @@ export function TrackRow({
         <Link to={`/tracks/${track.id}`} className="track-row-title" title={track.title}>
           {track.title}
         </Link>
-        <span className="track-row-artist">{track.artist}</span>
+        <span className="track-row-artist">
+          {saved && <Icon name="download_done" size={14} className="track-row-saved" />}
+          {track.artist}
+        </span>
       </div>
       {!compact && <ServiceBadge source={track.source} preview={track.isPreview} />}
       {!compact && <LikeButton track={track} small />}

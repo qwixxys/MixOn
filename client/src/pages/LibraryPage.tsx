@@ -11,13 +11,57 @@ import { Empty, Loading } from '../components/States';
 import { FilteredTrackList } from '../components/FilteredTrackList';
 import { ImportPlaylistDialog } from '../components/ImportPlaylist';
 import { Tabs } from '../components/Tabs';
+import { TrackRow } from '../components/TrackRow';
 import { plural } from '../lib/format';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
+import { useDownloads, useSavedTracks } from '../store/downloads';
 import { toast } from '../store/toasts';
 import { Icon } from '../components/Icon';
 
-type Tab = 'likes' | 'playlists' | 'history' | 'artists';
+type Tab = 'likes' | 'playlists' | 'history' | 'artists' | 'downloads';
+const TABS: Tab[] = ['likes', 'playlists', 'history', 'artists', 'downloads'];
+
+const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} МБ`;
+
+/** Tracks saved on this device; the list itself is stored with them, so it shows even without internet. */
+function Downloads() {
+  const saved = useSavedTracks();
+  const remove = useDownloads((s) => s.remove);
+  const removeAll = useDownloads((s) => s.removeAll);
+  if (!saved.length) {
+    return (
+      <Empty icon={<Icon name="download" size={32} />} title="Скачанных треков пока нет">
+        Нажмите «Скачать» у трека или плейлиста — он будет играть и без интернета. Треки YouTube скачать нельзя: YouTube это
+        запрещает.
+      </Empty>
+    );
+  }
+  const tracks = saved.map((s) => s.track);
+  const size = saved.reduce((n, s) => n + s.size, 0);
+  const clear = async () => {
+    if (!confirm('Удалить все скачанные треки с этого устройства?')) return;
+    await removeAll();
+    toast.info('Скачанные треки удалены');
+  };
+  return (
+    <section>
+      <div className="downloads-head">
+        <span className="muted">
+          {tracks.length} {plural(tracks.length, ['трек', 'трека', 'треков'])} · {megabytes(size)} на устройстве
+        </span>
+        <button className="btn btn-text btn-danger" onClick={clear}>
+          <Icon name="delete" size={18} /> Удалить все
+        </button>
+      </div>
+      <div className="chart">
+        {tracks.map((t) => (
+          <TrackRow key={t.id} track={t} queue={tracks} onRemove={() => void remove(t.id)} />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function NewPlaylistModal({ onClose, onCreated }: { onClose(): void; onCreated(): void }) {
   const [title, setTitle] = useState('');
@@ -104,7 +148,7 @@ function Artists() {
 export function LibraryPage() {
   const user = useAuth((s) => s.user)!;
   const [params, setParams] = useSearchParams();
-  const tab = (['likes', 'playlists', 'history', 'artists'].includes(params.get('tab') ?? '') ? params.get('tab') : 'likes') as Tab;
+  const tab = (TABS.includes(params.get('tab') as Tab) ? params.get('tab') : 'likes') as Tab;
 
   return (
     <div className="page">
@@ -116,6 +160,7 @@ export function LibraryPage() {
             { id: 'playlists', label: 'Плейлисты' },
             { id: 'history', label: 'История' },
             { id: 'artists', label: 'Артисты' },
+            { id: 'downloads', label: 'Скачанные' },
           ]}
           value={tab}
           onChange={(id) => setParams({ tab: id })}
@@ -141,6 +186,7 @@ export function LibraryPage() {
       )}
       {tab === 'playlists' && <Playlists />}
       {tab === 'artists' && <Artists />}
+      {tab === 'downloads' && <Downloads />}
     </div>
   );
 }

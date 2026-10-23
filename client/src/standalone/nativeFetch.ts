@@ -10,6 +10,27 @@ function headersObject(init: HeadersInit | undefined): Record<string, string> {
   return out;
 }
 
+/** Android hands binary bodies over as base64 (with line breaks, which atob skips). */
+function fromBase64(text: string): Uint8Array<ArrayBuffer> {
+  const raw = atob(text);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  return bytes;
+}
+
+/**
+ * The body as fetch() would give it. Successful responses are asked for as binary, so audio downloads arrive intact
+ * and text is decoded from the same bytes; JSON comes already parsed and error pages as text.
+ */
+function bodyOf(data: unknown, status: number, type: string): BodyInit {
+  if (data == null) return '';
+  // A JSON document that is a bare string comes back parsed, i.e. unquoted.
+  if (typeof data === 'string' && type.includes('json')) return JSON.stringify(data);
+  if (typeof data === 'string') return status >= 400 ? data : fromBase64(data);
+  if (data instanceof ArrayBuffer) return data;
+  return JSON.stringify(data);
+}
+
 function abortError(signal: AbortSignal) {
   return signal.reason instanceof Error ? signal.reason : new DOMException('The operation was aborted.', 'AbortError');
 }
@@ -41,7 +62,7 @@ export function createNativeFetch(pageFetch: typeof fetch): FetchLike {
       method: (init.method ?? 'GET').toUpperCase(),
       headers,
       data,
-      responseType: 'text',
+      responseType: 'arraybuffer',
       disableRedirects: init.redirect === 'manual',
       connectTimeout: 15_000,
       readTimeout: 30_000,
@@ -61,8 +82,6 @@ export function createNativeFetch(pageFetch: typeof fetch): FetchLike {
         // the status line comes back under an empty or "null" name on Android
       }
     }
-    // JSON responses arrive already parsed; the server code wants the text, as from fetch().
-    const text = res.data == null ? '' : typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
-    return new Response(NO_BODY.has(res.status) ? null : text, { status: res.status, headers: responseHeaders });
+    return new Response(NO_BODY.has(res.status) ? null : bodyOf(res.data, res.status, responseHeaders.get('content-type') ?? ''), { status: res.status, headers: responseHeaders });
   };
 }

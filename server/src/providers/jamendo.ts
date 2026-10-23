@@ -1,5 +1,14 @@
 import { fetchJson, ProviderError, type FetchLike } from '../lib/http.js';
-import type { ArtistRef, ExternalArtist, ExternalTrack, MusicProvider, StoredExternalTrack, StreamSource } from './types.js';
+import {
+  SEARCH_TRACK_LIMIT,
+  type ArtistRef,
+  type ExternalArtist,
+  type ExternalTrack,
+  type MusicProvider,
+  type SearchHits,
+  type StoredExternalTrack,
+  type StreamSource,
+} from './types.js';
 
 const API = 'https://api.jamendo.com/v3.0';
 
@@ -28,6 +37,24 @@ interface JmTrack {
   audiodownload_allowed?: boolean;
   musicinfo?: { tags?: { genres?: string[] } };
 }
+
+function mapTrack(t: JmTrack): ExternalTrack {
+  return {
+    externalId: t.id,
+    title: t.name,
+    artist: t.artist_name,
+    album: t.album_name || null,
+    duration: t.duration,
+    streamUrl: t.audio ?? null,
+    coverUrl: t.album_image || t.image || null,
+    externalUrl: t.shareurl ?? null,
+    releasedAt: t.releasedate ? new Date(`${t.releasedate}T00:00:00Z`).toISOString() : null,
+    genre: t.musicinfo?.tags?.genres?.[0] ?? null,
+    isPreview: false,
+  };
+}
+
+const TRACK_PARAMS = { audioformat: 'mp32', imagesize: '300', include: 'musicinfo' };
 
 export class JamendoProvider implements MusicProvider {
   readonly id = 'jamendo' as const;
@@ -69,29 +96,16 @@ export class JamendoProvider implements MusicProvider {
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {
-    const tracks = await this.get<JmTrack>('/tracks/', {
-      artist_id: artist.externalId,
-      order: 'releasedate_desc',
-      limit: '50',
-      audioformat: 'mp32',
-      imagesize: '300',
-      include: 'musicinfo',
-    });
-    return tracks
-      .filter((t) => t.audio)
-      .map((t) => ({
-        externalId: t.id,
-        title: t.name,
-        artist: t.artist_name,
-        album: t.album_name || null,
-        duration: t.duration,
-        streamUrl: t.audio ?? null,
-        coverUrl: t.album_image || t.image || null,
-        externalUrl: t.shareurl ?? null,
-        releasedAt: t.releasedate ? new Date(`${t.releasedate}T00:00:00Z`).toISOString() : null,
-        genre: t.musicinfo?.tags?.genres?.[0] ?? null,
-        isPreview: false,
-      }));
+    const tracks = await this.get<JmTrack>('/tracks/', { artist_id: artist.externalId, order: 'releasedate_desc', limit: '50', ...TRACK_PARAMS });
+    return tracks.filter((t) => t.audio).map(mapTrack);
+  }
+
+  async search(query: string): Promise<SearchHits> {
+    const [artists, tracks] = await Promise.all([
+      this.searchArtists(query),
+      this.get<JmTrack>('/tracks/', { search: query, limit: String(SEARCH_TRACK_LIMIT), ...TRACK_PARAMS }),
+    ]);
+    return { artists, tracks: tracks.filter((t) => t.audio).map(mapTrack) };
   }
 
   async resolveStream(track: StoredExternalTrack): Promise<StreamSource | null> {

@@ -1,6 +1,9 @@
 // YouTube tracks play in YouTube's own embedded player (the IFrame Player API): YouTube's terms allow no other way to
-// play its videos, and they ask for the player to stay visible and at least 200×200 px. So while a YouTube track is
-// current, the player sits in a small window above the player bar and the app drives it like the <audio> element.
+// play its videos, and they ask for the player to stay visible, at least 200×200 px, with nothing drawn over it. So
+// while a YouTube track plays, the player sits in a small window in a corner and the app drives it like the <audio>
+// element. A strip above the video can move the window or close it, which pauses the track.
+import closeSvg from '@material-symbols/svg-400/rounded/close.svg?raw';
+import swapSvg from '@material-symbols/svg-400/rounded/swap_vert.svg?raw';
 
 /** YT.PlayerState values. */
 const State = { Unstarted: -1, Ended: 0, Playing: 1, Paused: 2, Buffering: 3, Cued: 5 } as const;
@@ -53,6 +56,7 @@ export interface YouTubeEvents {
 }
 
 const POLL_MS = 250;
+const POSITION_KEY = 'soundfy.youtubeDock';
 
 let api: Promise<YTNamespace> | null = null;
 let dock: HTMLDivElement | null = null;
@@ -60,6 +64,8 @@ let player: Promise<YTPlayer> | null = null;
 let poll: number | undefined;
 let handlers: YouTubeEvents | null = null;
 let active = false;
+/** The listener closed the window: the track is paused until they press play. */
+let closed = false;
 
 /** The video id in a YouTube link (https://www.youtube.com/watch?v=…). */
 export function videoIdOf(url: string): string | null {
@@ -107,7 +113,59 @@ function describeError(code: number): string {
 
 function showDock(visible: boolean) {
   if (dock) dock.hidden = !visible;
-  document.documentElement.classList.toggle('yt-docked', visible);
+  document.documentElement.classList.toggle('yt-docked', visible && !dock?.classList.contains('yt-dock-top'));
+}
+
+function savedAtTop() {
+  try {
+    return localStorage.getItem(POSITION_KEY) === 'top';
+  } catch {
+    return false;
+  }
+}
+
+function dockButton(svg: string, label: string, onClick: () => void) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'icon-btn';
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  button.innerHTML = svg;
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+/** The window: a strip with its controls, then YouTube's player (nothing may cover the player itself). */
+function createDock() {
+  const el = document.createElement('div');
+  el.className = 'yt-dock';
+  el.classList.toggle('yt-dock-top', savedAtTop());
+  el.setAttribute('role', 'region');
+  el.setAttribute('aria-label', 'Плеер YouTube');
+  const bar = document.createElement('div');
+  bar.className = 'yt-dock-bar';
+  const label = document.createElement('span');
+  label.textContent = 'YouTube';
+  bar.append(
+    label,
+    dockButton(swapSvg, 'Переместить наверх или вниз', () => {
+      const top = el.classList.toggle('yt-dock-top');
+      try {
+        localStorage.setItem(POSITION_KEY, top ? 'top' : 'bottom');
+      } catch {
+        // the position is just not remembered
+      }
+      showDock(true);
+    }),
+    dockButton(closeSvg, 'Закрыть (трек встанет на паузу)', youtubeClose),
+  );
+  const frame = document.createElement('div');
+  frame.className = 'yt-dock-frame';
+  const target = document.createElement('div');
+  frame.append(target);
+  el.append(bar, frame);
+  document.body.append(el);
+  return { el, target };
 }
 
 function startPolling(p: YTPlayer) {
@@ -121,11 +179,9 @@ function stopPolling() {
 }
 
 function createPlayer(videoId: string, startAt: number): Promise<YTPlayer> {
-  dock = document.createElement('div');
-  dock.className = 'yt-dock';
-  const target = document.createElement('div');
-  dock.append(target);
-  document.body.append(dock);
+  const created = createDock();
+  dock = created.el;
+  const { target } = created;
   return loadApi().then(
     (YT) =>
       new Promise<YTPlayer>((resolve) => {
@@ -173,6 +229,7 @@ function applyVolume(p: YTPlayer, volume: number, muted: boolean) {
 export async function youtubeLoad(videoId: string, startAt: number, volume: number, muted: boolean, events: YouTubeEvents) {
   handlers = events;
   active = true;
+  closed = false;
   stopPolling();
   if (!player) {
     player = createPlayer(videoId, startAt);
@@ -195,9 +252,25 @@ export async function youtubeLoad(videoId: string, startAt: number, volume: numb
 export function youtubeStop() {
   if (!active) return;
   active = false;
+  closed = false;
   stopPolling();
   showDock(false);
   void player?.then((p) => p.stopVideo());
+}
+
+/** The window's close button: pauses the track and hides the player until play is pressed again. */
+export function youtubeClose() {
+  closed = true;
+  stopPolling();
+  showDock(false);
+  void player?.then((p) => p.pauseVideo());
+}
+
+/** Brings the window back when the listener resumes a track they closed. */
+function reopen() {
+  if (!closed) return;
+  closed = false;
+  showDock(true);
 }
 
 export function youtubeIsActive() {
@@ -205,6 +278,7 @@ export function youtubeIsActive() {
 }
 
 export function youtubePlay() {
+  reopen();
   void player?.then((p) => p.playVideo());
 }
 
@@ -213,6 +287,7 @@ export function youtubePause() {
 }
 
 export function youtubeToggle() {
+  if (closed) return youtubePlay();
   void player?.then((p) => (p.getPlayerState() === State.Playing ? p.pauseVideo() : p.playVideo()));
 }
 

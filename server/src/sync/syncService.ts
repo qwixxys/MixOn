@@ -5,6 +5,8 @@ import type { ExternalTrack, OAuthTokens, ProviderRegistry } from '../providers/
 
 /** Tracks older than this are imported silently instead of producing a "new release" notification. */
 const NOTIFY_MAX_AGE_DAYS = 30;
+/** How long tracks found by the search are kept if nobody plays, likes or keeps them. */
+const UNUSED_TRACK_TTL_MS = 3 * 86400_000;
 
 export interface ArtistSyncResult {
   artistId: number;
@@ -373,9 +375,33 @@ export class SyncService {
     return { found: artists.length, subscribed };
   }
 
+  /**
+   * Deletes service tracks nobody uses: found by the search (or left from a deleted playlist), not from a subscribed
+   * artist, and never liked, played, commented on, kept in a playlist or announced. Returns how many went.
+   */
+  pruneUnusedTracks(olderThanMs = UNUSED_TRACK_TTL_MS): number {
+    const cutoff = new Date(Date.now() - olderThanMs).toISOString();
+    return this.db
+      .prepare(
+        `DELETE FROM tracks
+         WHERE source <> 'local' AND user_id IS NULL AND external_artist_id IS NULL AND created_at < ?
+           AND NOT EXISTS (SELECT 1 FROM likes WHERE track_id = tracks.id)
+           AND NOT EXISTS (SELECT 1 FROM plays WHERE track_id = tracks.id)
+           AND NOT EXISTS (SELECT 1 FROM playlist_tracks WHERE track_id = tracks.id)
+           AND NOT EXISTS (SELECT 1 FROM comments WHERE track_id = tracks.id)
+           AND NOT EXISTS (SELECT 1 FROM notifications WHERE track_id = tracks.id)`,
+      )
+      .run(cutoff).changes;
+  }
+
   start(intervalMinutes: number) {
     if (intervalMinutes <= 0) return;
     const run = () => {
+      try {
+        this.pruneUnusedTracks();
+      } catch (err) {
+        this.log.error('[sync] cleanup failed', err);
+      }
       this.syncAll()
         .then((s) => {
           if (s.artists) this.log.info(`[sync] ${s.artists} artists checked, ${s.newTracks} new tracks`);

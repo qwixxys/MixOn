@@ -10,7 +10,9 @@ import jwt from 'jsonwebtoken';
 import { parseFile } from 'music-metadata';
 import { z } from 'zod';
 import type { AppContext } from '../context.js';
+import { downloadAudio, type AudioFile } from '../lib/download.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
+import { ProviderError } from '../lib/http.js';
 import { normalizeGenre } from '../lib/genres.js';
 import { listOptions, listTracks, resolveScope } from '../lib/trackLists.js';
 import { getTrack, getTrackRow, queryTracks, avatarUrl, type TrackRow } from '../lib/tracks.js';
@@ -398,6 +400,38 @@ export function trackRoutes(ctx: AppContext) {
     await pipeline(Readable.fromWeb(upstream.body as WebReadableStream), res).catch(() => {});
     return upstream.status;
   };
+
+  /**
+   * The track's audio as one file, which the app keeps on the device for listening offline. YouTube's terms forbid
+   * this, so its tracks are refused.
+   */
+  r.get('/:id/download', async (req: Request, res: Response, next: NextFunction) => {
+    const me = requireUser(req);
+    const row = requireTrack(idParam(req.params.id));
+    if (row.source === 'local') {
+      if (!row.audio_path) throw notFound('Аудиофайл не найден');
+      const type = AUDIO_TYPES[path.extname(row.audio_path)] ?? 'application/octet-stream';
+      return res.sendFile(path.join(uploadDir(config, 'audio'), row.audio_path), { headers: { 'content-type': type } }, (err) => {
+        if (err && !res.headersSent) next((err as NodeJS.ErrnoException).code === 'ENOENT' ? notFound('Аудиофайл не найден') : err);
+      });
+    }
+    const provider = providers.get(row.source);
+    const fetchFile = async (fresh: boolean) =>
+      downloadAudio(await resolveExternal(row, me, fresh), provider.streamHeaders ?? {}, ctx.fetchImpl, provider.id);
+    let file: AudioFile;
+    try {
+      file = await fetchFile(false);
+    } catch (err) {
+      // Signed service links expire; try once more with a fresh one.
+      if (!(err instanceof ProviderError && [403, 404, 410].includes(Number(err.code)))) throw err;
+      file = await fetchFile(true);
+    }
+    res.status(200);
+    res.setHeader('content-type', file.type);
+    res.setHeader('content-length', String(file.bytes.length));
+    res.setHeader('cache-control', 'no-store');
+    res.end(file.bytes);
+  });
 
   r.get('/:id/stream', async (req: Request, res: Response, next: NextFunction) => {
     const row = requireTrack(idParam(req.params.id));

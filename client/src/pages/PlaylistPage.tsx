@@ -12,6 +12,7 @@ import { TrackRow } from '../components/TrackRow';
 import { plural, timeAgo, totalDuration } from '../lib/format';
 import { useFetch } from '../lib/useFetch';
 import { useAuth } from '../store/auth';
+import { useDownloads } from '../store/downloads';
 import { usePlayer } from '../store/player';
 import { toast } from '../store/toasts';
 import { Icon } from '../components/Icon';
@@ -67,6 +68,7 @@ export function PlaylistPage() {
   const { data, loading, error, setData } = useFetch<PlaylistDetail>(`/playlists/${id}`);
   const list = useListQuery();
   const play = usePlayer((s) => s.play);
+  const downloadAll = useDownloads((s) => s.downloadAll);
   const [editing, setEditing] = useState(false);
 
   if (loading) return <Loading />;
@@ -124,6 +126,14 @@ export function PlaylistPage() {
             </button>
             <button className="btn btn-outlined" onClick={() => playAll(true)} disabled={!data.tracks.length}>
               <Icon name="shuffle" size={18} /> Перемешать
+            </button>
+            <button
+              className="btn btn-text"
+              onClick={() => downloadAll(data.tracks)}
+              disabled={!data.tracks.length}
+              title="Сохранить треки на устройстве, чтобы слушать без интернета"
+            >
+              <Icon name="download" size={18} /> Скачать
             </button>
             {isOwner && (
               <>

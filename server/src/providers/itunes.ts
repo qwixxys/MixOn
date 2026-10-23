@@ -1,5 +1,14 @@
 import { fetchJson, type FetchLike } from '../lib/http.js';
-import type { ArtistRef, ExternalArtist, ExternalTrack, MusicProvider, StoredExternalTrack, StreamSource } from './types.js';
+import {
+  SEARCH_TRACK_LIMIT,
+  type ArtistRef,
+  type ExternalArtist,
+  type ExternalTrack,
+  type MusicProvider,
+  type SearchHits,
+  type StoredExternalTrack,
+  type StreamSource,
+} from './types.js';
 
 const API = 'https://itunes.apple.com';
 
@@ -63,6 +72,16 @@ export class ItunesProvider implements MusicProvider {
         url: a.artistLinkUrl ?? null,
         subtitle: a.primaryGenreName ?? null,
       }));
+  }
+
+  async search(query: string): Promise<SearchHits> {
+    const params = new URLSearchParams({ term: query, entity: 'song', limit: String(SEARCH_TRACK_LIMIT), country: this.country });
+    const [artists, songs] = await Promise.all([
+      this.searchArtists(query),
+      fetchJson<ItunesResponse<ItSong>>(this.fetchImpl, this.id, `${API}/search?${params}`),
+    ]);
+    const tracks = songs.results.filter((s) => s.wrapperType === 'track' && s.previewUrl).map((s) => this.mapSong(s));
+    return { artists, tracks };
   }
 
   private async lookupSongs(params: Record<string, string>): Promise<ItSong[]> {

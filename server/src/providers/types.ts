@@ -33,6 +33,15 @@ export interface StreamSource {
   kind: 'direct' | 'hls' | 'youtube';
 }
 
+/** What the app-wide search found on one service. */
+export interface SearchHits {
+  artists: ExternalArtist[];
+  tracks: ExternalTrack[];
+}
+
+/** Tracks each service contributes to the app-wide search. */
+export const SEARCH_TRACK_LIMIT = 15;
+
 export interface ArtistRef {
   externalId: string;
   name: string;
@@ -98,6 +107,8 @@ export interface MusicProvider {
   /** False when server-side configuration (API key) is missing. */
   isConfigured(): boolean;
   searchArtists(query: string, ctx: ProviderContext): Promise<ExternalArtist[]>;
+  /** Artists and tracks for the app-wide search (only artists when a service has no track search). */
+  search?(query: string, ctx: ProviderContext): Promise<SearchHits>;
   /** Latest tracks of an artist, newest first. */
   getArtistTracks(artist: ArtistRef, ctx: ProviderContext): Promise<ExternalTrack[]>;
   /** Fresh playable URL for a previously imported track. */

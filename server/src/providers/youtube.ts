@@ -1,12 +1,14 @@
 import { ProviderError, type FetchLike } from '../lib/http.js';
-import type {
-  ArtistRef,
-  ExternalArtist,
-  ExternalTrack,
-  ImportedPlaylist,
-  MusicProvider,
-  StoredExternalTrack,
-  StreamSource,
+import {
+  SEARCH_TRACK_LIMIT,
+  type ArtistRef,
+  type ExternalArtist,
+  type ExternalTrack,
+  type ImportedPlaylist,
+  type MusicProvider,
+  type SearchHits,
+  type StoredExternalTrack,
+  type StreamSource,
 } from './types.js';
 
 const API = 'https://www.googleapis.com/youtube/v3';
@@ -33,8 +35,8 @@ interface YtList<T> {
 interface YtError {
   error?: { code: number; message: string; errors?: { reason?: string }[] };
 }
-interface YtSearchChannel {
-  id: { channelId?: string };
+interface YtSearchItem {
+  id: { kind?: string; channelId?: string; videoId?: string };
   snippet: { title: string; thumbnails?: YtThumbnails };
 }
 interface YtChannel {
@@ -190,8 +192,29 @@ export class YouTubeProvider implements MusicProvider {
   }
 
   async searchArtists(query: string): Promise<ExternalArtist[]> {
-    const res = await this.get<YtList<YtSearchChannel>>('/search', { part: 'snippet', type: 'channel', q: query, maxResults: '20' });
-    const found = (res.items ?? []).filter((c) => c.id.channelId);
+    const res = await this.get<YtList<YtSearchItem>>('/search', { part: 'snippet', type: 'channel', q: query, maxResults: '20' });
+    return this.toArtists(res.items ?? []);
+  }
+
+  /** Channels and music videos from a single search request, which costs 100 units of the key's daily quota. */
+  async search(query: string): Promise<SearchHits> {
+    const res = await this.get<YtList<YtSearchItem>>('/search', { part: 'snippet', type: 'video,channel', q: query, maxResults: '25' });
+    const items = res.items ?? [];
+    const videoIds = items.map((i) => i.id.videoId).filter((id): id is string => Boolean(id));
+    const [artists, videos] = await Promise.all([
+      this.toArtists(items.filter((i) => !i.id.videoId)),
+      videoIds.length ? this.videos(videoIds) : Promise.resolve([]),
+    ]);
+    const tracks = videos
+      .filter((v) => playable(v) && (v.snippet.categoryId ?? MUSIC_CATEGORY) === MUSIC_CATEGORY)
+      .map(videoToTrack)
+      .filter((t) => t.duration >= MIN_SECONDS && t.duration <= MAX_SECONDS)
+      .slice(0, SEARCH_TRACK_LIMIT);
+    return { artists, tracks };
+  }
+
+  private async toArtists(items: YtSearchItem[]): Promise<ExternalArtist[]> {
+    const found = items.filter((c) => c.id.channelId);
     if (!found.length) return [];
     const stats = await this.get<YtList<YtChannel>>('/channels', { part: 'statistics', id: found.map((c) => c.id.channelId).join(',') });
     const byId = new Map((stats.items ?? []).map((c) => [c.id, c]));

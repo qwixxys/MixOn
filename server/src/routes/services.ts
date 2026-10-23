@@ -8,8 +8,11 @@ import { expandLink } from '../lib/links.js';
 import { listOptions, listTracks, resolveScope } from '../lib/trackLists.js';
 import { idParam, parse } from '../lib/validate.js';
 import { requireUser } from '../middleware/auth.js';
-import type { MusicProvider } from '../providers/index.js';
+import { queryTracks } from '../lib/tracks.js';
+import { SEARCH_TRACK_LIMIT, type ExternalArtist, type MusicProvider } from '../providers/index.js';
 
+/** Artists each service contributes to the app-wide search. */
+const SEARCH_ARTIST_LIMIT = 8;
 /** How long a started OAuth login may take before its state expires. */
 const OAUTH_TTL_MS = 10 * 60_000;
 /** Bounds memory used by abandoned logins; the oldest are dropped first. */
@@ -180,25 +183,45 @@ export function serviceRoutes(ctx: AppContext) {
     }
   });
 
+  /** Found artists with what the viewer already knows of them: the soundFy artist page and the subscription. */
+  const withSubscriptions = (provider: MusicProvider, found: ExternalArtist[], userId?: number) => {
+    const known = db.prepare(
+      `SELECT ea.id, EXISTS (SELECT 1 FROM subscriptions s WHERE s.external_artist_id = ea.id AND s.user_id = ?) AS subscribed
+       FROM external_artists ea WHERE ea.provider = ? AND ea.external_id = ?`,
+    );
+    return found.map((a) => {
+      const row = known.get(userId ?? 0, provider.id, a.externalId) as { id: number; subscribed: number } | undefined;
+      return { ...a, provider: provider.id, artistId: row?.id ?? null, isSubscribed: Boolean(row?.subscribed) };
+    });
+  };
+
   r.get('/services/:id/artists', async (req, res) => {
     const provider = providers.get(req.params.id);
     const q = String(req.query.q ?? '').trim();
     if (!q) return res.json([]);
     if (!provider.isConfigured()) throw badRequest(`${provider.name} не настроен на сервере`);
     const token = await sync.userToken(provider.id, req.userId);
-    const found = await provider.searchArtists(q, { token });
-    const known = db.prepare(
-      `SELECT ea.id, EXISTS (SELECT 1 FROM subscriptions s WHERE s.external_artist_id = ea.id AND s.user_id = ?) AS subscribed
-       FROM external_artists ea WHERE ea.provider = ? AND ea.external_id = ?`,
-    );
-    res.json(
-      found.map((a) => {
-        const row = known.get(req.userId ?? 0, provider.id, a.externalId) as
-          | { id: number; subscribed: number }
-          | undefined;
-        return { ...a, provider: provider.id, artistId: row?.id ?? null, isSubscribed: Boolean(row?.subscribed) };
-      }),
-    );
+    res.json(withSubscriptions(provider, await provider.searchArtists(q, { token }), req.userId));
+  });
+
+  /**
+   * The app-wide search on one service: artists to subscribe to and tracks to play right away. Found tracks are
+   * stored like any other, so they can be liked or put in playlists; unused ones are cleared later (SyncService).
+   */
+  r.get('/services/:id/search', async (req, res) => {
+    const provider = providers.get(req.params.id);
+    const q = String(req.query.q ?? '').trim().slice(0, 200);
+    if (!q) return res.json({ artists: [], tracks: [] });
+    if (!provider.isConfigured()) throw badRequest(`${provider.name} не настроен на сервере`);
+    const ctx = { token: await sync.userToken(provider.id, req.userId) };
+    const hits = provider.search ? await provider.search(q, ctx) : { artists: await provider.searchArtists(q, ctx), tracks: [] };
+    const { ids } = sync.storeTracks(hits.tracks.slice(0, SEARCH_TRACK_LIMIT), provider.id, null);
+    const stored = ids.length ? queryTracks(db, `WHERE t.id IN (${ids.join(',')})`, {}, req.userId) : [];
+    const byId = new Map(stored.map((t) => [t.id, t]));
+    res.json({
+      artists: withSubscriptions(provider, hits.artists.slice(0, SEARCH_ARTIST_LIMIT), req.userId),
+      tracks: [...new Set(ids)].map((id) => byId.get(id)).filter((t) => t !== undefined),
+    });
   });
 
   r.post('/services/:id/import', async (req, res) => {

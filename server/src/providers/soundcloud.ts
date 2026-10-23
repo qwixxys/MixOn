@@ -2,6 +2,7 @@ import type { KeyValueStore } from '../db/index.js';
 import { fetchJson, ProviderError, type FetchLike } from '../lib/http.js';
 import { formatFans } from './deezer.js';
 import {
+  SEARCH_TRACK_LIMIT,
   streamKind,
   type ArtistRef,
   type ExternalArtist,
@@ -11,6 +12,7 @@ import {
   type ImportedPlaylist,
   type OAuthTokens,
   type ProviderContext,
+  type SearchHits,
   type StoredExternalTrack,
   type StreamSource,
 } from './types.js';
@@ -281,6 +283,16 @@ export class SoundCloudProvider implements MusicProvider {
   async searchArtists(query: string): Promise<ExternalArtist[]> {
     const page = await this.get<ScPage<ScUser>>(`/users?${new URLSearchParams({ q: query, limit: '20', linked_partitioning: 'true' })}`);
     return page.collection.map(mapScUser);
+  }
+
+  async search(query: string): Promise<SearchHits> {
+    const [artists, page] = await Promise.all([
+      this.searchArtists(query),
+      this.get<ScPage<ScTrack>>(
+        `/tracks?${new URLSearchParams({ q: query, limit: String(SEARCH_TRACK_LIMIT), linked_partitioning: 'true', access: 'playable,preview' })}`,
+      ),
+    ]);
+    return { artists, tracks: this.mapTracks(page.collection) };
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {

@@ -9,7 +9,17 @@ import {
   type ScTrack,
   type ScUser,
 } from './soundcloud.js';
-import type { ArtistRef, ExternalArtist, ExternalTrack, ImportedPlaylist, MusicProvider, StoredExternalTrack, StreamSource } from './types.js';
+import {
+  SEARCH_TRACK_LIMIT,
+  type ArtistRef,
+  type ExternalArtist,
+  type ExternalTrack,
+  type ImportedPlaylist,
+  type MusicProvider,
+  type SearchHits,
+  type StoredExternalTrack,
+  type StreamSource,
+} from './types.js';
 
 /**
  * Unofficial SoundCloud mode: the same internal API (api-v2) that soundcloud.com itself uses, with the public
@@ -229,6 +239,14 @@ export class SoundCloudWebProvider implements MusicProvider {
   async searchArtists(query: string): Promise<ExternalArtist[]> {
     const page = await this.get<ScWebPage<ScUser>>(`/search/users?q=${encodeURIComponent(query)}&limit=20`);
     return page.collection.map(mapScUser);
+  }
+
+  async search(query: string): Promise<SearchHits> {
+    const [artists, page] = await Promise.all([
+      this.searchArtists(query),
+      this.get<ScWebPage<ScWebTrack>>(`/search/tracks?q=${encodeURIComponent(query)}&limit=${SEARCH_TRACK_LIMIT}`),
+    ]);
+    return { artists, tracks: this.mapTracks(page.collection) };
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {

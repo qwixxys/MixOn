@@ -1644,6 +1644,18 @@ textarea.tf-input {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.track-row-saved {
+  margin-right: 4px;
+  vertical-align: -2px;
+  color: var(--md-sys-color-primary);
+}
+.downloads-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
 .track-row.is-current .track-row-artist,
 .track-row.is-current .track-row-index {
   color: inherit;
@@ -2583,6 +2595,14 @@ textarea.tf-input {
   display: flex;
   flex-direction: column;
 }
+.player-artist-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player-artist .service-badge {
+  flex: none;
+}
 .player-artist,
 .player-error {
   color: var(--md-sys-color-on-surface-variant);
@@ -2699,32 +2719,112 @@ textarea.tf-input {
   }
 }
 
+/* ---------- app-wide search ---------- */
+
+.search-services {
+  margin-bottom: 8px;
+}
+.search-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.found-artists {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.found-artists::-webkit-scrollbar {
+  display: none;
+}
+.found-artist {
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  text-align: center;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+.found-artist-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.found-artist-sub {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.found-artist .btn {
+  margin-top: auto;
+}
+
 /* ---------- YouTube player ---------- */
 
-/* YouTube's terms want its player visible and at least 200×200 px, so it is docked above the player bar. */
+/* YouTube's terms want its player visible, at least 200×200 px and uncovered, so it sits in a corner window with its
+   controls in a strip above the video. */
 .yt-dock {
   position: fixed;
   z-index: 91;
   right: 12px;
   bottom: calc(var(--player-space) + 8px);
   width: 356px;
-  height: 200px;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--md-sys-shape-corner-large);
   overflow: hidden;
-  background: #000;
+  background: var(--md-sys-color-surface-container-highest);
   box-shadow: var(--md-sys-elevation-3);
+}
+.yt-dock-top {
+  top: calc(var(--topbar-h) + 8px);
+  bottom: auto;
 }
 .yt-dock[hidden] {
   display: none;
 }
-.yt-dock iframe {
+.yt-dock-bar {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 4px 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.yt-dock-bar span {
+  flex: 1;
+}
+.yt-dock-bar .icon-btn {
+  width: 32px;
+  height: 32px;
+}
+.yt-dock-bar svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+.yt-dock-frame {
+  height: 200px;
+  background: #000;
+}
+.yt-dock-frame iframe {
   display: block;
   width: 100%;
   height: 100%;
   border: 0;
 }
 html.yt-docked .app.has-player {
-  padding-bottom: calc(var(--player-space) + 216px);
+  padding-bottom: calc(var(--player-space) + 252px);
 }
 
 /* ---------- responsive: compact (phones) ---------- */
@@ -2916,10 +3016,13 @@ html.yt-docked .app.has-player {
     right: 16px;
     bottom: calc(var(--player-space) + 8px);
   }
+  /* The smallest window YouTube allows, in the corner, so most of the page stays visible. */
   .yt-dock {
-    left: 8px;
     right: 8px;
-    width: auto;
+    width: 220px;
+  }
+  .player .service-badge {
+    display: none;
   }
   .app:not(.has-player) .toaster {
     bottom: calc(var(--navbar-h) + 16px);

@@ -1,11 +1,13 @@
 import { fetchJson, ProviderError, RateLimiter, type FetchLike } from '../lib/http.js';
 import {
+  SEARCH_TRACK_LIMIT,
   streamKind,
   type ArtistRef,
   type ExternalArtist,
   type ExternalTrack,
   type MusicProvider,
   type ProviderContext,
+  type SearchHits,
   type StoredExternalTrack,
   type StreamSource,
 } from './types.js';
@@ -204,6 +206,13 @@ export class VkProvider implements MusicProvider {
       // Not every token can use audio.searchArtists — derive artists from a plain track search instead.
       return this.searchArtistsByTracks(query, ctx);
     }
+  }
+
+  async search(query: string, ctx: ProviderContext): Promise<SearchHits> {
+    // One after another: VK allows a few requests per second per token.
+    const artists = await this.searchArtists(query, ctx);
+    const res = await this.call<VkList<VkAudio>>('audio.search', { q: query, count: 30, auto_complete: 1 }, ctx.token);
+    return { artists, tracks: this.mapAudios(res.items).slice(0, SEARCH_TRACK_LIMIT) };
   }
 
   private async searchArtistsByTracks(query: string, ctx: ProviderContext): Promise<ExternalArtist[]> {

@@ -1,5 +1,15 @@
 import { fetchJson, ProviderError, type FetchLike } from '../lib/http.js';
-import type { ArtistRef, ExternalArtist, ExternalTrack, ImportedPlaylist, MusicProvider, StoredExternalTrack, StreamSource } from './types.js';
+import {
+  SEARCH_TRACK_LIMIT,
+  type ArtistRef,
+  type ExternalArtist,
+  type ExternalTrack,
+  type ImportedPlaylist,
+  type MusicProvider,
+  type SearchHits,
+  type StoredExternalTrack,
+  type StreamSource,
+} from './types.js';
 
 const API = 'https://api.deezer.com';
 /** How many of the newest releases (albums/EPs/singles) to scan per sync. */
@@ -149,6 +159,15 @@ export class DeezerProvider implements MusicProvider {
       url: a.link,
       subtitle: formatFans(a.nb_fan),
     }));
+  }
+
+  async search(query: string): Promise<SearchHits> {
+    const [artists, found] = await Promise.all([
+      this.searchArtists(query),
+      this.get<DeezerList<DzTrack>>(`/search/track?q=${encodeURIComponent(query)}&limit=${SEARCH_TRACK_LIMIT}`),
+    ]);
+    const tracks = (found.data ?? []).map((t) => mapTrack(t, t.album)).filter((t): t is ExternalTrack => t !== null);
+    return { artists, tracks };
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {

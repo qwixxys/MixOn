@@ -26,9 +26,11 @@ export function discoverRoutes(ctx: AppContext) {
     const viewer = req.userId;
     const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
     res.json({
+      // Only what people have played: tracks found by the search must not look popular.
       trending: queryTracks(
         db,
-        `ORDER BY (SELECT COUNT(*) FROM plays p WHERE p.track_id = t.id AND p.created_at >= @weekAgo) DESC,
+        `WHERE t.play_count > 0
+         ORDER BY (SELECT COUNT(*) FROM plays p WHERE p.track_id = t.id AND p.created_at >= @weekAgo) DESC,
            t.play_count DESC, t.id DESC LIMIT 10`,
         { weekAgo },
         viewer,

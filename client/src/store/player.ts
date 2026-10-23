@@ -2,6 +2,7 @@ import type Hls from 'hls.js';
 import { create } from 'zustand';
 import { api } from '../api/client';
 import type { StreamSource, Track } from '../api/types';
+import { savedAudioUrl, useDownloads } from './downloads';
 import {
   videoIdOf,
   youtubeIsActive,
@@ -53,6 +54,13 @@ audio.preload = 'auto';
 let hls: Hls | null = null;
 let loadSeq = 0;
 let playReported = false;
+/** Blob URL of the saved copy being played, released when another track starts. */
+let savedUrl: string | null = null;
+
+function releaseSavedUrl() {
+  if (savedUrl) URL.revokeObjectURL(savedUrl);
+  savedUrl = null;
+}
 
 function readPrefs() {
   try {
@@ -122,12 +130,20 @@ export const usePlayer = create<PlayerState>((set, get) => {
     updateMediaSession(track);
 
     try {
+      // A copy saved on the device plays without the network.
+      const offline = useDownloads.getState().saved[track.id] ? await savedAudioUrl(track.id) : null;
       // Local uploads have a predictable URL; setting it synchronously keeps Safari's autoplay rules happy.
-      const source: StreamSource =
-        track.source === 'local'
+      const source: StreamSource = offline
+        ? { kind: 'direct', url: offline }
+        : track.source === 'local'
           ? { kind: 'direct', url: `/api/tracks/${track.id}/stream` }
           : await api<StreamSource>(`/tracks/${track.id}/source`);
-      if (seq !== loadSeq) return;
+      if (seq !== loadSeq) {
+        if (offline) URL.revokeObjectURL(offline);
+        return;
+      }
+      releaseSavedUrl();
+      savedUrl = offline;
 
       if (source.kind === 'youtube') {
         const videoId = videoIdOf(source.url);
