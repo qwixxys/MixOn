@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { api } from '../api/client';
 import type { Track } from '../api/types';
+import { usePlayVia } from './playVia';
 import { toast } from './toasts';
-import { usePlayer, warmVersion } from './player';
+import { usePlayer } from './player';
 
 /**
  * «Моя волна»: an endless queue picked for the listener by the server (server/src/wave/service.ts). The player plays
@@ -18,6 +19,8 @@ export const WAVE_MODES: { id: WaveMode; label: string }[] = [
 ];
 
 const MODE_KEY = 'soundfy.waveMode';
+/** The first batch is small, so the wave starts without waiting for every song's full version. */
+const FIRST_BATCH = 5;
 const BATCH = 10;
 /** The next batch is asked for when this few songs are left in the queue. */
 const LOW_WATER = 3;
@@ -43,10 +46,14 @@ function savedMode(): WaveMode {
   return 'mix';
 }
 
-const batch = (mode: WaveMode, exclude: number[] = []) =>
-  api<{ tracks: Track[] }>(`/wave?mode=${mode}&limit=${BATCH}${exclude.length ? `&exclude=${exclude.slice(-EXCLUDE).join(',')}` : ''}`).then(
-    (r) => r.tracks,
-  );
+/** The wave's next songs: whole songs only, from the service listened through when it has them. */
+function batch(mode: WaveMode, limit: number, exclude: number[] = []) {
+  const params = new URLSearchParams({ mode, limit: String(limit) });
+  if (exclude.length) params.set('exclude', exclude.slice(-EXCLUDE).join(','));
+  const via = usePlayVia.getState().via;
+  if (via) params.set('on', via);
+  return api<{ tracks: Track[] }>(`/wave?${params}`).then((r) => r.tracks);
+}
 
 export const useWave = create<WaveState>((set, get) => ({
   mode: savedMode(),
@@ -60,9 +67,9 @@ export const useWave = create<WaveState>((set, get) => ({
     }
     set({ mode, starting: true });
     try {
-      const tracks = await batch(mode);
+      const tracks = await batch(mode, FIRST_BATCH);
       if (!tracks.length) {
-        toast.info('Волне пока не из чего выбирать: найдите и послушайте что-нибудь — она подстроится');
+        toast.info('Волне пока не из чего выбирать: послушайте что-нибудь или подключите сервисы с полными треками');
         return;
       }
       usePlayer.getState().play(tracks[0], tracks, undefined, 'wave');
@@ -85,16 +92,14 @@ export const useWave = create<WaveState>((set, get) => ({
   },
 }));
 
-// The queue runs low: ask for more, never the songs it already has. Also look the next song's version up early.
+// The queue runs low: ask for more, never the songs it already has.
 let refilling = false;
 usePlayer.subscribe((st, prev) => {
   if (st.queueOrigin !== 'wave' || (st.index === prev.index && st.queue === prev.queue)) return;
-  const next = st.queue[st.index + 1];
-  if (next && st.index !== prev.index) warmVersion(next, true);
   if (refilling || st.queue.length - st.index - 1 >= LOW_WATER) return;
   refilling = true;
   const exclude = st.queue.flatMap((t) => (t.standsFor ? [t.id, t.standsFor] : [t.id]));
-  batch(useWave.getState().mode, exclude)
+  batch(useWave.getState().mode, BATCH, exclude)
     .then((tracks) => {
       if (usePlayer.getState().queueOrigin === 'wave') usePlayer.getState().appendToQueue(tracks);
     })

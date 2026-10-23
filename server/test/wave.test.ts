@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import type { SimilarSeed } from '../src/providers/types.js';
+import type { ExternalTrack, MusicProvider, SimilarSeed, StoredExternalTrack } from '../src/providers/types.js';
 import { createTestApp, FakeProvider, register, track } from './helpers.js';
 
 /** A service with an artist radio and a chart, like Deezer. */
@@ -79,6 +79,54 @@ describe('«Моя волна»', () => {
     assert.ok(first.body.tracks.length > 0);
     const again = await t.request.get('/api/recommendations').set(anna.auth).expect(200);
     assert.deepEqual(again.body.tracks.map((x: { id: number }) => x.id), first.body.tracks.map((x: { id: number }) => x.id));
+  });
+
+  it('plays whole songs only: previews become full versions from another service, or drop out', async () => {
+    /** Deezer-like: its radio has only 30-second previews. */
+    class PreviewRadio extends FakeProvider {
+      readonly fullTracks = false;
+      async similarTracks() {
+        return [
+          ...Array.from({ length: 4 }, (_, i) => track(`pv-full${i}`, { title: `Целиком ${i}`, artist: `Певец ${i}`, isPreview: true })),
+          ...Array.from({ length: 4 }, (_, i) => track(`pv-only${i}`, { title: `Только отрывок ${i}`, artist: `Певица ${i}`, isPreview: true })),
+        ];
+      }
+    }
+    /** SoundCloud-like: has the «Целиком» songs in full. */
+    const fullService: MusicProvider = {
+      id: 'soundcloud',
+      name: 'Full',
+      description: 'full',
+      requiresToken: false,
+      connectMode: null,
+      fullTracks: true,
+      proxyStreams: false,
+      isConfigured: () => true,
+      searchArtists: async () => [],
+      getArtistTracks: async () => [],
+      resolveStream: async (t: StoredExternalTrack) => ({ url: t.streamUrl ?? '', kind: 'direct' as const }),
+      searchTracks: async (q: string): Promise<ExternalTrack[]> => {
+        const n = q.match(/Целиком (\d)/)?.[1];
+        return n ? [track(`sc-full${n}`, { title: `Целиком ${n}`, artist: `Певец ${n}` })] : [];
+      },
+    };
+    const mixed = createTestApp([new PreviewRadio(), fullService]);
+    try {
+      const user = await register(mixed.request, 'wholesongs');
+      mixed.ctx.sync.storeTracks([track('liked', { title: 'Своя', artist: 'Певец 0' })], 'soundcloud', null);
+      const liked = (mixed.ctx.db.prepare(`SELECT id FROM tracks WHERE external_id = 'liked'`).get() as { id: number }).id;
+      await mixed.request.post(`/api/tracks/${liked}/like`).set(user.auth).expect(200);
+      const res = await mixed.request.get('/api/wave?mode=discover&limit=10').set(user.auth).expect(200);
+      const titles = res.body.tracks.map((x: { title: string }) => x.title);
+      assert.ok(res.body.tracks.length > 0);
+      assert.ok(res.body.tracks.every((x: { isPreview: boolean }) => !x.isPreview), `no previews: ${titles.join(', ')}`);
+      assert.ok(!titles.some((x: string) => x.startsWith('Только отрывок')), 'songs no service has in full stay out');
+      assert.ok(res.body.tracks.filter((x: { source: string }) => x.source === 'soundcloud').length >= 3, 'full versions from the other service');
+      const recs = await mixed.request.get('/api/recommendations').set(user.auth).expect(200);
+      assert.ok(recs.body.tracks.every((x: { isPreview: boolean }) => !x.isPreview), 'recommendations too');
+    } finally {
+      mixed.cleanup();
+    }
   });
 
   it('still answers when the services do not', async () => {

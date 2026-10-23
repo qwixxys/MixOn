@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Track } from '../api/types';
 import { useFetch } from '../lib/useFetch';
 import { usePlayer } from '../store/player';
+import { usePlayVia } from '../store/playVia';
 import { useWave, WAVE_MODES } from '../store/wave';
 import { Icon } from './Icon';
 import { Loading } from './States';
@@ -66,7 +67,15 @@ const SHOWN = 6;
 export function Recommendations() {
   const [round, setRound] = useState(0);
   const [expanded, setExpanded] = useState(false);
-  const { data, loading } = useFetch<{ tracks: Track[] }>(round ? `/recommendations?refresh=1&round=${round}` : '/recommendations');
+  const via = usePlayVia((s) => s.via);
+  const params = new URLSearchParams(via ? { on: via } : {});
+  if (round) {
+    params.set('refresh', '1');
+    params.set('round', String(round));
+  }
+  const qs = params.toString();
+  // Whole songs only, like the wave itself.
+  const { data, loading } = useFetch<{ tracks: Track[] }>(`/recommendations${qs ? `?${qs}` : ''}`);
   const tracks = data?.tracks ?? [];
   if (!loading && !tracks.length) return null;
   return (

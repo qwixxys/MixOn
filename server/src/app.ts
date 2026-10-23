@@ -15,6 +15,7 @@ import { playlistRoutes } from './routes/playlists.js';
 import { serviceRoutes } from './routes/services.js';
 import { settingsRoutes } from './routes/settings.js';
 import { waveRoutes } from './routes/wave.js';
+import { SongVersions } from './lib/versions.js';
 import { trackRoutes } from './routes/tracks.js';
 import { userRoutes } from './routes/users.js';
 
@@ -36,6 +37,8 @@ export function createApp(ctx: AppContext) {
   app.use('/media/avatars', express.static(uploadDir(config, 'avatars'), { maxAge: '7d', fallthrough: false }));
 
   const api = express.Router();
+  // Song versions found on other services are shared by the player's lookups and «Моя волна».
+  const versions = new SongVersions(ctx.db, ctx.providers, ctx.sync);
   api.use(authenticate(ctx));
   api.get('/health', (_req, res) => {
     // Readable from any origin so the Android app can check that an address really is a soundFy server.
@@ -45,13 +48,13 @@ export function createApp(ctx: AppContext) {
   api.use('/auth', authRoutes(ctx));
   api.use('/me', meRoutes(ctx));
   api.use('/users', userRoutes(ctx));
-  api.use('/tracks', trackRoutes(ctx));
+  api.use('/tracks', trackRoutes(ctx, versions));
   api.use('/playlists', playlistRoutes(ctx));
   api.use(geniusRoutes(ctx));
   api.use(discoverRoutes(ctx));
   api.use(serviceRoutes(ctx));
   api.use(settingsRoutes(ctx));
-  api.use(waveRoutes(ctx));
+  api.use(waveRoutes(ctx, versions));
   api.use((_req, res) => {
     res.status(404).json({ error: 'Метод API не найден' });
   });

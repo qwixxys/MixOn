@@ -4,6 +4,7 @@ import type { AppContext } from '../context.js';
 import { notFound } from '../lib/errors.js';
 import { getTrackRow } from '../lib/tracks.js';
 import { idParam, parse } from '../lib/validate.js';
+import type { SongVersions } from '../lib/versions.js';
 import { requireUser } from '../middleware/auth.js';
 import { WAVE_MODES, WaveService, type WaveMode } from '../wave/service.js';
 
@@ -12,11 +13,16 @@ const MAX_EXCLUDE = 300;
 
 const dislikeSchema = z.object({ trackId: z.number().int().positive() });
 
-export function waveRoutes(ctx: AppContext) {
+export function waveRoutes(ctx: AppContext, versions: SongVersions) {
   const r = Router();
-  const wave = new WaveService(ctx.db, ctx.providers, ctx.sync);
+  const wave = new WaveService(ctx.db, ctx.providers, ctx.sync, versions);
+  /** ?on=<service>: the one the listener listens through («Слушать через»), if it plays whole songs. */
+  const preferred = (on: unknown) => (typeof on === 'string' && ctx.providers.find(on)?.fullTracks ? on : null);
 
-  /** The next songs of «Моя волна»: ?mode=mix|favorite|discover|popular&exclude=<ids in the queue>&limit=10. */
+  /**
+   * The next songs of «Моя волна», whole songs only: ?mode=mix|favorite|discover|popular&exclude=<ids in the
+   * queue>&limit=10&on=<service listened through>.
+   */
   r.get('/wave', async (req, res) => {
     const me = requireUser(req);
     const mode: WaveMode = (WAVE_MODES as readonly string[]).includes(String(req.query.mode)) ? (req.query.mode as WaveMode) : 'mix';
@@ -26,7 +32,7 @@ export function waveRoutes(ctx: AppContext) {
       .filter((id) => Number.isInteger(id) && id > 0)
       .slice(-MAX_EXCLUDE);
     const limit = Math.min(30, Math.max(1, Number(req.query.limit) || 10));
-    res.json({ mode, tracks: await wave.next(me, { mode, exclude, limit }) });
+    res.json({ mode, tracks: await wave.next(me, { mode, exclude, limit, preferred: preferred(req.query.on) }) });
   });
 
   /** «Не нравится»: the song, and after a second one its artist, stay out of the wave. */
@@ -46,7 +52,7 @@ export function waveRoutes(ctx: AppContext) {
   /** Songs for the feed's «Для вас», the same choice as the wave, kept for half an hour (?refresh=1 picks anew). */
   r.get('/recommendations', async (req, res) => {
     const me = requireUser(req);
-    res.json({ tracks: await wave.recommend(me, req.query.refresh === '1') });
+    res.json({ tracks: await wave.recommend(me, preferred(req.query.on), req.query.refresh === '1') });
   });
 
   return r;

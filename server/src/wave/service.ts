@@ -1,6 +1,7 @@
 import type { DB } from '../db/index.js';
 import { cleanTitle, normalizeText, primaryArtist } from '../lib/matching.js';
-import { queryTracks, type TrackDTO } from '../lib/tracks.js';
+import { getTrackRow, queryTracks, type TrackDTO } from '../lib/tracks.js';
+import type { SongVersions } from '../lib/versions.js';
 import type { ProviderRegistry } from '../providers/index.js';
 import type { ExternalTrack, MusicProvider, ProviderContext } from '../providers/types.js';
 import type { SyncService } from '../sync/syncService.js';
@@ -20,6 +21,8 @@ interface Song {
   artist: string;
   source: string;
   external_id: string | null;
+  /** 1 for a preview (Deezer, Apple Music, a SoundCloud Go snippet); read for candidates only. */
+  is_preview?: number;
 }
 
 const DAY = 86400_000;
@@ -32,6 +35,11 @@ const SEEDS = 3;
 const PER_ARTIST = 2;
 /** A service that takes longer is left out of this batch. */
 const SOURCE_TIMEOUT_MS = 8000;
+/** Candidates looked at per song asked for, as some previews have no full version anywhere. */
+const CANDIDATES_PER_SONG = 2;
+/** Full versions of previews looked up at once, and the time a batch may spend on them. */
+const LOOKUPS_AT_ONCE = 4;
+const LOOKUP_BUDGET_MS = 15_000;
 const RECOMMENDATIONS_TTL_MS = 30 * 60_000;
 
 /** Share of each pool in a batch, by mode; whatever a pool cannot fill is filled from the others. */
@@ -78,12 +86,13 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 export class WaveService {
-  private recommendations = new Map<number, { tracks: TrackDTO[]; until: number }>();
+  private recommendations = new Map<number, { tracks: TrackDTO[]; preferred: string | null; until: number }>();
 
   constructor(
     private db: DB,
     private providers: ProviderRegistry,
     private sync: SyncService,
+    private versions: SongVersions,
   ) {}
 
   dislike(userId: number, trackId: number) {
@@ -96,16 +105,22 @@ export class WaveService {
   }
 
   /** A dozen songs for the feed, kept for half an hour so the feed does not change at every visit. */
-  async recommend(userId: number, refresh = false): Promise<TrackDTO[]> {
+  async recommend(userId: number, preferred: string | null, refresh = false): Promise<TrackDTO[]> {
     const kept = this.recommendations.get(userId);
-    if (kept && kept.until > Date.now() && !refresh) return kept.tracks;
-    const tracks = await this.next(userId, { mode: 'mix', exclude: [], limit: 12 });
-    this.recommendations.set(userId, { tracks, until: Date.now() + RECOMMENDATIONS_TTL_MS });
+    if (kept && kept.until > Date.now() && kept.preferred === preferred && !refresh) return kept.tracks;
+    const tracks = await this.next(userId, { mode: 'mix', exclude: [], limit: 12, preferred });
+    this.recommendations.set(userId, { tracks, preferred, until: Date.now() + RECOMMENDATIONS_TTL_MS });
     return tracks;
   }
 
-  /** The next `limit` songs of the wave, none of `exclude` (what the listener's queue already has). */
-  async next(userId: number, { mode, exclude, limit }: { mode: WaveMode; exclude: number[]; limit: number }): Promise<TrackDTO[]> {
+  /**
+   * The next `limit` songs of the wave, none of `exclude` (what the listener's queue already has), all whole songs:
+   * a preview comes as its full version from `preferred` (the service chosen to listen through) or another service.
+   */
+  async next(
+    userId: number,
+    { mode, exclude, limit, preferred = null }: { mode: WaveMode; exclude: number[]; limit: number; preferred?: string | null },
+  ): Promise<TrackDTO[]> {
     const taste = this.taste(userId);
     const seeds = this.seeds(taste, mode === 'popular' ? 1 : SEEDS);
 
@@ -148,48 +163,84 @@ export class WaveService {
       new Set(this.ids(`SELECT DISTINCT track_id AS id FROM plays WHERE user_id = ? AND created_at >= ?`, userId, recentSince(days)));
     const recent = playedSince(REPEAT_AFTER_DAYS);
     const recentFavorites = playedSince(FAVORITE_REPEAT_AFTER_DAYS);
+    const excludeKeys = new Set(exclude.map((id) => songs.get(id)).filter((s): s is Song => Boolean(s)).map(songKey));
     const taken = new Set(exclude);
-    const takenKeys = new Set(exclude.map((id) => songs.get(id)).filter((s): s is Song => Boolean(s)).map(songKey));
-    const perArtist = new Map<string, number>();
-    const chosen: number[] = [];
+    const takenKeys = new Set(excludeKeys);
+    const candidates: number[] = [];
 
     const fits = (id: number, pool: Pool) => {
       const song = songs.get(id);
       if (!song || taken.has(id) || takenKeys.has(songKey(song)) || taste.disliked.has(id)) return false;
       const artist = artistKey(song.artist);
-      if (taste.blockedArtists.has(artist) || (perArtist.get(artist) ?? 0) >= PER_ARTIST) return false;
+      if (taste.blockedArtists.has(artist)) return false;
       if ((pool === 'favorites' ? recentFavorites : recent).has(id)) return false;
       // «Незнакомое»: artists the listener already likes, plays or follows stay out.
       if (mode === 'discover' && (taste.artists.get(artist)?.score ?? 0) > 0) return false;
       return true;
     };
     const take = (pool: Pool, want: number) => {
-      for (const id of shuffle(pools[pool])) {
+      // Whole songs first: a preview costs a search for its full version.
+      const order = shuffle(pools[pool]).sort((a, b) => (songs.get(a)?.is_preview ?? 1) - (songs.get(b)?.is_preview ?? 1));
+      for (const id of order) {
         if (want <= 0) break;
         if (!fits(id, pool)) continue;
-        const song = songs.get(id)!;
         taken.add(id);
-        takenKeys.add(songKey(song));
-        perArtist.set(artistKey(song.artist), (perArtist.get(artistKey(song.artist)) ?? 0) + 1);
-        chosen.push(id);
+        takenKeys.add(songKey(songs.get(id)!));
+        candidates.push(id);
         want--;
       }
     };
 
-    for (const [pool, share] of Object.entries(SHARES[mode]) as [Pool, number][]) take(pool, Math.round(share * limit));
-    for (const pool of ['similar', 'popular', 'followed', 'favorites'] as Pool[]) take(pool, limit - chosen.length);
+    // More candidates than songs asked for: previews that no service has in full drop out below.
+    const target = limit * CANDIDATES_PER_SONG;
+    for (const [pool, share] of Object.entries(SHARES[mode]) as [Pool, number][]) take(pool, Math.round(share * target));
+    for (const pool of ['similar', 'popular', 'followed', 'favorites'] as Pool[]) take(pool, target - candidates.length);
     // Nothing reached the services (offline, or a new app with no history): whatever the app has.
-    if (chosen.length < limit) {
+    if (candidates.length < target) {
       const rest = this.ids(`SELECT id FROM tracks ORDER BY random() LIMIT 200`);
       for (const s of this.songs(rest).values()) songs.set(s.id, s);
       pools.popular = rest;
-      take('popular', limit - chosen.length);
+      take('popular', target - candidates.length);
     }
 
-    const order = new Map(spread(chosen, (id) => artistKey(songs.get(id)!.artist)).map((id, i) => [id, i]));
+    // The wave plays whole songs only: a preview becomes the full song from another service, or drops out.
+    const chosen: Song[] = [];
+    const chosenIds = new Set<number>();
+    const chosenKeys = new Set(excludeKeys);
+    const perArtist = new Map<string, number>();
+    const deadline = Date.now() + LOOKUP_BUDGET_MS;
+    for (let i = 0; i < candidates.length && chosen.length < limit && Date.now() < deadline; i += LOOKUPS_AT_ONCE) {
+      const whole = await Promise.all(candidates.slice(i, i + LOOKUPS_AT_ONCE).map((id) => this.whole(userId, songs.get(id)!, preferred)));
+      for (const song of whole) {
+        if (!song || chosen.length >= limit) continue;
+        const artist = artistKey(song.artist);
+        const key = songKey(song);
+        if (exclude.includes(song.id) || chosenIds.has(song.id) || chosenKeys.has(key) || taste.disliked.has(song.id)) continue;
+        if (taste.blockedArtists.has(artist) || (perArtist.get(artist) ?? 0) >= PER_ARTIST) continue;
+        chosen.push(song);
+        chosenIds.add(song.id);
+        chosenKeys.add(key);
+        perArtist.set(artist, (perArtist.get(artist) ?? 0) + 1);
+      }
+    }
+
+    const order = new Map(spread(chosen, (song) => artistKey(song.artist)).map((song, i) => [song.id, i]));
     return queryTracks(this.db, 'WHERE t.id IN (SELECT value FROM json_each(@ids))', { ids: JSON.stringify([...order.keys()]) }, userId).sort(
       (a, b) => order.get(a.id)! - order.get(b.id)!,
     );
+  }
+
+  /** `song` as a whole song: itself, or for a preview its full version (from `preferred` first); null if none. */
+  private async whole(userId: number, song: Song, preferred: string | null): Promise<Song | null> {
+    if (!song.is_preview) return song;
+    const row = getTrackRow(this.db, song.id);
+    if (!row) return null;
+    try {
+      const full = await this.versions.full(userId, row, preferred);
+      return full && !full.isPreview ? { id: full.id, title: full.title, artist: full.artist, source: full.source, external_id: null, is_preview: 0 } : null;
+    } catch {
+      return null;
+    }
   }
 
   /** What the listener likes: artists weighted by likes, plays and follows; songs and artists they turned down. */
@@ -269,7 +320,7 @@ export class WaveService {
 
   private songs(ids: number[]): Map<number, Song> {
     const rows = this.db
-      .prepare('SELECT id, title, artist, source, external_id FROM tracks WHERE id IN (SELECT value FROM json_each(?))')
+      .prepare('SELECT id, title, artist, source, external_id, is_preview FROM tracks WHERE id IN (SELECT value FROM json_each(?))')
       .all(JSON.stringify(ids)) as Song[];
     return new Map(rows.map((r) => [r.id, r]));
   }

@@ -66,37 +66,21 @@ export function sameTrack(current: Track | null, id: number): boolean {
 /** Songs already reported missing on the chosen service, so a queue does not repeat it at every play. */
 const missingOnChosen = new Set<string>();
 
-/** Where to look for another version of `track`, if anywhere. */
-function versionPath(track: Track, upgradePreview: boolean): string | null {
-  const via = usePlayVia.getState().via;
-  if (track.source === 'local') return null;
-  if (via) return track.source === via ? null : `/tracks/${track.id}/version?on=${encodeURIComponent(via)}`;
-  // «Моя волна» plays whole songs: a 30-second preview is swapped for the full song from any service that has it.
-  return upgradePreview && track.isPreview ? `/tracks/${track.id}/audio-version` : null;
-}
-
-/** Looks the next track's version up ahead of time, so it starts without the wait (the server remembers it). */
-export function warmVersion(track: Track, upgradePreview: boolean) {
-  const path = versionPath(track, upgradePreview);
-  if (path) api(path).catch(() => {});
-}
-
 /**
  * `track` from the service chosen for listening (store/playVia.ts), when it was found elsewhere and that service has
- * the same song, or the full song for a preview in «Моя волна»; null to play it where it was found.
+ * the same song; null to play it where it was found.
  */
-async function preferredVersion(track: Track, upgradePreview: boolean): Promise<Track | null> {
+async function preferredVersion(track: Track): Promise<Track | null> {
   const via = usePlayVia.getState().via;
-  const path = versionPath(track, upgradePreview);
-  if (!path) return null;
+  if (!via || track.source === via || track.source === 'local') return null;
   try {
-    const version = await api<Track>(path);
+    const version = await api<Track>(`/tracks/${track.id}/version?on=${encodeURIComponent(via)}`);
     if (version.id === track.id) return null;
     // Keep the cover the listener saw if this service has none.
     return { ...version, coverUrl: version.coverUrl ?? track.coverUrl, standsFor: track.standsFor ?? track.id };
   } catch {
     const key = `${via}:${track.id}`;
-    if (via && track.isPreview && !missingOnChosen.has(key)) {
+    if (track.isPreview && !missingOnChosen.has(key)) {
       missingOnChosen.add(key);
       toast.info(`${serviceInfo(via).label}: этой песни нет — играет 30-секундный отрывок из ${serviceInfo(track.source).label}`);
     }
@@ -190,7 +174,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const saved = (t: Track) => (useDownloads.getState().saved[t.id] ? savedAudioUrl(t.id) : Promise.resolve(null));
       let offline = await saved(track);
       if (!offline && !exact) {
-        const preferred = await preferredVersion(track, get().queueOrigin === 'wave');
+        const preferred = await preferredVersion(track);
         if (seq !== loadSeq) return;
         if (preferred) {
           const original = track;

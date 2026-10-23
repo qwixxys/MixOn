@@ -260,8 +260,8 @@ export const EN: Record<string, string> = {
   'Любимое': 'Favorites',
   'Незнакомое': 'Unfamiliar',
   'Популярное': 'Popular',
-  'Волне пока не из чего выбирать: найдите и послушайте что-нибудь — она подстроится':
-    'The wave has nothing to pick from yet: find and play something, and it will adapt',
+  'Волне пока не из чего выбирать: послушайте что-нибудь или подключите сервисы с полными треками':
+    'The wave has nothing to pick from yet: play something or connect services with full tracks',
   'Больше не будем включать этот трек в волну': 'This track will not come up in the wave again',
 
   // components/PlayVia.tsx: the service music plays through
