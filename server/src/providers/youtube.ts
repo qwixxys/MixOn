@@ -11,7 +11,7 @@ import {
   type StoredExternalTrack,
   type StreamSource,
 } from './types.js';
-import { YouTubeMusicWeb } from './youtubeMusic.js';
+import { VIDEO_NOISE, YouTubeMusicWeb } from './youtubeMusic.js';
 
 const API = 'https://www.googleapis.com/youtube/v3';
 /** YouTube's "Music" video category. */
@@ -84,8 +84,6 @@ function bestThumbnail(t: YtThumbnails | undefined): string | null {
 /** Auto-generated "Artist - Topic" channels hold the official audio of an artist's releases. */
 const channelArtist = (title: string) => title.replace(/\s+-\s+Topic$/i, '').replace(/VEVO$/, '').trim();
 
-/** Brackets that describe the video rather than the song: "(Official Video)", "[Lyric Video]", "(4K)"… */
-const VIDEO_NOISE = /\s*[([][^)\]]*\b(official|video|audio|lyrics?|visuali[sz]er|mv|m\/v|hd|hq|4k|clip|клип)\b[^)\]]*[)\]]/gi;
 
 /**
  * Release tracks on Topic channels carry their real metadata in the description:

@@ -922,4 +922,5 @@ export const EN: Record<string, string> = {
   'Spotify не узнал Client ID: проверьте его и адрес возврата в настройках приложения Spotify': 'Spotify did not recognise the Client ID: check it and the return address in your Spotify app\'s settings',
   'Spotify не дал войти: {0}': 'Spotify would not sign you in: {0}',
   'Spotify не дал доступ: добавьте свой аккаунт в User Management своего приложения Spotify. Плейлисты, которые составляет сам Spotify, сторонним приложениям закрыты': 'Spotify denied access: add your account under User Management of your Spotify app. Playlists made by Spotify itself are closed to other apps',
+  'Слушать без видео': 'Listen without the video',
 };

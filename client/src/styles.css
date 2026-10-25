@@ -2907,20 +2907,36 @@ textarea.tf-input {
 html.yt-docked .app.has-player {
   padding-bottom: calc(var(--player-space) + 252px);
 }
-/* Over the cover's place in the full-screen player (the spot is measured by NowPlaying). */
+/* Over the cover's place in the full-screen player (the spot is measured by NowPlaying): looks like the cover, the
+   song's artwork blurred around the video and never over it. «Без видео» under the title replaces the strip. */
 .yt-dock.yt-dock-staged {
   z-index: 97;
   right: auto;
   bottom: auto;
-  box-shadow: var(--md-sys-elevation-1);
+  justify-content: center;
+  isolation: isolate;
+  background: #000;
+  box-shadow: var(--md-sys-elevation-3);
+}
+.yt-dock-staged::before {
+  content: '';
+  position: absolute;
+  inset: -40px;
+  z-index: -1;
+  background: var(--yt-art) center / cover no-repeat;
+  filter: blur(28px) brightness(0.7) saturate(1.2);
+}
+.yt-dock-staged .yt-dock-bar {
+  display: none;
 }
 .yt-dock-staged .yt-dock-frame {
-  flex: 1;
+  flex: none;
+  width: 100%;
   height: auto;
+  aspect-ratio: 16 / 9;
   min-height: 200px;
-}
-.yt-dock-staged .yt-dock-move {
-  display: none;
+  max-height: 100%;
+  background: transparent;
 }
 
 /* ---------- full-screen player ---------- */
@@ -3047,13 +3063,25 @@ html.now-playing .toaster {
   width: 30%;
   height: 30%;
 }
-/* YouTube's window goes here: at least 200 px of video under its 36 px strip. */
+/* YouTube's window goes here: at least 200 px of video (YouTube's minimum), 16:9 beside the lyrics or the queue. */
 .np-video {
   flex: none;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  min-height: 236px;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
   max-height: 100%;
+}
+/* In the cover's place: square and as big as the cover would be. */
+.np-video.np-video-square {
+  width: min(100%, 44vh);
+  aspect-ratio: 1;
+  min-width: 200px;
+  border-radius: var(--md-sys-shape-corner-large);
+}
+@supports (width: 1cqh) {
+  .np-video.np-video-square {
+    width: max(200px, min(100cqw, 100cqh - 24px));
+  }
 }
 .np-stage-queue {
   flex-direction: column;

@@ -73,6 +73,7 @@ import msSort from '@material-symbols/svg-400/rounded/sort.svg?raw';
 import msTimer from '@material-symbols/svg-400/rounded/timer.svg?raw';
 import msTravelExplore from '@material-symbols/svg-400/rounded/travel_explore.svg?raw';
 import msUpload from '@material-symbols/svg-400/rounded/upload.svg?raw';
+import msVideocamOff from '@material-symbols/svg-400/rounded/videocam_off.svg?raw';
 import msVisibility from '@material-symbols/svg-400/rounded/visibility.svg?raw';
 import msVolumeDown from '@material-symbols/svg-400/rounded/volume_down.svg?raw';
 import msVolumeOff from '@material-symbols/svg-400/rounded/volume_off.svg?raw';
@@ -166,6 +167,7 @@ const ICONS = {
   timer: msTimer,
   travel_explore: msTravelExplore,
   upload: msUpload,
+  videocam_off: msVideocamOff,
   visibility: msVisibility,
   volume_down: msVolumeDown,
   volume_off: msVolumeOff,

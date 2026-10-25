@@ -71,6 +71,8 @@ let active = false;
 let closed = false;
 /** Where the full-screen player wants the window (viewport pixels), or null for its corner. */
 let stage: { top: number; left: number; width: number; height: number } | null = null;
+/** The playing song's cover (absolute URL), around the video in the full-screen player. */
+let artwork: string | null = null;
 const shownListeners = new Set<() => void>();
 
 /** The video id in a YouTube link (https://www.youtube.com/watch?v=…). */
@@ -124,6 +126,11 @@ function showDock(visible: boolean) {
   if (dock) dock.hidden = !visible;
   document.documentElement.classList.toggle('yt-docked', visible && !dock?.classList.contains('yt-dock-top'));
   for (const listener of shownListeners) listener();
+}
+
+/** The song's cover, blurred around the video while it stands in the cover's place. */
+function applyArt() {
+  dock?.style.setProperty('--yt-art', artwork ? `url("${artwork.replace(/"/g, '%22')}")` : 'none');
 }
 
 function applyStage() {
@@ -195,10 +202,7 @@ function createDock() {
       }
       showDock(true);
     }, 'yt-dock-move'),
-    dockButton(closeSvg, 'Закрыть видео и слушать дальше без него', () => {
-      youtubeClose();
-      handlers?.closed();
-    }),
+    dockButton(closeSvg, 'Закрыть видео и слушать дальше без него', youtubeHide),
   );
   const frame = document.createElement('div');
   frame.className = 'yt-dock-frame';
@@ -208,6 +212,7 @@ function createDock() {
   document.body.append(el);
   dock = el;
   applyStage();
+  applyArt();
   return { el, target };
 }
 
@@ -230,7 +235,18 @@ function createPlayer(videoId: string, startAt: number): Promise<YTPlayer> {
           width: '100%',
           height: '100%',
           videoId,
-          playerVars: { autoplay: 1, playsinline: 1, rel: 0, start: Math.floor(startAt), origin: location.origin },
+          // MixOn's own buttons drive the video, so YouTube's control bar, annotations and full-screen button stay off.
+          playerVars: {
+            autoplay: 1,
+            playsinline: 1,
+            rel: 0,
+            controls: 0,
+            iv_load_policy: 3,
+            fs: 0,
+            disablekb: 1,
+            start: Math.floor(startAt),
+            origin: location.origin,
+          },
           events: {
             onReady: () => {
               // Another service's track may have started while YouTube's player was loading.
@@ -266,9 +282,18 @@ function applyVolume(p: YTPlayer, volume: number, muted: boolean) {
   else p.unMute();
 }
 
-/** Shows the player and starts `videoId`. */
-export async function youtubeLoad(videoId: string, startAt: number, volume: number, muted: boolean, events: YouTubeEvents) {
+/** Shows the player and starts `videoId`; `art`, the song's cover, frames the video in the full-screen player. */
+export async function youtubeLoad(
+  videoId: string,
+  startAt: number,
+  volume: number,
+  muted: boolean,
+  events: YouTubeEvents,
+  art: string | null = null,
+) {
   handlers = events;
+  artwork = art ? new URL(art, location.href).href : null;
+  applyArt();
   active = true;
   closed = false;
   stopPolling();
@@ -297,6 +322,12 @@ export function youtubeStop() {
   stopPolling();
   showDock(false);
   void player?.then((p) => p.stopVideo());
+}
+
+/** «Без видео» in the full-screen player: what the window's close button does. */
+export function youtubeHide() {
+  youtubeClose();
+  handlers?.closed();
 }
 
 /** The window's close button: pauses the track and hides the player until play is pressed again. */

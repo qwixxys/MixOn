@@ -250,7 +250,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         const videoId = videoIdOf(source.url);
         if (!videoId) throw new Error('Не удалось открыть видео YouTube');
         stopAudio();
-        await youtubeLoad(videoId, startAt, audio.volume, audio.muted, youtubeEvents);
+        await youtubeLoad(videoId, startAt, audio.volume, audio.muted, youtubeEvents, track.coverUrl);
         return;
       }
       youtubeStop();

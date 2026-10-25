@@ -111,6 +111,9 @@ function cover(row: Row): string | null {
   return url ? url.replace(/=w\d+-h\d+[^&/]*$/, '=w544-h544-l90-rj') : null;
 }
 
+/** Brackets that describe the video rather than the song: "(Official Video)", "[Lyric Video]", "(4K)"… */
+export const VIDEO_NOISE = /\s*[([][^)\]]*\b(official|video|audio|lyrics?|visuali[sz]er|mv|m\/v|hd|hq|4k|clip|клип)\b[^)\]]*[)\]]/gi;
+
 /** What a row is when it says so: songs and music videos are kept, podcast episodes are not. */
 const KIND = /^(song|video|episode|podcast)$/i;
 const PLAYS = /\b(plays|views)$/i;
@@ -122,7 +125,9 @@ export function rowTrack(row: Row): ExternalTrack | null {
     row.playlistItemData?.videoId ??
     row.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId ??
     column(row, 0)?.runs?.find((r) => r.navigationEndpoint?.watchEndpoint?.videoId)?.navigationEndpoint?.watchEndpoint?.videoId;
-  const title = text(column(row, 0));
+  const shown = text(column(row, 0));
+  // Music videos carry "(Official Video)" and the like in their titles; the song is the rest.
+  const title = shown.replace(VIDEO_NOISE, '').trim() || shown;
   if (!videoId || !/^[\w-]{11}$/.test(videoId) || !title) return null;
   // Search results: "Song • Artist • Album • 3:21"; artist pages and playlists: the artists here, the rest beside.
   const info = parts(column(row, 1));

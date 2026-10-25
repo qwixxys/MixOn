@@ -3,7 +3,7 @@ import { after, before, describe, it } from 'node:test';
 import { LrclibClient, parseLrc, type LrclibRecord } from '../src/lyrics/lrclib.js';
 import { pickRecord } from '../src/lyrics/service.js';
 import { songQuery } from '../src/lib/matching.js';
-import { createTestApp, fakeFetch, register, sineWav } from './helpers.js';
+import { createTestApp, fakeFetch, register, sineWav, track } from './helpers.js';
 
 // Placeholder text only: these tests never contain real song lyrics.
 const record = (id: number, overrides: Partial<LrclibRecord> = {}): LrclibRecord => ({
@@ -128,7 +128,7 @@ describe('lyrics API', () => {
 
   before(async () => {
     const user = await register(t.request, 'singer');
-    for (const title of ['Тестовая песня', 'Через поиск', 'Нигде нет', 'С альбомом', 'Только текст', 'Поиск сломан']) {
+    for (const title of ['Тестовая песня', 'Через поиск', 'Нигде нет', 'С альбомом', 'Только текст', 'Поиск сломан', 'Тестовая песня [Green Version]']) {
       const res = await t.request
         .post('/api/tracks')
         .set(user.auth)
@@ -166,6 +166,22 @@ describe('lyrics API', () => {
     assert.equal(res.body.found, true);
     const lookups = calls.filter((u) => u.includes('/api/get') && u.includes(encodeURIComponent('С альбомом').replace(/%20/g, '+')));
     assert.equal(lookups.length, 2);
+  });
+
+  it('tries the bare title when a bracketed one finds nothing', async () => {
+    const res = await t.request.get(`/api/tracks/${ids['Тестовая песня [Green Version]']}/lyrics`).expect(200);
+    assert.equal(res.body.found, true);
+  });
+
+  it('reads YouTube video titles as "Artist - Song"', async () => {
+    // A channel that is not the artist uploaded it; the title names both.
+    const { ids: [id] } = t.ctx.sync.storeTracks(
+      [track('ytvideo0009', { title: 'Тестовый Артист - Через поиск', artist: 'Какой-то канал', duration: 2 })],
+      'youtube',
+      null,
+    );
+    const res = await t.request.get(`/api/tracks/${id}/lyrics`).expect(200);
+    assert.equal(res.body.found, true);
   });
 
   it('prefers a synced version found by search over a plain exact match', async () => {

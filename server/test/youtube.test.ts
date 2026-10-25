@@ -70,7 +70,7 @@ describe('YouTube Music', () => {
       contents: { tabbedSearchResultsRenderer: { tabs: [{ tabRenderer: { content: { sectionListRenderer: { contents: [{ musicShelfRenderer: { contents: rows } }] } } } }] } },
     });
     const SONGS = searchReply([
-      songRow('aaaaaaaaaa1', 'Song One', 'Band - Topic', 'Album', '3:34'),
+      songRow('aaaaaaaaaa1', 'Song One (Official Video)', 'Band - Topic', 'Album', '3:34'),
       songRow('aaaaaaaaaa2', 'Teaser', 'Band', '0:15'),
       songRow('aaaaaaaaaa3', 'Talk', 'Episode', 'Show', '45:00'),
     ]);
@@ -146,7 +146,7 @@ describe('YouTube Music', () => {
       assert.deepEqual(
         hits.tracks.map((x) => [x.externalId, x.title, x.artist, x.album, x.duration]),
         [['aaaaaaaaaa1', 'Song One', 'Band', 'Album', 214]],
-        'the teaser is too short, the podcast episode is no song',
+        'without "(Official Video)"; the teaser is too short, the podcast episode is no song',
       );
       assert.equal(hits.tracks[0].coverUrl, 'https://lh3.googleusercontent.com/c=w544-h544-l90-rj');
       assert.equal(hits.tracks[0].externalUrl, 'https://music.youtube.com/watch?v=aaaaaaaaaa1');

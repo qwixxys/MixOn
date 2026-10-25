@@ -8,7 +8,7 @@ import { serviceInfo } from '../lib/services';
 import { useAuth } from '../store/auth';
 import { usePlayer } from '../store/player';
 import { usePlaylistPicker } from '../store/playlistPicker';
-import { onYoutubeShown, youtubeShown, youtubeStage } from '../store/youtube';
+import { onYoutubeShown, youtubeHide, youtubeShown, youtubeStage } from '../store/youtube';
 import { Cover } from './Cover';
 import { DownloadButton } from './DownloadButton';
 import { Icon } from './Icon';
@@ -21,9 +21,10 @@ import { shareTrack } from './TrackActions';
 
 /**
  * Holds the place of YouTube's window: while the full-screen player is open the window sits exactly over this spot,
- * where the cover would be (YouTube's player cannot be moved into the page without reloading the video).
+ * where the cover would be (YouTube's player cannot be moved into the page without reloading the video). In the
+ * cover's place it is square like the cover; beside the lyrics or the queue, just the video's width.
  */
-function VideoSpot({ layout }: { layout: unknown }) {
+function VideoSpot({ layout, square }: { layout: unknown; square: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const place = () => {
     const box = ref.current?.getBoundingClientRect();
@@ -42,8 +43,8 @@ function VideoSpot({ layout }: { layout: unknown }) {
       youtubeStage(null);
     };
   }, []);
-  useLayoutEffect(place, [layout]);
-  return <div ref={ref} className="np-video" aria-hidden />;
+  useLayoutEffect(place, [layout, square]);
+  return <div ref={ref} className={`np-video ${square ? 'np-video-square' : ''}`} aria-hidden />;
 }
 
 /** Windows at least this wide show the lyrics in a column of their own; narrower ones swap them in for the cover. */
@@ -199,7 +200,11 @@ function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) 
 
       <div className={`np-body ${column ? 'np-body-lyrics' : ''}`}>
         <div className={`np-stage ${panel !== 'cover' ? 'np-stage-queue' : ''}`}>
-          {video ? <VideoSpot layout={panel} /> : panel === 'cover' && <Cover url={track.coverUrl} seed={track.id} className="np-cover" />}
+          {video ? (
+            <VideoSpot layout={`${panel}:${column}`} square={panel === 'cover'} />
+          ) : (
+            panel === 'cover' && <Cover url={track.coverUrl} seed={track.id} className="np-cover" />
+          )}
           {panel === 'lyrics' && <NowPlayingLyrics key={track.id} track={track} lyrics={lyrics} />}
           {panel === 'queue' && (
             <div className="np-queue">
@@ -228,6 +233,12 @@ function NowPlayingSheet({ track, onClose }: { track: Track; onClose(): void }) 
                 <span className="np-artist">{track.artist}</span>
               )}
             </div>
+            {video && (
+              // YouTube allows its videos only in a visible player: without the video the song goes on from another service.
+              <button className="icon-btn" onClick={youtubeHide} aria-label="Слушать без видео" title="Слушать без видео">
+                <Icon name="videocam_off" />
+              </button>
+            )}
             <DislikeButton track={track} />
             <LikeButton track={track} showCount={false} />
           </div>

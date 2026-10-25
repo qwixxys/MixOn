@@ -11,7 +11,7 @@ const DURATION_TOLERANCE = 4;
 /** Longer lyrics than this are not stored; real songs are far shorter. */
 const MAX_LYRICS_LENGTH = 100_000;
 /** Sources whose titles are often "Artist - Song" written by someone else's account. */
-const UPLOAD_SOURCES = new Set(['local', 'soundcloud']);
+const UPLOAD_SOURCES = new Set(['local', 'soundcloud', 'youtube']);
 
 export interface TrackLyrics {
   enabled: boolean;
@@ -78,6 +78,23 @@ export class LyricsService {
     };
   }
 
+  /** LRCLIB's record for a song: the exact lookup, then a search, synced lyrics preferred. */
+  private async find(query: { title: string; artist: string; album: string | null; duration: number }): Promise<LrclibRecord | null> {
+    // A differently named album makes the exact lookup miss, so try again without it.
+    let record = (await this.lrclib.get(query)) ?? (query.album ? await this.lrclib.get({ ...query, album: null }) : null);
+    // The exact lookup returns the oldest match, which may be plain text while a synced version exists.
+    if (!record?.syncedLyrics && !record?.instrumental) {
+      try {
+        const found = pickRecord(await this.lrclib.search(query), query);
+        if (found && (found.syncedLyrics || !record)) record = found;
+      } catch (err) {
+        // Search is only an extra here; keep the plain lyrics already found.
+        if (!record) throw err;
+      }
+    }
+    return record;
+  }
+
   private async load(track: TrackRow): Promise<TrackLyrics> {
     const cached = this.db.prepare('SELECT source, synced, plain, instrumental, fetched_at FROM lyrics_cache WHERE track_id = ?').get(track.id) as
       | CacheRow
@@ -88,19 +105,10 @@ export class LyricsService {
     let record: LrclibRecord | null;
     try {
       const names = UPLOAD_SOURCES.has(track.source) ? songQuery(track) : { title: cleanTitle(track.title), artist: primaryArtist(track.artist) };
-      const query = { ...names, album: track.album, duration: track.duration };
-      // A differently named album makes the exact lookup miss, so try again without it.
-      record = (await this.lrclib.get(query)) ?? (query.album ? await this.lrclib.get({ ...query, album: null }) : null);
-      // The exact lookup returns the oldest match, which may be plain text while a synced version exists.
-      if (!record?.syncedLyrics && !record?.instrumental) {
-        try {
-          const found = pickRecord(await this.lrclib.search(query), query);
-          if (found && (found.syncedLyrics || !record)) record = found;
-        } catch (err) {
-          // Search is only an extra here; keep the plain lyrics already found.
-          if (!record) throw err;
-        }
-      }
+      record = await this.find({ ...names, album: track.album, duration: track.duration });
+      // "Song [Green Version]", "Song (Live)": the song itself may be there under its bare title.
+      const bare = names.title.replace(/\s*[([][^)\]]*[)\]]/g, '').trim();
+      if (!record && bare && bare !== names.title) record = await this.find({ ...names, title: bare, album: null, duration: track.duration });
     } catch (err) {
       // Keep serving what we had if LRCLIB is down.
       if (cached) return this.toLyrics(cached);
