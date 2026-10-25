@@ -88,7 +88,7 @@ export function loadConfig(): AppConfig {
     youtube: { apiKey: process.env.YOUTUBE_API_KEY || null },
     lrclib: {
       baseUrl: lrclibUrl(process.env.LRCLIB_URL),
-      userAgent: 'MixOn v0.6.16 (https://github.com/qwixxys/MixOn)',
+      userAgent: 'MixOn v0.6.17 (https://github.com/qwixxys/MixOn)',
     },
   };
 }

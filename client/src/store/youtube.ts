@@ -71,8 +71,12 @@ let active = false;
 let closed = false;
 /** Where the full-screen player wants the window (viewport pixels), or null for its corner. */
 let stage: { top: number; left: number; width: number; height: number } | null = null;
-/** The playing song's cover (absolute URL), around the video in the full-screen player. */
-let artwork: string | null = null;
+/** The two layers the blurred picture around the video crossfades between, and the picture asked for last. */
+let artLayers: [HTMLDivElement, HTMLDivElement] | null = null;
+let artWanted: string | null = null;
+/** The playing video, whose own frames colour the picture around it. */
+let videoNow: string | null = null;
+let frameNow = -1;
 const shownListeners = new Set<() => void>();
 
 /** The video id in a YouTube link (https://www.youtube.com/watch?v=…). */
@@ -128,9 +132,35 @@ function showDock(visible: boolean) {
   for (const listener of shownListeners) listener();
 }
 
-/** The song's cover, blurred around the video while it stands in the cover's place. */
-function applyArt() {
-  dock?.style.setProperty('--yt-art', artwork ? `url("${artwork.replace(/"/g, '%22')}")` : 'none');
+/**
+ * Blurred around the video while it stands in the cover's place: `url`, faded in over the picture before once it has
+ * loaded (beside the video, never over it).
+ */
+function showArt(url: string | null) {
+  if (!url || url === artWanted) return;
+  artWanted = url;
+  const image = new Image();
+  image.onload = () => {
+    if (artWanted !== url || !artLayers) return;
+    const [shown, hidden] = artLayers[0].classList.contains('yt-dock-art-on') ? artLayers : [artLayers[1], artLayers[0]];
+    hidden.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
+    hidden.classList.add('yt-dock-art-on');
+    shown.classList.remove('yt-dock-art-on');
+  };
+  image.src = url;
+}
+
+/** YouTube's own stills of a video: its thumbnail, then frames from about a quarter, half and three quarters in. */
+const FRAMES = ['hqdefault', 'hq1', 'hq2', 'hq3'];
+
+/** The picture around the video follows it: the still nearest to where it is playing. */
+function followFrames(current: number, duration: number) {
+  if (!videoNow || !duration) return;
+  const part = current / duration;
+  const frame = part < 0.15 ? 0 : part < 0.4 ? 1 : part < 0.65 ? 2 : 3;
+  if (frame === frameNow) return;
+  frameNow = frame;
+  showArt(`https://i.ytimg.com/vi/${videoNow}/${FRAMES[frame]}.jpg`);
 }
 
 function applyStage() {
@@ -209,16 +239,29 @@ function createDock() {
   const target = document.createElement('div');
   frame.append(target);
   el.append(bar, frame);
+  const layers = [0, 1].map(() => {
+    const layer = document.createElement('div');
+    layer.className = 'yt-dock-art';
+    layer.setAttribute('aria-hidden', 'true');
+    return layer;
+  }) as [HTMLDivElement, HTMLDivElement];
+  el.prepend(...layers);
+  artLayers = layers;
+  artWanted = null;
   document.body.append(el);
   dock = el;
   applyStage();
-  applyArt();
   return { el, target };
 }
 
 function startPolling(p: YTPlayer) {
   window.clearInterval(poll);
-  poll = window.setInterval(() => handlers?.time(p.getCurrentTime(), p.getDuration()), POLL_MS);
+  poll = window.setInterval(() => {
+    const current = p.getCurrentTime();
+    const duration = p.getDuration();
+    handlers?.time(current, duration);
+    followFrames(current, duration);
+  }, POLL_MS);
 }
 
 function stopPolling() {
@@ -292,13 +335,14 @@ export async function youtubeLoad(
   art: string | null = null,
 ) {
   handlers = events;
-  artwork = art ? new URL(art, location.href).href : null;
-  applyArt();
+  videoNow = videoId;
+  frameNow = -1;
   active = true;
   closed = false;
   stopPolling();
   if (!player) {
     player = createPlayer(videoId, startAt);
+    showArt(art && new URL(art, location.href).href);
     player.catch(() => {
       player = null;
       dock?.remove();
@@ -309,6 +353,8 @@ export async function youtubeLoad(
     return;
   }
   showDock(true);
+  // The song's cover until the video's own stills have loaded.
+  showArt(art && new URL(art, location.href).href);
   const p = await player;
   applyVolume(p, volume, muted);
   p.loadVideoById({ videoId, startSeconds: startAt });

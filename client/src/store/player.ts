@@ -368,7 +368,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const youtube = youtubeIsActive();
       const max = !youtube && Number.isFinite(audio.duration) ? audio.duration : get().duration;
       const t = Math.max(0, Math.min(seconds, max || seconds));
-      if (youtube) youtubeSeek(t);
+      if (youtube) seekVideo(t);
       else audio.currentTime = t;
       set({ currentTime: t });
     },
@@ -468,6 +468,16 @@ audio.addEventListener('error', () => {
 
 // ---------- wire YouTube's player to the store ----------
 
+/** YouTube's player buffers and briefly shows its own overlay at each seek, so a dragged slider seeks once it rests. */
+let videoSeek: number | undefined;
+/** Until then the slider stays where the listener put it rather than where the video still is. */
+let seekShownUntil = 0;
+function seekVideo(seconds: number) {
+  window.clearTimeout(videoSeek);
+  seekShownUntil = Date.now() + 1000;
+  videoSeek = window.setTimeout(() => youtubeSeek(seconds), 200);
+}
+
 /**
  * The song in YouTube's player carries on from the same moment in a version from a service that plays plain audio;
  * `missing` runs when no service has it (or the listener moved on meanwhile, then nothing happens).
@@ -519,6 +529,7 @@ const youtubeEvents: YouTubeEvents = {
     }
   },
   time: (current, duration) => {
+    if (Date.now() < seekShownUntil) return;
     usePlayer.setState(duration > 0 ? { currentTime: current, duration } : { currentTime: current });
     reportProgress(current, duration);
     prepareNext(current);

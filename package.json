@@ -1,6 +1,6 @@
 {
   "name": "soundfy",
-  "version": "0.6.16",
+  "version": "0.6.17",
   "private": true,
   "description": "MixOn — музыкальная платформа в духе SoundCloud с синхронизацией новых релизов из ВК Музыки, SoundCloud, YouTube Music, Deezer и Apple Music",
   "workspaces": [
