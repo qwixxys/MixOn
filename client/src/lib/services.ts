@@ -7,6 +7,7 @@ export const SERVICES: Record<string, { label: string; short: string; color: str
   itunes: { label: 'Apple Music', short: '', color: '#fa243c' },
   youtube: { label: 'YouTube Music', short: 'YT', color: '#ff0000' },
   genius: { label: 'Genius', short: 'G', color: '#ffff64', ink: '#000' },
+  spotify: { label: 'Spotify', short: 'SP', color: '#1ed760', ink: '#000' },
 };
 
 export function serviceInfo(id: string) {

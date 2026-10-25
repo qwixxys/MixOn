@@ -71,18 +71,27 @@ export function sameTrack(current: Track | null, id: number): boolean {
 /** Songs already reported missing on the chosen service, so a queue does not repeat it at every play. */
 const missingOnChosen = new Set<string>();
 
+/** `version` playing in place of `track`, with the cover the listener saw if its service has none. */
+const standIn = (version: Track, track: Track): Track => ({
+  ...version,
+  coverUrl: version.coverUrl ?? track.coverUrl,
+  standsFor: track.standsFor ?? track.id,
+});
+
 /**
  * `track` from the service chosen for listening (store/playVia.ts), when it was found elsewhere and that service has
- * the same song; null to play it where it was found.
+ * the same song; null to play it where it was found. With no service chosen, a YouTube song still plays as plain
+ * audio from SoundCloud or VK when they have it, like any other song, rather than in YouTube's video window.
  */
 async function preferredVersion(track: Track, quiet = false): Promise<Track | null> {
   const via = usePlayVia.getState().via;
-  if (!via || track.source === via || track.source === 'local') return null;
+  if (track.source === 'local') return null;
+  if (!via && track.source === 'youtube') return api<Track>(`/tracks/${track.id}/audio-version`).then((v) => standIn(v, track), () => null);
+  if (!via || track.source === via) return null;
   try {
     const version = await api<Track>(`/tracks/${track.id}/version?on=${encodeURIComponent(via)}`);
     if (version.id === track.id) return null;
-    // Keep the cover the listener saw if this service has none.
-    return { ...version, coverUrl: version.coverUrl ?? track.coverUrl, standsFor: track.standsFor ?? track.id };
+    return standIn(version, track);
   } catch {
     const key = `${via}:${track.id}`;
     if (!quiet && track.isPreview && !missingOnChosen.has(key)) {
@@ -460,22 +469,40 @@ audio.addEventListener('error', () => {
 // ---------- wire YouTube's player to the store ----------
 
 /**
- * The listener closed YouTube's player. YouTube allows its videos only in a visible player, so the song carries on
- * from the same moment in a version from a service that plays plain audio; without one it stays paused.
+ * The song in YouTube's player carries on from the same moment in a version from a service that plays plain audio;
+ * `missing` runs when no service has it (or the listener moved on meanwhile, then nothing happens).
  */
-async function continueWithoutVideo() {
+async function carryOnWithAudio(found: (service: string) => string, missing: () => void) {
   const { current, currentTime } = usePlayer.getState();
   if (!current) return;
   usePlayer.setState({ loading: true });
   try {
     const version = await api<Track>(`/tracks/${current.id}/audio-version`);
-    if (usePlayer.getState().current?.id !== current.id) return; // the listener moved on meanwhile
+    if (usePlayer.getState().current?.id !== current.id) return;
     usePlayer.getState().swapCurrent(version, currentTime);
-    toast.info(`Продолжаем без видео: ${serviceInfo(version.source).label}`);
+    toast.info(found(serviceInfo(version.source).label));
   } catch {
-    usePlayer.setState({ loading: false });
-    toast.info('YouTube не разрешает слушать со скрытым видео, а в других сервисах этой песни нет. Трек на паузе — ▶ вернёт окно.');
+    if (usePlayer.getState().current?.id === current.id) missing();
   }
+}
+
+/** The listener closed YouTube's player, and YouTube allows its videos only in a visible one. */
+function continueWithoutVideo() {
+  return carryOnWithAudio(
+    (service) => `Продолжаем без видео: ${service}`,
+    () => {
+      usePlayer.setState({ loading: false });
+      toast.info('YouTube не разрешает слушать со скрытым видео, а в других сервисах этой песни нет. Трек на паузе — ▶ вернёт окно.');
+    },
+  );
+}
+
+/** YouTube's player refused the video here (embedding turned off, a "not a bot" check): the song from elsewhere. */
+function videoRefused(message: string) {
+  return carryOnWithAudio(
+    (service) => `YouTube не дал включить видео — играет ${service}`,
+    () => usePlayer.setState({ error: message, loading: false, playing: false }),
+  );
 }
 
 const youtubeEvents: YouTubeEvents = {
@@ -496,7 +523,7 @@ const youtubeEvents: YouTubeEvents = {
     reportProgress(current, duration);
     prepareNext(current);
   },
-  error: (message) => usePlayer.setState({ error: message, loading: false, playing: false }),
+  error: (message) => void videoRefused(message),
   closed: () => void continueWithoutVideo(),
 };
 

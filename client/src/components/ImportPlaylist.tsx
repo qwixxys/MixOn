@@ -20,7 +20,7 @@ const EXAMPLES: Record<string, string> = {
 const SPOTIFY_EXAMPLE = 'open.spotify.com/playlist/… или /album/…';
 const isSpotify = (url: string) => /(^|[/.])(open\.spotify\.com|spotify\.link|spoti\.fi)(\/|$)/i.test(url.trim());
 
-function resultMessage(r: ImportResult) {
+export function resultMessage(r: ImportResult) {
   const count = `${r.imported} ${plural(r.imported, ['трек', 'трека', 'треков'])}`;
   if (r.missing !== undefined) {
     // Spotify: songs are looked up on the listener's services.

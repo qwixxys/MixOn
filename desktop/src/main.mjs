@@ -12,7 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 /** A fixed port keeps the address the phone app remembers, and logins, the same between launches. */
 const DEFAULT_PORT = 4777;
 /** Service login pages: they open in a separate login window that can follow the service's own sign-in steps. */
-const OAUTH_HOSTS = new Set(['secure.soundcloud.com', 'soundcloud.com', 'api.soundcloud.com']);
+const OAUTH_HOSTS = new Set(['secure.soundcloud.com', 'soundcloud.com', 'api.soundcloud.com', 'accounts.spotify.com']);
 /** What the MixOn interface itself may use; everything else (camera, microphone, location, clipboard…) is denied. */
 const ALLOWED_PERMISSIONS = new Set(['fullscreen', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']);
 const REPO_URL = 'https://github.com/qwixxys/MixOn';

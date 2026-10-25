@@ -11,6 +11,7 @@ import msCheck from '@material-symbols/svg-400/rounded/check.svg?raw';
 import msClose from '@material-symbols/svg-400/rounded/close.svg?raw';
 import msCloudUpload from '@material-symbols/svg-400/rounded/cloud_upload.svg?raw';
 import msColorize from '@material-symbols/svg-400/rounded/colorize.svg?raw';
+import msContentCopy from '@material-symbols/svg-400/rounded/content_copy.svg?raw';
 import msContentPaste from '@material-symbols/svg-400/rounded/content_paste.svg?raw';
 import msDarkMode from '@material-symbols/svg-400/rounded/dark_mode.svg?raw';
 import msDelete from '@material-symbols/svg-400/rounded/delete.svg?raw';
@@ -109,6 +110,7 @@ const ICONS = {
   close: msClose,
   cloud_upload: msCloudUpload,
   colorize: msColorize,
+  content_copy: msContentCopy,
   content_paste: msContentPaste,
   dark_mode: msDarkMode,
   delete: msDelete,

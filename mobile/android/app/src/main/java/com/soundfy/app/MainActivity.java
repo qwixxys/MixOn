@@ -46,6 +46,30 @@ public class MainActivity extends BridgeActivity {
         );
     }
 
+    /** Also called by Capacitor with the intent the app was started with. */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        openSpotifyCallback(intent);
+    }
+
+    /**
+     * After signing in to Spotify in the browser, Spotify sends the listener to mixon://spotify-callback?code=…&state=…
+     * (server/src/lib/spotifyAccount.ts). The services page finishes the sign-in with what it brings.
+     */
+    private void openSpotifyCallback(Intent intent) {
+        Uri data = intent == null ? null : intent.getData();
+        if (bridge == null || data == null || !"mixon".equals(data.getScheme()) || !"spotify-callback".equals(data.getHost())) return;
+        // Handled once, not again when the activity is recreated.
+        intent.setData(null);
+        Uri.Builder page = Uri.parse(bridge.getAppUrl()).buildUpon().path("/sync").clearQuery().fragment(null);
+        for (String key : new String[] { "code", "state", "error" }) {
+            String value = data.getQueryParameter(key);
+            if (value != null) page.appendQueryParameter("spotify_" + key, value);
+        }
+        bridge.getWebView().loadUrl(page.build().toString());
+    }
+
     /**
      * The server address is only known at run time, so Capacitor's static allowNavigation list cannot describe it.
      * Instead: the bundled connect page may open any server, and that server's pages stay in the app. A service's
@@ -59,7 +83,7 @@ public class MainActivity extends BridgeActivity {
 
         /** Sign-in pages for connecting a service account (see client/src/pages/SyncPage.tsx). */
         private static final Set<String> LOGIN_HOSTS = new HashSet<>(
-            Arrays.asList("secure.soundcloud.com", "soundcloud.com", "api.soundcloud.com")
+            Arrays.asList("secure.soundcloud.com", "soundcloud.com", "api.soundcloud.com", "accounts.spotify.com")
         );
 
         private final Bridge bridge;

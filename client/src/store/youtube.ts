@@ -111,7 +111,10 @@ function describeError(code: number): string {
       return 'Видео удалено с YouTube или скрыто';
     case 101:
     case 150:
-      return 'Владелец видео запретил смотреть его вне YouTube';
+    case 152:
+    case 153:
+      // YouTube gives the same answer when it wants the viewer to prove they are not a bot.
+      return 'YouTube не дал включить видео в приложении: владелец запретил встраивание, или YouTube просит подтвердить, что вы не бот (так бывает с VPN). В других сервисах этой песни нет';
     default:
       return `Плеер YouTube сообщил об ошибке ${code}`;
   }

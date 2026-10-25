@@ -26,6 +26,10 @@ export function PlayViaPicker({ services }: { services: Service[] }) {
         Песни из других сервисов — превью Deezer и Apple Music, релизы в ленте, импортированные плейлисты — MixOn найдёт в
         выбранном сервисе и включит оттуда. Если песни там нет, она играет там, где нашлась.
       </p>
+      <p className="muted small">
+        С «Где нашлась» песни YouTube тоже играют обычным звуком из SoundCloud или ВК Музыки, если они там есть, а окно с видео
+        YouTube открывается, только если больше негде. Чтобы всегда смотреть видео, выберите YouTube Music.
+      </p>
       <div className="chips" role="group" aria-label="Слушать через">
         <button className={`chip ${!via ? 'chip-selected' : ''}`} aria-pressed={!via} onClick={() => setVia(null)}>
           {!via && <Icon name="check" size={18} />}

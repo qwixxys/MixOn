@@ -14,6 +14,7 @@ import { meRoutes } from './routes/me.js';
 import { playlistRoutes } from './routes/playlists.js';
 import { serviceRoutes } from './routes/services.js';
 import { settingsRoutes } from './routes/settings.js';
+import { spotifyRoutes } from './routes/spotify.js';
 import { waveRoutes } from './routes/wave.js';
 import { SongVersions } from './lib/versions.js';
 import { trackRoutes } from './routes/tracks.js';
@@ -54,6 +55,7 @@ export function createApp(ctx: AppContext) {
   api.use(discoverRoutes(ctx));
   api.use(serviceRoutes(ctx));
   api.use(settingsRoutes(ctx));
+  api.use(spotifyRoutes(ctx));
   api.use(waveRoutes(ctx, versions));
   api.use((_req, res) => {
     res.status(404).json({ error: 'Метод API не найден' });

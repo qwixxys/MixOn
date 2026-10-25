@@ -5,6 +5,7 @@ import type { LoginStep, Service, ServiceKeyInfo } from '../api/types';
 import { TextField } from '../components/Material';
 import { PlayViaPicker } from '../components/PlayVia';
 import { ServiceIcon } from '../components/ServiceBadge';
+import { SpotifyCard } from '../components/SpotifyAccount';
 import { KeyFlag, KeyForm, keyGuides } from '../components/ServiceKeys';
 import { ErrorState, Loading } from '../components/States';
 import { plural } from '../lib/format';
@@ -386,6 +387,7 @@ export function SyncPage() {
               onChange={(u) => setData((list) => list?.map((x) => (x.id === u.id ? u : x)) ?? null)}
             />
           ))}
+          {user && <SpotifyCard />}
           {genius.list && genius.list.length > 0 && <GeniusCard keys={{ ...genius, list: genius.list }} />}
         </div>
       )}

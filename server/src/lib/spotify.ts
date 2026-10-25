@@ -182,8 +182,8 @@ async function inOrder<T, R>(items: T[], work: (item: T) => Promise<R>): Promise
 }
 
 /**
- * Imports a Spotify playlist or album into the listener's private playlist. YouTube is not searched: its daily quota
- * would not last through a playlist. Importing the same link again tops the playlist up.
+ * Imports a Spotify playlist or album into the listener's private playlist. Importing the same link again tops the
+ * playlist up.
  */
 export async function importSpotify(
   ctx: { sync: SyncService; providers: ProviderRegistry; fetchImpl: FetchLike },
@@ -191,6 +191,19 @@ export async function importSpotify(
   link: SpotifyLink,
 ) {
   const list = await readSpotify(link, ctx.fetchImpl);
+  return importSongs(ctx, userId, list, `https://open.spotify.com/${link.kind}/${link.id}`);
+}
+
+/**
+ * Finds the songs of a Spotify list (`url`) on the listener's services and keeps them in a private playlist, the same
+ * one each time the list is imported. YouTube is not searched: its daily quota would not last through a playlist.
+ */
+export async function importSongs(
+  ctx: { sync: SyncService; providers: ProviderRegistry },
+  userId: number,
+  list: { title: string; tracks: WantedSong[]; total: number },
+  url: string,
+) {
   if (!list.tracks.length) throw badRequest(`В «${list.title}» нет треков`);
   const services = ctx.providers.list().filter((p) => p.id !== 'youtube');
   const tokens = new Map<string, Promise<string | null>>();
@@ -214,7 +227,6 @@ export async function importSpotify(
     throw badRequest(`Ни одной песни из «${list.title}» не нашлось в подключённых сервисах. Подключите ВК Музыку или SoundCloud`);
   }
 
-  const url = `https://open.spotify.com/${link.kind}/${link.id}`;
   const source = `Импортировано из Spotify: ${url}`;
   const title = list.title.slice(0, 100) || 'Spotify: плейлист';
   const playlistId = ctx.sync.savePlaylist(userId, title, source, ids, source);

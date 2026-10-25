@@ -215,6 +215,11 @@ const migrations: (string | ((db: DB) => void))[] = [
     PRIMARY KEY (user_id, track_id)
   );
   `,
+  `
+  -- A listener's Spotify account (lib/spotifyAccount.ts) is signed in through their own Spotify app, whose client id
+  -- refreshing its token needs.
+  ALTER TABLE service_connections ADD COLUMN client_id TEXT;
+  `,
 ];
 
 export interface KeyValueStore {
