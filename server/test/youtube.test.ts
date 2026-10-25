@@ -46,10 +46,138 @@ describe('YouTube Music', () => {
     assert.deepEqual([plain.title, plain.artist], ['Hit', 'Band']);
   });
 
-  it('needs an API key', async () => {
-    const provider = new YouTubeProvider(null, fakeFetch([]).impl);
-    assert.equal(provider.isConfigured(), false);
-    await assert.rejects(provider.searchArtists('band'), /карточке YouTube Music/);
+  describe('without a key, through the web player API', () => {
+    const flex = (...runs: string[]) => ({ musicResponsiveListItemFlexColumnRenderer: { text: { runs: runs.map((text) => ({ text })) } } });
+    const thumb = { musicThumbnailRenderer: { thumbnail: { thumbnails: [{ url: 'https://lh3.googleusercontent.com/c=w60-h60-l90-rj' }, { url: 'https://lh3.googleusercontent.com/c=w120-h120-l90-rj' }] } } };
+    /** A song row as search results have it: "Artist • Album • 3:34". */
+    const songRow = (id: string, title: string, ...info: string[]) => ({
+      musicResponsiveListItemRenderer: {
+        thumbnail: thumb,
+        flexColumns: [flex(title), flex(...info.flatMap((x, i) => (i ? [' • ', x] : [x])))],
+        playlistItemData: { videoId: id },
+      },
+    });
+    /** A song row as playlists have it: artists, album beside, the length on the right. */
+    const listRow = (id: string, title: string, length: string, grey = false) => ({
+      musicResponsiveListItemRenderer: {
+        flexColumns: [flex(title), flex('Band'), flex('Album')],
+        fixedColumns: [{ musicResponsiveListItemFixedColumnRenderer: { text: { runs: [{ text: length }] } } }],
+        playlistItemData: { videoId: id },
+        ...(grey ? { musicItemRendererDisplayPolicy: 'MUSIC_ITEM_RENDERER_DISPLAY_POLICY_GREY_OUT' } : {}),
+      },
+    });
+    const searchReply = (rows: object[]) => ({
+      contents: { tabbedSearchResultsRenderer: { tabs: [{ tabRenderer: { content: { sectionListRenderer: { contents: [{ musicShelfRenderer: { contents: rows } }] } } } }] } },
+    });
+    const SONGS = searchReply([
+      songRow('aaaaaaaaaa1', 'Song One', 'Band - Topic', 'Album', '3:34'),
+      songRow('aaaaaaaaaa2', 'Teaser', 'Band', '0:15'),
+      songRow('aaaaaaaaaa3', 'Talk', 'Episode', 'Show', '45:00'),
+    ]);
+    const ARTISTS = searchReply([
+      {
+        musicResponsiveListItemRenderer: {
+          thumbnail: thumb,
+          flexColumns: [flex('Band'), flex('Artist', ' • ', '1.53M subscribers')],
+          navigationEndpoint: { browseEndpoint: { browseId: 'UCband' } },
+        },
+      },
+    ]);
+    const PAGE_ONE = {
+      header: { musicResponsiveHeaderRenderer: { title: { runs: [{ text: 'Мой плейлист' }] }, secondSubtitle: { runs: [{ text: '4 songs' }, { text: ' • ' }, { text: '15 minutes' }] } } },
+      contents: {
+        twoColumnBrowseResultsRenderer: {
+          secondaryContents: {
+            sectionListRenderer: {
+              contents: [
+                {
+                  musicPlaylistShelfRenderer: {
+                    contents: [
+                      listRow('bbbbbbbbbb1', 'First', '3:00'),
+                      listRow('bbbbbbbbbb2', 'Gone', '2:00', true),
+                      { continuationItemRenderer: { continuationEndpoint: { continuationCommand: { token: 'NEXT' } } } },
+                    ],
+                  },
+                },
+                // Suggestions under the playlist are not part of it.
+                { musicCarouselShelfRenderer: { contents: [songRow('ssssssssss1', 'Suggested', 'Other', '3:00')] } },
+              ],
+            },
+          },
+        },
+      },
+    };
+    const PAGE_TWO = {
+      onResponseReceivedActions: [{ appendContinuationItemsAction: { continuationItems: [listRow('bbbbbbbbbb3', 'Third', '4:05'), listRow('bbbbbbbbbb4', 'Fourth', '3:30')] } }],
+    };
+    const ARTIST_PAGE = {
+      contents: {
+        singleColumnBrowseResultsRenderer: {
+          tabs: [{ tabRenderer: { content: { sectionListRenderer: { contents: [{ musicShelfRenderer: { contents: [
+            { musicResponsiveListItemRenderer: { flexColumns: [flex('Hit'), flex('Band'), flex('120M plays'), flex('Album')], playlistItemData: { videoId: 'cccccccccc1' } } },
+          ] } }] } } } }],
+        },
+      },
+    };
+    const { impl, calls } = fakeFetch([
+      [
+        'music.youtube.com/youtubei/v1/search',
+        (_url: string, init?: RequestInit) => (JSON.parse(String(init?.body)).params.startsWith('EgWKAQIg') ? ARTISTS : SONGS),
+      ],
+      [
+        'music.youtube.com/youtubei/v1/browse',
+        (_url: string, init?: RequestInit) => {
+          const body = JSON.parse(String(init?.body));
+          if (body.continuation === 'NEXT') return PAGE_TWO;
+          return body.browseId === 'UCband' ? ARTIST_PAGE : PAGE_ONE;
+        },
+      ],
+    ]);
+    const provider = new YouTubeProvider(null, impl);
+
+    it('works and says it is unofficial', () => {
+      assert.equal(provider.isConfigured(), true);
+      assert.equal(provider.unofficial, true);
+      assert.equal(new YouTubeProvider('key', impl).unofficial, false);
+    });
+
+    it('searches songs and artists', async () => {
+      const hits = await provider.search('band');
+      assert.deepEqual(
+        hits.tracks.map((x) => [x.externalId, x.title, x.artist, x.album, x.duration]),
+        [['aaaaaaaaaa1', 'Song One', 'Band', 'Album', 214]],
+        'the teaser is too short, the podcast episode is no song',
+      );
+      assert.equal(hits.tracks[0].coverUrl, 'https://lh3.googleusercontent.com/c=w544-h544-l90-rj');
+      assert.equal(hits.tracks[0].externalUrl, 'https://music.youtube.com/watch?v=aaaaaaaaaa1');
+      assert.deepEqual(hits.artists, [
+        { externalId: 'UCband', name: 'Band', imageUrl: 'https://lh3.googleusercontent.com/c=w544-h544-l90-rj', url: 'https://music.youtube.com/channel/UCband', subtitle: '1.5M подписчиков' },
+      ]);
+      const sent = JSON.parse(String(calls.find((c) => c.url.includes('/search'))?.init?.body));
+      assert.equal(sent.context.client.clientName, 'WEB_REMIX');
+      assert.equal(sent.query, 'band');
+    });
+
+    it('finds songs to stand in for others, with a key too, as that costs no quota', async () => {
+      const found = await new YouTubeProvider('key', impl).searchTracks('Band Song One', {});
+      assert.deepEqual(found.map((x) => x.externalId), ['aaaaaaaaaa1']);
+      assert.ok(!calls.some((c) => c.url.includes('googleapis.com')));
+    });
+
+    it('reads an artist page', async () => {
+      const songs = await provider.getArtistTracks({ externalId: 'UCband', name: 'Band' });
+      assert.deepEqual(songs.map((x) => [x.title, x.artist, x.album]), [['Hit', 'Band', 'Album']]);
+    });
+
+    it('imports a whole playlist, page by page, without its suggestions or songs gone from it', async () => {
+      const list = await provider.importPlaylist(new URL('https://music.youtube.com/playlist?list=PLabcdefghij'));
+      assert.equal(list.title, 'Мой плейлист');
+      assert.deepEqual(list.tracks.map((x) => [x.title, x.duration]), [['First', 180], ['Third', 245], ['Fourth', 210]]);
+      assert.deepEqual([list.total, list.fetched], [4, 4]);
+      assert.equal(list.url, 'https://music.youtube.com/playlist?list=PLabcdefghij');
+      const browse = calls.filter((c) => c.url.includes('/browse')).map((c) => JSON.parse(String(c.init?.body)));
+      assert.ok(browse.some((b) => b.browseId === 'VLPLabcdefghij'));
+    });
   });
 
   it('finds artist channels', async () => {

@@ -6,10 +6,12 @@ import {
   type ExternalTrack,
   type ImportedPlaylist,
   type MusicProvider,
+  type ProviderContext,
   type SearchHits,
   type StoredExternalTrack,
   type StreamSource,
 } from './types.js';
+import { YouTubeMusicWeb } from './youtubeMusic.js';
 
 const API = 'https://www.googleapis.com/youtube/v3';
 /** YouTube's "Music" video category. */
@@ -126,21 +128,30 @@ export function videoToTrack(video: YtVideo): ExternalTrack {
   };
 }
 
+/** A song rather than a teaser or an hours-long mix; songs listed without a length are kept. */
+const songLength = (t: ExternalTrack) => !t.duration || (t.duration >= MIN_SECONDS && t.duration <= MAX_SECONDS);
+
 /** Videos the official player can show here: embeddable and not a live stream. */
 const playable = (v: YtVideo) => v.status?.embeddable !== false && (v.snippet.liveBroadcastContent ?? 'none') === 'none';
 
 function formatSubscribers(channel: YtChannel | undefined): string | null {
-  const n = Number(channel?.statistics?.subscriberCount);
-  if (!n || channel?.statistics?.hiddenSubscriberCount) return null;
+  if (channel?.statistics?.hiddenSubscriberCount) return null;
+  return subscribersLabel(Number(channel?.statistics?.subscriberCount));
+}
+
+function subscribersLabel(n: number): string | null {
+  if (!n) return null;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M подписчиков`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K подписчиков`;
   return `${n} подписчиков`;
 }
 
 /**
- * YouTube and YouTube Music through the official YouTube Data API v3 with the owner's API key. YouTube allows playing
- * its videos only in its own embedded player, so tracks resolve to a video id that the app plays in that player
- * (client/src/store/youtube.ts); nothing is downloaded or relayed.
+ * YouTube and YouTube Music: through the official YouTube Data API v3 when the owner gave an API key, otherwise through
+ * YouTube Music's web player API without one (youtubeMusic.ts). Songs looked up to stand in for others always go the
+ * keyless way, which costs no quota. YouTube allows playing its videos only in its own embedded player, so tracks
+ * resolve to a video id that the app plays in that player (client/src/store/youtube.ts); nothing is downloaded or
+ * relayed.
  */
 export class YouTubeProvider implements MusicProvider {
   readonly id = 'youtube' as const;
@@ -153,13 +164,22 @@ export class YouTubeProvider implements MusicProvider {
   readonly proxyStreams = false;
   readonly shortLinkHosts = ['youtu.be'];
 
+  private web: YouTubeMusicWeb;
+
   constructor(
     private apiKey: string | null,
     private fetchImpl: FetchLike = fetch,
-  ) {}
+  ) {
+    this.web = new YouTubeMusicWeb(fetchImpl);
+  }
 
   isConfigured() {
-    return Boolean(this.apiKey);
+    return true;
+  }
+
+  /** Without a key it goes through the web player's API, which YouTube does not allow. */
+  get unofficial() {
+    return !this.apiKey;
   }
 
   private async get<T>(path: string, params: Record<string, string>): Promise<T> {
@@ -192,12 +212,17 @@ export class YouTubeProvider implements MusicProvider {
   }
 
   async searchArtists(query: string): Promise<ExternalArtist[]> {
+    if (!this.apiKey) return this.web.artists(query, subscribersLabel);
     const res = await this.get<YtList<YtSearchItem>>('/search', { part: 'snippet', type: 'channel', q: query, maxResults: '20' });
     return this.toArtists(res.items ?? []);
   }
 
   /** Channels and music videos from a single search request, which costs 100 units of the key's daily quota. */
   async search(query: string): Promise<SearchHits> {
+    if (!this.apiKey) {
+      const [tracks, artists] = await Promise.all([this.web.songs(query), this.web.artists(query, subscribersLabel)]);
+      return { artists, tracks: tracks.filter(songLength).slice(0, SEARCH_TRACK_LIMIT) };
+    }
     const res = await this.get<YtList<YtSearchItem>>('/search', { part: 'snippet', type: 'video,channel', q: query, maxResults: '25' });
     const items = res.items ?? [];
     const videoIds = items.map((i) => i.id.videoId).filter((id): id is string => Boolean(id));
@@ -211,6 +236,11 @@ export class YouTubeProvider implements MusicProvider {
       .filter((t) => t.duration >= MIN_SECONDS && t.duration <= MAX_SECONDS)
       .slice(0, SEARCH_TRACK_LIMIT);
     return { artists, tracks };
+  }
+
+  /** The same song found to stand in for one from elsewhere («Слушать через», carrying on without the video window). */
+  async searchTracks(query: string, ctx: ProviderContext): Promise<ExternalTrack[]> {
+    return (await this.web.songs(query, ctx.background ? 'background' : 'normal')).filter(songLength);
   }
 
   private async toArtists(items: YtSearchItem[]): Promise<ExternalArtist[]> {
@@ -233,6 +263,8 @@ export class YouTubeProvider implements MusicProvider {
   }
 
   async getArtistTracks(artist: ArtistRef): Promise<ExternalTrack[]> {
+    // Without a key: the songs on the artist's page, its most played rather than its newest.
+    if (!this.apiKey) return (await this.web.artistSongs(artist.externalId)).filter(songLength);
     const [channel] = (await this.get<YtList<YtChannel>>('/channels', { part: 'contentDetails', id: artist.externalId })).items ?? [];
     const uploads = channel?.contentDetails?.relatedPlaylists?.uploads;
     if (!uploads) throw new ProviderError(this.id, 'YouTube: канал не найден', 404);
@@ -255,6 +287,10 @@ export class YouTubeProvider implements MusicProvider {
 
   async importPlaylist(url: URL): Promise<ImportedPlaylist> {
     const id = playlistId(url)!;
+    if (!this.apiKey) {
+      const list = await this.web.playlist(id, MAX_IMPORT);
+      return { ...list, description: null, url: `https://music.youtube.com/playlist?list=${id}` };
+    }
     const [playlist] = (await this.get<YtList<YtPlaylist>>('/playlists', { part: 'snippet,contentDetails', id })).items ?? [];
     if (!playlist?.snippet) throw new ProviderError(this.id, 'YouTube: плейлист не найден или скрыт', 404);
     const ids: string[] = [];
