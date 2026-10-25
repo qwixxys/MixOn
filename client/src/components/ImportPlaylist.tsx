@@ -27,7 +27,8 @@ function resultMessage(r: ImportResult) {
     return (
       `«${r.title}»: найдено ${r.imported} из ${r.fetched}` +
       (r.previews ? `, из них ${r.previews} — 30-секундные отрывки` : '') +
-      (r.missing ? `. Не нашлось: ${r.missing}` : '')
+      (r.missing ? `. Не нашлось: ${r.missing}` : '') +
+      (r.total > r.fetched ? `. Взяты первые ${r.fetched} из ${r.total}` : '')
     );
   }
   const unavailable = r.fetched - r.imported;

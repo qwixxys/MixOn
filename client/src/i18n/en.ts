@@ -729,6 +729,7 @@ export const EN: Record<string, string> = {
   'Не удалось открыть короткую ссылку': 'Could not open the short link',
   'Короткая ссылка не открывается: она устарела или удалена. Скопируйте ссылку в сервисе заново': 'The short link does not open: it expired or was removed. Copy the link from the service again',
   'Spotify не отдал список треков: плейлист закрыт или страница Spotify изменилась': 'Spotify did not return the track list: the playlist is private or the Spotify page has changed',
+  'Spotify не отдал плейлист': 'Spotify did not return the playlist',
   'Spotify недоступен: {0}': 'Spotify is unavailable: {0}',
   'Spotify: плейлист не найден или закрыт': 'Spotify: the playlist was not found or is private',
   'Spotify ответил ошибкой HTTP {0}': 'Spotify answered with HTTP error {0}',

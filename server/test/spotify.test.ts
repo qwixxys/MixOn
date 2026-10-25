@@ -1,11 +1,25 @@
 import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
-import { parseEmbed, spotifyLink } from '../src/lib/spotify.js';
+import { parseEmbed, pathfinderSong, spotifyLink } from '../src/lib/spotify.js';
 import type { ExternalTrack, MusicProvider, ProviderId } from '../src/providers/index.js';
 import { createTestApp, fakeFetch, register, track } from './helpers.js';
 
-const embed = (entity: object) =>
-  `<html><body><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { state: { data: { entity } } } } })}</script></body></html>`;
+const embed = (entity: object, token?: string) =>
+  `<html><body><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+    props: { pageProps: { state: { data: { entity }, settings: token ? { session: { accessToken: token } } : {} } } },
+  })}</script></body></html>`;
+
+/** A song as Spotify's web player lists it. */
+const webSong = (name: string, artist: string, seconds: number, typename = 'Track') => ({
+  itemV2: {
+    data: {
+      __typename: typename,
+      name,
+      artists: { items: [{ profile: { name: artist } }] },
+      trackDuration: { totalMilliseconds: seconds * 1000 },
+    },
+  },
+});
 
 const PLAYLIST = embed({
   type: 'playlist',
@@ -54,6 +68,62 @@ describe('Spotify playlists', () => {
     assert.equal(list.title, 'Мой плейлист');
     assert.deepEqual(list.tracks[1], { title: 'Song Two', artist: 'Band, Guest', duration: 180 });
     assert.throws(() => parseEmbed('<html>nothing</html>'), /не отдал список треков/);
+    assert.equal(list.token, null);
+    assert.equal(parseEmbed(embed({ name: 'x', trackList: [] }, 'anon-token')).token, 'anon-token');
+  });
+
+  it('reads songs from the web player, leaving out podcast episodes', () => {
+    assert.deepEqual(pathfinderSong(webSong('Song', 'Band', 200)), { title: 'Song', artist: 'Band', duration: 200 });
+    assert.equal(pathfinderSong(webSong('Episode', 'Show', 1800, 'Episode')), null);
+    assert.equal(pathfinderSong({}), null);
+    // No artists of its own: the album's.
+    assert.deepEqual(
+      pathfinderSong({ itemV2: { data: { name: 'Solo', albumOfTrack: { artists: { items: [{ profile: { name: 'Album Band' } }] } } } } }),
+      { title: 'Solo', artist: 'Album Band', duration: 0 },
+    );
+  });
+
+  describe('a long playlist', () => {
+    const ID = '1234567890123456789012';
+    /** 250 songs: the embed page lists the first hundred, the web player all of them, a hundred a page. */
+    const songs = Array.from({ length: 250 }, (_, i) => webSong(`Long ${i}`, 'Band', 200));
+    const embedded = embed(
+      { name: 'Длинный', trackList: songs.slice(0, 100).map((x) => ({ title: x.itemV2.data.name, subtitle: 'Band', duration: 200_000 })) },
+      'anon-token',
+    );
+    let refuse = false;
+    const pages: number[] = [];
+    const { impl } = fakeFetch([
+      [`open.spotify.com/embed/playlist/${ID}`, () => new Response(embedded, { headers: { 'content-type': 'text/html' } })],
+      [
+        'api-partner.spotify.com/pathfinder',
+        (_url: string, init?: RequestInit) => {
+          if (refuse) return new Response('', { status: 401 });
+          assert.equal((init?.headers as Record<string, string>).authorization, 'Bearer anon-token');
+          const { variables } = JSON.parse(String(init?.body));
+          pages.push(variables.offset);
+          const items = songs.slice(variables.offset, variables.offset + variables.limit);
+          return { data: { playlistV2: { content: { totalCount: songs.length, items } } } };
+        },
+      ],
+    ]);
+    const finder = service('soundcloud', true, songs.map((x, i) => track(`sc${i}`, { title: x.itemV2.data.name, artist: 'Band', duration: 200 })));
+    const t = createTestApp([finder], impl);
+    after(t.cleanup);
+
+    it('comes in whole, not only the hundred songs of the embed page', async () => {
+      const user = await register(t.request, 'longlist');
+      const res = await t.request.post('/api/import').set(user.auth).send({ url: `https://open.spotify.com/playlist/${ID}` }).expect(201);
+      assert.deepEqual(pages, [0, 100, 200]);
+      assert.deepEqual([res.body.fetched, res.body.total, res.body.imported], [250, 250, 250]);
+    });
+
+    it('falls back to the embed page when the web player refuses', async () => {
+      refuse = true;
+      const user = await register(t.request, 'shortlist');
+      const res = await t.request.post('/api/import').set(user.auth).send({ url: `https://open.spotify.com/playlist/${ID}` }).expect(201);
+      assert.deepEqual([res.body.fetched, res.body.imported], [100, 100]);
+    });
   });
 
   describe('import', () => {
